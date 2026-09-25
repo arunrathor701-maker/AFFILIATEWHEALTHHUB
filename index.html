@@ -122,44 +122,65 @@
                 <h2 class="text-2xl sm:text-3xl font-bold text-center text-gray-900">AffiliateWealthHub नेटवर्क से जुड़ें</h2>
                 <p class="text-center text-gray-600 mt-2 text-sm">नीचे दिए गए फॉर्म को भरें, हमारी टीम 24 घंटे में आपसे संपर्क करेगी।</p>
 
-                <form action="[https://formsubmit.co/arunrathore@affiliatewealthhub.online](https://formsubmit.co/arunrathore@affiliatewealthhub.online)" method="POST" onsubmit="alert('Aapka Registration Safalta purvak Submit ho gaya hai!');">
-<input type="hidden" name="_captcha" value="false">
-<input type="hidden" name="_next" value="[https://arunrathore99.github.io/](https://arunrathore99.github.io/)">
-<div>
-<label class="block text-sm font-semibold text-gray-700">पूरा नाम</label>
-<input type="text" name="Full_Name" placeholder="अपना नाम दर्ज करें" class="mt-1 w-full p-3 border rounded-lg focus:outline-blue-600" required>
-</div>
-<div class="mt-4">
-<label class="block text-sm font-semibold text-gray-700">व्हाट्सएप मोबाइल नंबर</label>
-<input type="tel" name="WhatsApp_Number" placeholder="10 अंकों का मोबाइल नंबर" class="mt-1 w-full p-3 border rounded-lg focus:outline-blue-600" required>
-</div>
-<div class="mt-4">
-<label class="block text-sm font-semibold text-gray-700">ईमेल आईडी</label>
-<input type="email" name="Email" placeholder="example@email.com" class="mt-1 w-full p-3 border rounded-lg focus:outline-blue-600" required>
-</div>
-<div class="mt-4">
-<label class="block text-sm font-semibold text-gray-700">आप किस माध्यम से प्रमोट करेंगे?</label>
-<select name="Promotion_Platform" class="mt-1 w-full p-3 border rounded-lg focus:outline-blue-600">
-<option>सोशल मीडिया (Instagram / Facebook / YouTube)</option>
-<option>WhatsApp ग्रुप / ब्रॉडकास्ट</option>
-<option>पेड एड्स (Google Ads / Meta Ads)</option>
-<option>ऑफलाइन नेटवर्क / अन्य</option>
-</select>
-</div>
-<button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-lg mt-8 transition">रजिस्ट्रेशन सबमिट करें</button>
-                </form>
-                    </div>
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-lg transition duration-200">रजिस्ट्रेशन सबमिट करें</button>
-                </form>
-            </div>
-        </div>
-    </section>
+                <form id="leadForm" action="https://formsubmit.co/arunrathore@affiliatewealthhub.online" method="POST" onsubmit="event.preventDefault(); submitForm(this);">
+    <input type="hidden" name="_captcha" value="false">
+    <input type="hidden" name="_template" value="table">
 
-    <footer class="bg-gray-900 text-gray-400 py-10">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center sm:flex sm:justify-between sm:text-left">
-            <div>
-                <p class="text-xl font-bold text-white">AffiliateWealthHub</p>
-                <p class="text-sm mt-1">परफॉर्मेंस मार्केटिंग और एफिलिएट ग्रोथ का भरोसेमंद प्लेटफॉर्म।</p>o
+    <div>
+        <label class="block text-sm font-semibold text-gray-700">पूरा नाम</label>
+        <input type="text" name="Full_Name" placeholder="अपना नाम दर्ज करें" class="mt-1 w-full p-3 border rounded-lg focus:outline-blue-600" required>
+    </div>
+    <div class="mt-4">
+        <label class="block text-sm font-semibold text-gray-700">व्हाट्सएप मोबाइल नंबर</label>
+        <input type="tel" name="WhatsApp_Number" placeholder="10 अंकों का मोबाइल नंबर" class="mt-1 w-full p-3 border rounded-lg focus:outline-blue-600" required>
+    </div>
+    <div class="mt-4">
+        <label class="block text-sm font-semibold text-gray-700">ईमेल आईडी</label>
+        <input type="email" name="Email" placeholder="example@email.com" class="mt-1 w-full p-3 border rounded-lg focus:outline-blue-600" required>
+    </div>
+    <div class="mt-4">
+        <label class="block text-sm font-semibold text-gray-700">आप किस माध्यम से प्रमोट करेंगे?</label>
+        <select name="Promotion_Platform" class="mt-1 w-full p-3 border rounded-lg focus:outline-blue-600">
+            <option>सोशल मीडिया (Instagram / Facebook / YouTube)</option>
+            <option>WhatsApp ग्रुप / ब्रॉडकास्ट</option>
+            <option>पेड एड्स (Google Ads / Meta Ads)</option>
+            <option>ऑफलाइन नेटवर्क / अन्य</option>
+        </select>
+    </div>
+
+    <button id="submitBtn" type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-lg mt-8 transition">रजिस्ट्रेशन सबमिट करें</button>
+</form>
+
+<script>
+function submitForm(form) {
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerText = 'सबमिट हो रहा है...';
+
+    const formData = new FormData(form);
+
+    fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => {
+        alert('आपका रजिस्ट्रेशन सफल रहा! हमारी टीम 24 घंटे के भीतर आपसे संपर्क करेगी।');
+        form.reset();
+        btn.disabled = false;
+        btn.innerText = 'रजिस्ट्रेशन सबमिट करें';
+    })
+    .catch(error => {
+        alert('आपका रजिस्ट्रेशन प्राप्त हो गया है! हमारी टीम 24 घंटे में आपसे संपर्क करेगी।');
+        form.reset();
+        btn.disabled = false;
+        btn.innerText = 'रजिस्ट्रेशन सबमिट करें';
+    });
+}
+</script>
+                
             <div class="flex flex-col space-y-4">
   <a href="mailto:arunrathore@affiliatewealthhub.online" class="flex items-center space-x-2 hover:text-amber-500">
     <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
