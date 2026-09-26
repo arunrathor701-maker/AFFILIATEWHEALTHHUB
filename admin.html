@@ -1,0 +1,62 @@
+
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>एडमिन पैनल</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f6f8; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; }
+        .section { margin-bottom: 30px; padding: 15px; border-bottom: 1px solid #eee; }
+        .section h2 { color: #555; font-size: 20px; margin-bottom: 15px; }
+        .card { background: #e9ecef; padding: 15px; border-radius: 6px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .btn { padding: 8px 15px; border: none; border-radius: 4px; font-size: 14px; cursor: pointer; margin-left: 5px; }
+        .btn-approve { background-color: #28a745; color: #fff; }
+        .btn-reject { background-color: #dc3545; color: #fff; }
+        .btn-live { background-color: #17a2b8; color: #fff; }
+        .btn-stop { background-color: #6c757d; color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>एडमिन पैनल</h1>
+
+        <!-- विड्रॉल अनुरोध सेक्शन -->
+        <div class="section">
+            <h2>विड्रॉल अनुरोध</h2>
+            <div class="card">
+                <div>
+                    <p>नाम: राहुल कुमार</p>
+                    <p>UPI: rahul@upi</p>
+                    <p>राशि: ₹500</p>
+                </div>
+                <div>
+                    <button class="btn btn-approve">Approve</button>
+                    <button class="btn btn-reject">Reject</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- मेंबर परफॉरमेंस और कैंपेन कंट्रोल सेक्शन -->
+        <div class="section">
+            <h2>मेंबर परफॉरमेंस और कैंपेन कंट्रोल</h2>
+            <div class="card">
+                <div>
+                    <p><strong>नाम:</strong> राहुल कुमार</p>
+                    <p><strong>कैंपेन:</strong> Upstox Demat</p>
+                    <p><strong>परफॉरमेंस:</strong> 12 Leads</p>
+                    <p><strong>स्टेटस:</strong> Live</p>
+                </div>
+                <div>
+                    <button class="btn btn-live">Live</button>
+                    <button class="btn btn-stop">Stop</button>
+                    <button class="btn btn-reject">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
