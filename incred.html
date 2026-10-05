@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <title>Redirecting...</title>
+    <script>
+        // Jump2Cloud / Netex Base Affiliate URL
+        const originalBaseUrl = "https://netex.jump2cloud.org/click?aid=787&oid=530";
+
+        // URL parameters ko read karna (sub_id, sub_affiliate_id, utm parameters)
+        const urlParams = new URLSearchParams(window.location.search);
+
+        let finalUrl = originalBaseUrl;
+
+        // Aapke team members ke query parameters ko Jump2Cloud format me forward karna
+        urlParams.forEach((value, key) => {
+            finalUrl += `&${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
+        });
+
+        // Instant redirect bina browser history me original URL show kiye
+        window.location.replace(finalUrl);
+    </script>
+</head>
+<body style="background:#0f172a; color:#fff; display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif;">
+    <p>Please wait, loading offer securely...</p>
+</body>
+</html>
