@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <title>Redirecting...</title>
+  
+  <!-- Fallback Redirect -->
+  <meta http-equiv="refresh" content="0; url=https://ownadzdigitalagency205882.o18a.com/c?o=22039891&m=29702&a=778043">
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const clickId = urlParams.get('click_id') || urlParams.get('aff_click_id') || '';
+    const subId = urlParams.get('sub_id') || urlParams.get('sub_aff_id') || '';
+
+    let targetUrl = "https://ownadzdigitalagency205882.o18a.com/c?o=22039891&m=29702&a=778043";
+
+    if (clickId) {
+      targetUrl += "&aff_click_id=" + encodeURIComponent(clickId);
+    }
+    if (subId) {
+      targetUrl += "&sub_aff_id=" + encodeURIComponent(subId);
+    }
+
+    window.location.replace(targetUrl);
+  </script>
+</head>
+<body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
+  <p>कृपया प्रतीक्षा करें, रीडायरेक्ट किया जा रहा है...</p>
+</body>
+</html>
+
