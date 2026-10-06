@@ -9,7 +9,8 @@
 
     // 2. करंट यूआरएल से पैरामीटर्स निकालें (sub1, sub_affid आदि)
     const urlParams = new URLSearchParams(window.location.search);
-    const subId = urlParams.get('sub1') || urlParams.get('sub_affid') || urlParams.get('agent');
+    const subId = urlParams.get('sub1') || urlParams.get('sub_affid');
+    
 
     // 3. अगर सब-आईडी मौजूद है, तो उसे लिंक में जोड़ें
     let finalUrl = baseUrl;
