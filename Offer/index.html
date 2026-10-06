@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+  <meta charset="UTF-8">
+  <title>Redirecting...</title>
+  <script>
+    // 1. बेस एफिलिएट यूआरएल सेट करें
+    const baseUrl = "https://clicktabweb.trackog.net/c?oid=14&affid=19";
+
+    // 2. करंट यूआरएल से पैरामीटर्स निकालें (sub1, sub_affid आदि)
+    const urlParams = new URLSearchParams(window.location.search);
+    const subId = urlParams.get('sub1') || urlParams.get('sub_affid') || urlParams.get('agent');
+
+    // 3. अगर सब-आईडी मौजूद है, तो उसे लिंक में जोड़ें
+    let finalUrl = baseUrl;
+    if (subId) {
+      finalUrl += "&sub1=" + encodeURIComponent(subId);
+    }
+
+    // 4. तुरंत रिडायरेक्ट करें
+    window.location.replace(finalUrl);
+  </script>
+</head>
+<body>
+  <p>कृपया प्रतीक्षा करें, रिडायरेक्ट किया जा रहा है...</p>
+</body>
+</html>
