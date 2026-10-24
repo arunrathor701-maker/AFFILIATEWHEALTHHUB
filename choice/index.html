@@ -3,29 +3,44 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Choice Broking | Open Free Demat Account</title>
+  <title>Choice Broking | Official Partnership</title>
   
-  <!-- Fallback redirect -->
-  <meta http-equiv="refresh" content="0; url=https://nexoffers.in/tracking/12282/112801">
-
   <script>
     (function() {
+      // Base Tracking URL
       const baseUrl = "https://nexoffers.in/tracking/12282/112801";
+
+      // Current URL se parameters read karna
       const urlParams = new URLSearchParams(window.location.search);
-      
+
+      // 1. Click ID (aff_click_id ya click_id)
       const clickId = urlParams.get('aff_click_id') || urlParams.get('click_id') || '';
-      const subAffId = urlParams.get('sub_aff_id') || urlParams.get('subid') || '';
 
+      // 2. Sub Affiliate ID (sub_aff_id ya agent code)
+      const subAffId = urlParams.get('sub_aff_id') || urlParams.get('agent_id') || '';
+
+      // 3. Sub ID (sub_id ya extra tracking tag jaise campaign name/lead source)
+      const subId = urlParams.get('sub_id') || urlParams.get('subid') || '';
+
+      // Final tracking parameters assemble karna
       const trackingParams = new URLSearchParams();
-      trackingParams.set('aff_click_id', clickId);
-      trackingParams.set('sub_aff_id', subAffId);
 
-      window.location.replace(baseUrl + '?' + trackingParams.toString());
+      if (clickId) trackingParams.set('aff_click_id', clickId);
+      if (subAffId) trackingParams.set('sub_aff_id', subAffId);
+      if (subId) trackingParams.set('sub_id', subId);
+
+      // Agar koi param pass hua hai to '?' ke sath jodein, warna base URL par bhejein
+      const queryString = trackingParams.toString();
+      const finalUrl = queryString ? (baseUrl + '?' + queryString) : baseUrl;
+
+      // Fast redirection
+      window.location.replace(finalUrl);
     })();
   </script>
 </head>
-<body style="font-family: Arial, sans-serif; text-align: center; margin-top: 25%;">
-  <h3>Connecting to Choice Broking...</h3>
-  <p>Please wait while we redirect you to the official registration page.</p>
+<body style="font-family: Arial, sans-serif; text-align: center; margin-top: 25%; color: #333;">
+  <h3>Redirecting to Choice Broking Secure Portal...</h3>
+  <p>Please wait a moment while we load your registration page.</p>
 </body>
 </html>
+
