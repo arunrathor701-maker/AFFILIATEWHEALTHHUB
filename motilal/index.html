@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Open Motilal Oswal Demat Account | Instant & Free</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #0f172a; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 16px; }
+    .card { background: #ffffff; width: 100%; max-width: 400px; border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); overflow: hidden; }
+    .header { background: #002e6e; color: #ffffff; padding: 24px 20px; text-align: center; }
+    .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; letter-spacing: 0.5px; }
+    .header p { font-size: 13px; color: #93c5fd; }
+    .badge-bar { background: #f8fafc; padding: 12px 20px; border-bottom: 1px solid #e2e8f0; }
+    .badge-bar ul { list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: #334155; font-weight: 500; }
+    .badge-bar li::before { content: "✓ "; color: #16a34a; font-weight: bold; }
+    form { padding: 24px 20px; display: flex; flex-direction: column; gap: 14px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    label { font-size: 12px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; }
+    input { width: 100%; padding: 12px 14px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 15px; outline: none; transition: 0.2s; }
+    input:focus { border-color: #002e6e; box-shadow: 0 0 0 3px rgba(0,46,110,0.1); }
+    button { background: #f59e0b; color: #111827; border: none; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: 700; cursor: pointer; transition: 0.2s; margin-top: 8px; }
+    button:hover { background: #d97706; }
+    button:disabled { opacity: 0.7; cursor: not-allowed; }
+    .footer-note { font-size: 11px; text-align: center; color: #64748b; margin-top: 2px; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <div class="header">
+    <h1>Motilal Oswal</h1>
+    <p>Zero Maintenance & Paperless Demat Account</p>
+  </div>
+
+  <div class="badge-bar">
+    <ul>
+      <li>₹0 Account Opening Charges</li>
+      <li>Instant 5-Minute Paperless KYC</li>
+      <li>Get Free Expert Research & Advisory</li>
+    </ul>
+  </div>
+
+  <form id="leadForm">
+    <div class="form-group">
+      <label for="name">Full Name (As per PAN)</label>
+      <input type="text" id="name" placeholder="Enter your full name" required>
+    </div>
+
+    <div class="form-group">
+      <label for="mobile">Mobile Number (Aadhaar linked)</label>
+      <input type="tel" id="mobile" placeholder="10-digit mobile number" pattern="[6-9][0-9]{9}" required>
+    </div>
+
+    <div class="form-group">
+      <label for="city">City</label>
+      <input type="text" id="city" placeholder="Your current city" required>
+    </div>
+
+    <button type="submit" id="submitBtn">Proceed to Open Account</button>
+    <p class="footer-note">🔒 100% Secure & Confidential</p>
+  </form>
+</div>
+
+<script>
+  // 1. यहाँ अपना Google Sheet Apps Script Web App URL डालें (यदि बनाया है)
+  const SCRIPT_URL = "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE";
+
+  // 2. आपका Motilal Oswal एफिलिएट लिंक
+  const AFFILIATE_URL = "https://mosl.co/MOSWEB/pUFGtumoyt";
+
+  document.getElementById("leadForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+    const btn = document.getElementById("submitBtn");
+    btn.disabled = true;
+    btn.innerText = "Connecting to Motilal Oswal...";
+
+    const payload = {
+      name: document.getElementById("name").value.trim(),
+      mobile: document.getElementById("mobile").value.trim(),
+      city: document.getElementById("city").value.trim()
+    };
+
+    if (SCRIPT_URL && !SCRIPT_URL.includes("YOUR_GOOGLE_APPS_SCRIPT")) {
+      fetch(SCRIPT_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+      .then(() => {
+        window.location.href = AFFILIATE_URL;
+      })
+      .catch(() => {
+        window.location.href = AFFILIATE_URL;
+      });
+    } else {
+      window.location.href = AFFILIATE_URL;
+    }
+  });
+</script>
+
+</body>
+</html>
