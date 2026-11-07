@@ -1,113 +1,30 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Open Demat Account | Motilal Oswal</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: #f0f4f8; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 16px; }
-    .card { background: #ffffff; border-radius: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); width: 100%; max-width: 420px; overflow: hidden; border: 1px solid #e2e8f0; }
-    .header { background: linear-gradient(135deg, #0d3b66, #001e3d); color: #fff; padding: 22px 20px; text-align: center; }
-    .header h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-    .header p { font-size: 13px; color: #cbd5e1; }
-    .form-container { padding: 24px 20px; }
-    .form-group { margin-bottom: 16px; }
-    label { display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 6px; }
-    input[type="text"], input[type="tel"] { width: 100%; padding: 12px; border: 1.5px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none; transition: 0.2s; }
-    input:focus { border-color: #0d3b66; box-shadow: 0 0 0 3px rgba(13,59,102,0.15); }
-    .btn-submit { width: 100%; padding: 13px; background: #ff5722; color: #fff; font-size: 15px; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; margin-top: 8px; }
-    .btn-submit:hover { background: #e64a19; }
-    .btn-submit:disabled { background: #94a3b8; cursor: not-allowed; }
-    .footer-text { text-align: center; font-size: 11px; color: #64748b; margin-top: 14px; }
-  </style>
+  <base target="_top">
 </head>
 <body>
-
-  <div class="card">
-    <div class="header">
-      <h2>Open Demat Account</h2>
-      <p>Instant Paperless Onboarding in 5 Minutes</p>
-    </div>
-
-    <div class="form-container">
-      <form id="leadForm">
-        <input type="hidden" id="sub_id" name="sub_id">
-
-        <div class="form-group">
-          <label>Full Name (As per PAN)</label>
-          <input type="text" id="name" required placeholder="e.g. Rahul Sharma">
-        </div>
-
-        <div class="form-group">
-          <label>Mobile Number (Aadhaar Linked)</label>
-          <input type="tel" id="mobile" pattern="[0-9]{10}" maxlength="10" required placeholder="10-digit mobile number">
-        </div>
-
-        <div class="form-group">
-          <label>PAN Card Number</label>
-          <input type="text" id="pan" maxlength="10" required placeholder="ABCDE1234F" style="text-transform: uppercase;">
-        </div>
-
-        <div class="form-group">
-          <label>City</label>
-          <input type="text" id="city" required placeholder="e.g. Gwalior">
-        </div>
-
-        <button type="submit" id="submitBtn" class="btn-submit">Proceed to Open Account &rarr;</button>
-        <p class="footer-text">🔒 100% Data Privacy & Direct Partner Redirection</p>
-      </form>
-    </div>
-  </div>
+  <form id="myForm">
+    <input type="text" name="name" placeholder="Name" required><br><br>
+    <input type="text" name="mobile" placeholder="Mobile" required><br><br>
+    <input type="text" name="pan" placeholder="PAN" required><br><br>
+    <input type="text" name="city" placeholder="City" required><br><br>
+    <button type="submit">Submit</button>
+  </form>
 
   <script>
-    // 1. Google Apps Script Web App URL
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzLMWYXHTNdSbwHSJsv_Ms7qjHtO8hisneQQ3ljhEDnSLEiwDSh-pl6gnik4ug-eWw/exec";
-
-    // 2. Base Affiliate URL
-    const BASE_AFFILIATE_URL = "https://mosl.co/MOSWEB/pUFGtumoyt";
-
-    // 3. Sub ID capture from URL
-    window.addEventListener("DOMContentLoaded", function () {
-      const urlParams = new URLSearchParams(window.location.search);
-      const subId = urlParams.get("sub_id") || urlParams.get("sub1") || "";
-      document.getElementById("sub_id").value = subId;
-    });
-
-    // 4. Form Submit Handler
-    document.getElementById("leadForm").addEventListener("submit", function (e) {
+    const scriptURL = "YOUR_NEW_WEB_APP_URL";
+    const form = document.getElementById('myForm');
+    
+    form.addEventListener('submit', e => {
       e.preventDefault();
-
-      const btn = document.getElementById("submitBtn");
-      btn.disabled = true;
-      btn.innerText = "Securing Lead & Redirecting...";
-
-      const payload = {
-        name: document.getElementById("name").value.trim(),
-        mobile: document.getElementById("mobile").value.trim(),
-        pan: document.getElementById("pan").value.trim().toUpperCase(),
-        city: document.getElementById("city").value.trim(),
-        sub_id: document.getElementById("sub_id").value.trim()
-      };
-
-      const separator = BASE_AFFILIATE_URL.includes("?") ? "&" : "?";
-      const finalRedirectUrl = payload.sub_id 
-        ? `${BASE_AFFILIATE_URL}${separator}sub_id=${encodeURIComponent(payload.sub_id)}` 
-        : BASE_AFFILIATE_URL;
-
-      fetch(SCRIPT_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      })
-      .then(() => {
-        window.location.href = finalRedirectUrl;
-      })
-      .catch((err) => {
-        console.error("Submission error:", err);
-        window.location.href = finalRedirectUrl;
-      });
+      fetch(scriptURL, { method: 'POST', body: new FormData(form)})
+        .then(response => {
+           window.location.href = "https://mosl.co/MOSWEB/pUFGtumoyt";
+        })
+        .catch(error => {
+           window.location.href = "https://mosl.co/MOSWEB/pUFGtumoyt";
+        });
     });
   </script>
 </body>
