@@ -142,15 +142,18 @@
 
 <script>
     // आपका Google Apps Script Web App URL यहाँ डालें
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyGSG1U2Y8uMdgUaDOJRhU48Fd7b23DI-DcJcm4fNNn3Pa4q3I15a0YZ4d6qPOHSt3wBw/exec";
+    const SCRIPT_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE";
 
-    // आपकी Motilal Oswal Affiliate Link
-    const REDIRECT_URL = "https://mosl.co/MOSWEB/pUFGtumoyt";
+    // आपकी Motilal Oswal बेस लिंक
+    const BASE_REDIRECT_URL = "https://mosl.co/MOSWEB/pUFGtumoyt";
 
-    // URL से sub_id निकालना (जैसे ?sub_id=fb1)
+    let capturedSubId = "Direct";
+
+    // URL से sub_id या subid पकड़ना
     window.addEventListener("DOMContentLoaded", () => {
         const params = new URLSearchParams(window.location.search);
-        document.getElementById("Sub_ID").value = params.get("sub_id") || "Direct";
+        capturedSubId = params.get("sub_id") || params.get("subid") || params.get("sub_ID") || "Direct";
+        document.getElementById("Sub_ID").value = capturedSubId;
     });
 
     document.getElementById("leadForm").addEventListener("submit", function(e) {
@@ -164,9 +167,14 @@
                 Name: document.getElementById("Name").value.trim(),
                 Mobile: document.getElementById("Mobile").value.trim(),
                 PAN: document.getElementById("PAN").value.trim(),
-                Sub_ID: document.getElementById("Sub_ID").value.trim()
+                Sub_ID: capturedSubId
             }]
         };
+
+        // रीडायरेक्ट लिंक तैयार करना (Sub ID के साथ)
+        const finalRedirectUrl = capturedSubId !== "Direct" 
+            ? `${BASE_REDIRECT_URL}?sub_id=${encodeURIComponent(capturedSubId)}` 
+            : BASE_REDIRECT_URL;
 
         // Google Sheet में डेटा भेजना
         fetch(SCRIPT_URL, {
@@ -176,11 +184,11 @@
             body: JSON.stringify(payload)
         })
         .then(() => {
-            window.location.href = REDIRECT_URL;
+            window.location.href = finalRedirectUrl;
         })
         .catch(err => {
             console.error("Error saving lead:", err);
-            window.location.href = REDIRECT_URL;
+            window.location.href = finalRedirectUrl;
         });
     });
 </script>
