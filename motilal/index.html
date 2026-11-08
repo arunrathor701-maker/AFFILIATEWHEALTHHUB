@@ -1,135 +1,189 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Open Free Demat Account | Affiliate Wealth HUB & CHOICE FinX</title>
-  <style>
-    :root {
-      --primary: #0a2540;
-      --accent: #ff5a1f;
-      --bg: #f8fafc;
-      --text: #1e293b;
-      --muted: #64748b;
-    }
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px 14px; }
-    .card { background: #ffffff; border-radius: 18px; width: 100%; max-width: 440px; box-shadow: 0 16px 36px rgba(10,37,64,0.08); border: 1px solid #e2e8f0; overflow: hidden; }
-    .header { background: linear-gradient(135deg, #0a2540, #134e4a); color: #fff; padding: 28px 24px 22px; text-align: center; }
-    .brand { font-size: 13px; font-weight: 600; color: #5eead4; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
-    .header h1 { font-size: 22px; font-weight: 800; line-height: 1.3; }
-    .header p { font-size: 13px; color: #cbd5e1; margin-top: 8px; }
-    .features { display: flex; justify-content: space-around; background: #f1f5f9; padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 11px; font-weight: 600; color: #475569; }
-    .form-container { padding: 24px; }
-    .field { margin-bottom: 15px; }
-    label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px; color: #334155; }
-    input { width: 100%; padding: 12px 14px; border: 1.5px solid #cbd5e1; border-radius: 10px; font-size: 14px; outline: none; transition: 0.2s; }
-    input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,90,31,0.15); }
-    .btn-submit { width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; transition: 0.2s; margin-top: 6px; }
-    .btn-submit:hover { background: #e04810; }
-    .btn-submit:disabled { background: #94a3b8; cursor: not-allowed; }
-    .security { text-align: center; font-size: 11px; color: var(--muted); margin-top: 14px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Open Demat Account | Affiliate Wealth Hub</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #0d1b2a, #1b263b);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .card {
+            background: #ffffff;
+            color: #333333;
+            max-width: 440px;
+            width: 100%;
+            border-radius: 16px;
+            padding: 32px 24px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .brand-name {
+            font-size: 24px;
+            font-weight: 800;
+            color: #0b3954;
+            letter-spacing: 0.5px;
+        }
+        .partner-badge {
+            display: inline-block;
+            background: #fff3e6;
+            color: #ff6b00;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 5px 14px;
+            border-radius: 20px;
+            margin-top: 8px;
+            border: 1px solid #ffd8b3;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #444444;
+        }
+        input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid #dcdcdc;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.2s ease;
+        }
+        input:focus {
+            outline: none;
+            border-color: #ff6b00;
+            box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.15);
+        }
+        .pan-input {
+            text-transform: uppercase;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #ff6b00;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 700;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(255, 107, 0, 0.3);
+            transition: background 0.2s ease;
+            margin-top: 6px;
+        }
+        button:hover {
+            background: #e05e00;
+        }
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .footer-text {
+            text-align: center;
+            font-size: 12px;
+            color: #777777;
+            margin-top: 18px;
+        }
+    </style>
 </head>
 <body>
 
-  <div class="card">
+<div class="card">
     <div class="header">
-      <div class="brand">Affiliate Wealth Hub × CHOICE FinX</div>
-      <h1>Open Free Demat & Trading Account</h1>
-      <p>Start your wealth creation journey with ₹0 Account Opening Fees</p>
+        <div class="brand-name">Affiliate Wealth Hub</div>
+        <div class="partner-badge">Motilal Oswal Partner</div>
     </div>
 
-    <div class="features">
-      <span>⚡ 5-Min Paperless</span>
-      <span>💰 ₹0 AMC (1st Year)</span>
-      <span>📈 Expert Research</span>
+    <form id="leadForm">
+        <input type="hidden" id="Sub_ID" value="">
+
+        <div class="form-group">
+            <label for="Name">Full Name (as per PAN)</label>
+            <input type="text" id="Name" required placeholder="Ex. Rahul Sharma">
+        </div>
+
+        <div class="form-group">
+            <label for="Mobile">Mobile Number</label>
+            <input type="tel" id="Mobile" pattern="[0-9]{10}" maxlength="10" required placeholder="10-digit mobile number">
+        </div>
+
+        <div class="form-group">
+            <label for="PAN">PAN Number</label>
+            <input type="text" id="PAN" class="pan-input" maxlength="10" required placeholder="ABCDE1234F">
+        </div>
+
+        <button type="submit" id="submitBtn">Open Demat Account</button>
+    </form>
+
+    <div class="footer-text">
+        🔒 100% Secure & Paperless Digital Verification
     </div>
+</div>
 
-    <div class="form-container">
-      <form id="leadForm">
-        <!-- Hidden input to store Sub_ID automatically -->
-        <input type="hidden" id="Sub_ID" name="Sub_ID">
+<script>
+    // आपका Google Apps Script Web App URL यहाँ डालें
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyGSG1U2Y8uMdgUaDOJRhU48Fd7b23DI-DcJcm4fNNn3Pa4q3I15a0YZ4d6qPOHSt3wBw/exec";
 
-        <div class="field">
-          <label>Full Name (as per PAN)</label>
-          <input type="text" id="Name" placeholder="e.g. Rahul Sharma" required>
-        </div>
+    // आपकी Motilal Oswal Affiliate Link
+    const REDIRECT_URL = "https://mosl.co/MOSWEB/pUFGtumoyt";
 
-        <div class="field">
-          <label>Mobile Number (Aadhaar linked)</label>
-          <input type="tel" id="Mobile" pattern="[0-9]{10}" maxlength="10" placeholder="10-digit number" required>
-        </div>
-
-        <div class="field">
-          <label>PAN Card Number</label>
-          <input type="text" id="PAN" maxlength="10" placeholder="ABCDE1234F" style="text-transform: uppercase;" required>
-        </div>
-
-        <div class="field">
-          <label>City</label>
-          <input type="text" id="City" placeholder="e.g. Gwalior" required>
-        </div>
-
-        <button type="submit" id="submitBtn" class="btn-submit">Proceed to Account Opening &rarr;</button>
-        <p class="security">🔒 256-Bit SSL Secured • Authorized Partner Redirection</p>
-      </form>
-    </div>
-  </div>
-
-  <script>
-    // 1. Apna SheetDB API URL yahan dalein
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzLMWYXHTNdSbwHSJsv_Ms7qjHtO8hisneQQ3ljhEDnSLEiwDSh-pl6gnik4ug-eWw/exec";
-    const BASE_AFFILIATE_URL = "https://partners.ipromind.com/tracking?aid=126&oid=47";
-
-    // 2. URL se Sub-ID / Partner ID capture karna
-    let detectedSubId = "";
+    // URL से sub_id निकालना (जैसे ?sub_id=fb1)
     window.addEventListener("DOMContentLoaded", () => {
-      const params = new URLSearchParams(window.location.search);
-      // Chahe aap ?sub_id= bhejo ya ?sub1= ya ?ref=
-      detectedSubId = params.get("sub_id") || params.get("sub1") || params.get("ref") || "";
-      document.getElementById("Sub_ID").value = detectedSubId;
+        const params = new URLSearchParams(window.location.search);
+        document.getElementById("Sub_ID").value = params.get("sub_id") || "Direct";
     });
 
-    // 3. Form submission aur redirection
     document.getElementById("leadForm").addEventListener("submit", function(e) {
-      e.preventDefault();
-      const btn = document.getElementById("submitBtn");
-      btn.disabled = true;
-      btn.innerText = "Securing Lead & Redirecting...";
+        e.preventDefault();
+        const btn = document.getElementById("submitBtn");
+        btn.disabled = true;
+        btn.innerText = "Redirecting...";
 
-      const payload = {
-        data: [{
-          Name: document.getElementById("Name").value.trim(),
-          Mobile: document.getElementById("Mobile").value.trim(),
-          PAN: document.getElementById("PAN").value.trim().toUpperCase(),
-          City: document.getElementById("City").value.trim(),
-          Sub_ID: document.getElementById("Sub_ID").value.trim()
-        }]
-      };
+        const payload = {
+            data: [{
+                Name: document.getElementById("Name").value.trim(),
+                Mobile: document.getElementById("Mobile").value.trim(),
+                PAN: document.getElementById("PAN").value.trim(),
+                Sub_ID: document.getElementById("Sub_ID").value.trim()
+            }]
+        };
 
-      // Affiliate URL ke sath Sub-ID append karna
-      const finalSubId = payload.data[0].Sub_ID;
-      const separator = BASE_AFFILIATE_URL.includes("?") ? "&" : "?";
-      const finalRedirectUrl = finalSubId 
-        ? `${BASE_AFFILIATE_URL}${separator}sub_id=${encodeURIComponent(finalSubId)}` 
-        : BASE_AFFILIATE_URL;
-
-      // SheetDB me save karein aur redirect karein
-      fetch(SHEETDB_URL, {
-        method: "POST",
-        headers: { "Accept": "application/json", "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      })
-      .then(() => {
-        window.location.href = finalRedirectUrl;
-      })
-      .catch((err) => {
-        console.error("Transmission notice:", err);
-        // Error hone par bhi customer ka flow break na ho aur redirect ho jaye
-        window.location.href = finalRedirectUrl;
-      });
+        // Google Sheet में डेटा भेजना
+        fetch(SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        })
+        .then(() => {
+            window.location.href = REDIRECT_URL;
+        })
+        .catch(err => {
+            console.error("Error saving lead:", err);
+            window.location.href = REDIRECT_URL;
+        });
     });
-  </script>
+</script>
+
 </body>
 </html>
