@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Open Demat Account | Choice Broking | Affiliate Wealth Hub</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, #0a192f, #172a45);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .card {
+            background: #ffffff;
+            color: #333333;
+            max-width: 440px;
+            width: 100%;
+            border-radius: 16px;
+            padding: 32px 24px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .brand-name {
+            font-size: 24px;
+            font-weight: 800;
+            color: #0b3954;
+            letter-spacing: 0.5px;
+        }
+        .partner-badge {
+            display: inline-block;
+            background: #e8f0fe;
+            color: #1a73e8;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 5px 14px;
+            border-radius: 20px;
+            margin-top: 8px;
+            border: 1px solid #c2dbfe;
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #444444;
+        }
+        input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1.5px solid #dcdcdc;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.2s ease;
+        }
+        input:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.15);
+        }
+        .pan-input {
+            text-transform: uppercase;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #1a73e8;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 700;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3);
+            transition: background 0.2s ease;
+            margin-top: 6px;
+        }
+        button:hover {
+            background: #1557b0;
+        }
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        .footer-text {
+            text-align: center;
+            font-size: 12px;
+            color: #777777;
+            margin-top: 18px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="header">
+        <div class="brand-name">Affiliate Wealth Hub</div>
+        <div class="partner-badge">Choice Broking Partner</div>
+    </div>
+
+    <form id="leadForm">
+        <input type="hidden" id="Sub_ID" value="">
+
+        <div class="form-group">
+            <label for="Name">Full Name (as per PAN)</label>
+            <input type="text" id="Name" required placeholder="Ex. Rahul Sharma">
+        </div>
+
+        <div class="form-group">
+            <label for="Mobile">Mobile Number</label>
+            <input type="tel" id="Mobile" pattern="[0-9]{10}" maxlength="10" required placeholder="10-digit mobile number">
+        </div>
+
+        <div class="form-group">
+            <label for="PAN">PAN Number</label>
+            <input type="text" id="PAN" class="pan-input" maxlength="10" required placeholder="ABCDE1234F">
+        </div>
+
+        <button type="submit" id="submitBtn">Open Demat Account</button>
+    </form>
+
+    <div class="footer-text">
+        🔒 100% Secure & Paperless Digital Verification
+    </div>
+</div>
+
+<script>
+    // आपका Google Apps Script Web App URL यहाँ डालें
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxJTl2lBSUR5Kxd3awdM7nc--EWMtWicx0iJxDTSTEyWA_E6J9EvY_9uaJJS6iQoNOP1Q/exec";
+
+    // आपकी Choice की Affiliate ट्रैकिंग लिंक
+    const BASE_REDIRECT_URL = "https://partners.ipromind.com/tracking?aid=126&oid=47";
+
+    let capturedSubId = "Direct";
+
+    // URL से sub_id निकालना (?sub_id=, ?subid=, ?sub1=)
+    window.addEventListener("DOMContentLoaded", () => {
+        const params = new URLSearchParams(window.location.search);
+        capturedSubId = params.get("sub_id") || 
+                        params.get("subid")  || 
+                        params.get("sub1")   || 
+                        params.get("sub_ID") || 
+                        "Direct";
+        
+        const subInput = document.getElementById("Sub_ID");
+        if (subInput) {
+            subInput.value = capturedSubId;
+        }
+    });
+
+    // फॉर्म सबमिशन और रिडायरेक्शन
+    document.getElementById("leadForm").addEventListener("submit", function(e) {
+        e.preventDefault();
+        const btn = document.getElementById("submitBtn");
+        btn.disabled = true;
+        btn.innerText = "Redirecting...";
+
+        const payload = {
+            data: [{
+                Name: document.getElementById("Name").value.trim(),
+                Mobile: document.getElementById("Mobile").value.trim(),
+                PAN: document.getElementById("PAN").value.trim(),
+                Sub_ID: capturedSubId
+            }]
+        };
+
+        // Choice ट्रैकिंग लिंक में sub_id जोड़ना
+        let finalRedirectUrl = BASE_REDIRECT_URL;
+        if (capturedSubId !== "Direct") {
+            const separator = finalRedirectUrl.includes("?") ? "&" : "?";
+            finalRedirectUrl += `${separator}sub_id=${encodeURIComponent(capturedSubId)}`;
+        }
+
+        // Sheet में डाटा भेजना
+        fetch(SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        })
+        .then(() => {
+            window.location.href = finalRedirectUrl;
+        })
+        .catch(err => {
+            console.error("Error saving lead:", err);
+            window.location.href = finalRedirectUrl;
+        });
+    });
+</script>
+
+</body>
+</html>
