@@ -11,7 +11,7 @@
         import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, query, orderBy, limit, increment, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyD0O6SrF0Y15lFcFhXwJIyDbGFsTuxoswY",
+            apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
             authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
             projectId: "affiliatewealthhub-542e0",
             storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
@@ -24,7 +24,6 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // LocalStorage Session Check (Ab login par wapas nahi bhejega)
         const savedUser = JSON.parse(localStorage.getItem("awh_user") || "null");
         if (!savedUser) {
             window.location.replace("/affiliate/public/login/index.html");
@@ -78,6 +77,8 @@
             list.innerHTML = "";
             snap.forEach((docSnap) => {
                 const o = docSnap.data();
+                const safeName = (o.name || '').replace(/'/g, "\\'");
+                const safeDesc = (o.description || '').replace(/'/g, "\\'");
                 list.innerHTML += `
                     <div class="p-4 flex flex-col md:flex-row md:items-center justify-between gap-2 border-b">
                         <div>
@@ -86,11 +87,11 @@
                             <span class="text-emerald-600 font-bold ml-2">₹${o.payout}</span>
                             <p class="text-xs text-slate-500 truncate max-w-md mt-1">${o.targetUrl}</p>
                         </div>
-                        <button onclick="fillOffer('${o.offerId}', '${o.name}', '${o.category || 'FINANCIAL'}', '${o.payout}', '${o.targetUrl}', '${o.description || ''}')" class="text-xs bg-slate-800 text-white px-3 py-1.5 rounded-lg">Edit</button>
+                        <button onclick="fillOffer('${o.offerId}', '${safeName}', '${o.category || 'FINANCIAL'}', '${o.payout}', '${o.targetUrl}', '${safeDesc}')" class="text-xs bg-slate-800 text-white px-3 py-1.5 rounded-lg">Edit</button>
                     </div>
                 `;
             });
-            if (snap.empty) list.innerHTML = "<p class='text-sm text-slate-400 p-4'>No custom offers added yet. Add Offer #57 & #58 above.</p>";
+            if (snap.empty) list.innerHTML = "<p class='text-sm text-slate-400 p-4'>No custom offers added yet.</p>";
         }
 
         window.fillOffer = (id, name, cat, payout, url, desc) => {
@@ -103,21 +104,26 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         };
 
-        // 3. Load Recent Clicks & Approve Conversion
+        // 3. Load Recent Clicks with Sub ID & Approve Conversion
         async function loadClicks() {
             const tbody = document.getElementById('clicksTable');
-            tbody.innerHTML = "<tr><td colspan='5' class='p-4 text-center text-slate-400'>Loading clicks...</td></tr>";
-            const q = query(collection(db, "clicks"), orderBy("createdAt", "desc"), limit(25));
+            tbody.innerHTML = "<tr><td colspan='6' class='p-4 text-center text-slate-400'>Loading clicks...</td></tr>";
+            const q = query(collection(db, "clicks"), orderBy("createdAt", "desc"), limit(30));
             const snap = await getDocs(q);
             tbody.innerHTML = "";
             snap.forEach((docSnap) => {
                 const c = docSnap.data();
                 const isApproved = c.status === "approved";
+                const subBadge = c.sub1
+                    ? `<span class="bg-indigo-100 text-indigo-800 font-mono text-xs px-2 py-0.5 rounded font-semibold">${c.sub1}</span>`
+                    : `<span class="text-xs text-slate-400">-</span>`;
+
                 tbody.innerHTML += `
                     <tr class="border-b hover:bg-slate-50 text-sm">
                         <td class="p-3 font-mono text-xs">${c.clickId}</td>
                         <td class="p-3 font-semibold">#${c.offerId}</td>
                         <td class="p-3 font-semibold text-blue-600">${c.publisherId}</td>
+                        <td class="p-3">${subBadge}</td>
                         <td class="p-3">
                             <span class="px-2 py-0.5 rounded text-xs font-bold ${isApproved ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">
                                 ${c.status.toUpperCase()}
@@ -129,7 +135,7 @@
                     </tr>
                 `;
             });
-            if (snap.empty) tbody.innerHTML = "<tr><td colspan='5' class='p-4 text-center text-slate-400'>No clicks recorded yet.</td></tr>";
+            if (snap.empty) tbody.innerHTML = "<tr><td colspan='6' class='p-4 text-center text-slate-400'>No clicks recorded yet.</td></tr>";
         }
 
         // Approve Click & Credit Publisher Wallet
@@ -226,6 +232,7 @@
                             <th class="p-3">Click ID</th>
                             <th class="p-3">Offer ID</th>
                             <th class="p-3">Pub ID</th>
+                            <th class="p-3">Sub ID (Team)</th>
                             <th class="p-3">Status</th>
                             <th class="p-3">Action</th>
                         </tr>
