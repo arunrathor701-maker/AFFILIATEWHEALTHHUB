@@ -11,7 +11,7 @@
         import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
+            apiKey: "AIzaSyD0O6SrF0Y15lFcFhXwJIyDbGFsTuxoswY",
             authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
             projectId: "affiliatewealthhub-542e0",
             storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
@@ -24,15 +24,22 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        await setPersistence(auth, browserLocalPersistence);
+        setPersistence(auth, browserLocalPersistence);
 
         window.toggleForm = (type) => {
-            document.getElementById('loginSection').classList.toggle('hidden', type !== 'login');
-            document.getElementById('registerSection').classList.toggle('hidden', type !== 'register');
-            document.getElementById('msgBox').innerText = "";
+            const loginSec = document.getElementById('loginSection');
+            const regSec = document.getElementById('registerSection');
+            const msgBox = document.getElementById('msgBox');
+            if(msgBox) msgBox.innerText = "";
+            if (type === 'register') {
+                loginSec.classList.add('hidden');
+                regSec.classList.remove('hidden');
+            } else {
+                regSec.classList.add('hidden');
+                loginSec.classList.remove('hidden');
+            }
         };
 
-        // Login Handler
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('loginEmail').value.trim();
@@ -44,15 +51,14 @@
             try {
                 const cred = await signInWithEmailAndPassword(auth, email, pass);
                 const userSnap = await getDoc(doc(db, "users", cred.user.uid));
-                const userData = userSnap.exists() ? userSnap.data() : { email: email, name: "Admin", role: "admin", publisherId: 662 };
+                const userData = userSnap.exists() ? userSnap.data() : { email: email, name: "Publisher", role: "publisher" };
 
-                // Browser storage mein permanent session save karein
                 localStorage.setItem("awh_user", JSON.stringify({
                     uid: cred.user.uid,
                     email: email,
-                    name: userData.name || "Arun",
+                    name: userData.name || "Publisher",
                     role: email === "arunrathor701@gmail.com" ? "admin" : (userData.role || "publisher"),
-                    publisherId: userData.publisherId || 662
+                    publisherId: userData.publisherId || Math.floor(100 + Math.random() * 900)
                 }));
 
                 if (email === "arunrathor701@gmail.com" || userData.role === "admin") {
@@ -66,7 +72,6 @@
             }
         });
 
-        // Register Handler
         document.getElementById('registerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const name = document.getElementById('regName').value.trim();
@@ -109,7 +114,6 @@
         </div>
 
         <div class="p-6">
-            <!-- Login Form -->
             <div id="loginSection">
                 <h2 class="text-xl font-bold text-slate-800 text-center mb-4">Publisher Login</h2>
                 <form id="loginForm" class="space-y-4">
@@ -123,10 +127,9 @@
                     </div>
                     <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg shadow">Login</button>
                 </form>
-                <p class="text-center text-xs text-slate-500 mt-4">New here? <button onclick="toggleForm('register')" class="text-blue-600 font-bold">Register Account</button></p>
+                <p class="text-center text-xs text-slate-500 mt-4">New here? <button type="button" onclick="toggleForm('register')" class="text-blue-600 font-bold">Register Account</button></p>
             </div>
 
-            <!-- Register Form -->
             <div id="registerSection" class="hidden">
                 <h2 class="text-xl font-bold text-slate-800 text-center mb-4">Publisher Registration</h2>
                 <form id="registerForm" class="space-y-4">
@@ -144,7 +147,7 @@
                     </div>
                     <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg shadow">Register Account</button>
                 </form>
-                <p class="text-center text-xs text-slate-500 mt-4">Already have an account? <button onclick="toggleForm('login')" class="text-blue-600 font-bold">Login</button></p>
+                <p class="text-center text-xs text-slate-500 mt-4">Already have an account? <button type="button" onclick="toggleForm('login')" class="text-blue-600 font-bold">Login</button></p>
             </div>
 
             <div id="msgBox"></div>
