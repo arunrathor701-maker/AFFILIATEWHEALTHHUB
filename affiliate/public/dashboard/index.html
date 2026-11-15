@@ -1,15 +1,14 @@
 <!DOCTYPE html>
-<html lang="hi" class="h-full bg-slate-100">
+<html lang="en" class="h-full bg-slate-100">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AffiliateWealthHub - Partner Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, collection, getDocs, query, where, updateDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, collection, getDocs, query, where, updateDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey:"AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
@@ -17,8 +16,7 @@
             projectId: "affiliatewealthhub-542e0",
             storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
             messagingSenderId: "1088047960863",
-            appId: "1:1088047960863:web:bd7fe0e8e0404fdf9bb562a",
-            measurementId: "G-PX59VJN9TK"
+            appId: "1:1088047960863:web:bd7fe0e8e0404fdf9bb562a"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -33,120 +31,91 @@
             if (el) el.innerText = text;
         }
 
-        // Instant Tab Switcher
         window.switchTab = function(tabId, btnEl) {
-            document.querySelectorAll('.tab-content').forEach(el => {
-                el.classList.add('hidden');
-            });
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             const activeTab = document.getElementById(tabId);
-            if (activeTab) {
-                activeTab.classList.remove('hidden');
-            }
+            if (activeTab) activeTab.classList.remove('hidden');
+            
             document.querySelectorAll('.nav-link').forEach(el => {
                 el.classList.remove('bg-blue-600', 'text-white', 'shadow-sm');
-                el.classList.add('text-slate-300', 'hover:bg-slate-800');
+                el.classList.add('text-slate-600', 'hover:bg-slate-100');
             });
             if (btnEl) {
-                btnEl.classList.remove('text-slate-300', 'hover:bg-slate-800');
+                btnEl.classList.remove('text-slate-600', 'hover:bg-slate-100');
                 btnEl.classList.add('bg-blue-600', 'text-white', 'shadow-sm');
             }
         };
 
         async function initDashboard() {
-            if (!currentUser) {
+            if (!currentUser || !currentUser.uid) {
                 window.location.replace("/affiliate/public/login/index.html");
                 return;
             }
             updateUI();
-            await Promise.all([
-                loadPublisherData(),
-                loadOffers(),
-                loadPayoutHistory()
-            ]);
+            setupRealtimeListeners();
+            loadOffers();
         }
 
         function updateUI() {
-            const name = currentUser.name || "Arun Rathore";
+            const name = currentUser.name || "Partner";
             const pubId = currentUser.publisherId || "662";
             const email = currentUser.email || "";
 
             document.querySelectorAll('.pubNameDisplay').forEach(el => el.innerText = name);
             safeSetText('pubIdDisplay', pubId);
-
+            
             const profName = document.getElementById('profileName');
             const profEmail = document.getElementById('profileEmail');
             if (profName) profName.value = name;
             if (profEmail) profEmail.value = email;
         }
 
-        async function loadPublisherData() {
+        function setupRealtimeListeners() {
             const pubId = String(currentUser.publisherId || "662");
-            try {
-                if (currentUser.uid) {
-                    const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-                    if (userDoc.exists()) {
-                        currentBalance = Number(userDoc.data().balance || 0);
-                    }
+            const userRef = doc(db, "users", currentUser.uid);
+
+            onSnapshot(userRef, (doc) => {
+                if (doc.exists()) {
+                    const data = doc.data();
+                    currentBalance = Number(data.balance || 0);
+                    safeSetText('walletBalance', ₹${currentBalance});
+                    safeSetText('totalEarnings', ₹${currentBalance});
+                    safeSetText('perfEarnings', ₹${currentBalance});
                 }
-                safeSetText('walletBalance', `₹${currentBalance}`);
-                safeSetText('totalEarnings', `₹${currentBalance}`);
-                safeSetText('perfEarnings', `₹${currentBalance}`);
+            });
 
-                const q = query(collection(db, "clicks"), where("publisherId", "==", pubId));
-                const querySnapshot = await getDocs(q);
-
+            const clicksQuery = query(collection(db, "clicks"), where("publisherId", "==", pubId));
+            onSnapshot(clicksQuery, (snapshot) => {
                 let totalClicks = 0;
                 let approvedCount = 0;
                 const clicksListHtml = [];
                 const convListHtml = [];
-                const offerStats = {};
-                const markerStats = {};
 
-                querySnapshot.forEach((docSnap) => {
+                snapshot.forEach((docSnap) => {
                     totalClicks++;
                     const data = docSnap.data();
                     const status = (data.status || "pending").toLowerCase();
                     const isApproved = status === "approved";
-                    const payout = Number(data.payoutCredited || 0);
-                    const oid = data.offerId || "1";
-                    const sub1 = data.sub1 || "Direct (No Sub-ID)";
-
                     if (isApproved) approvedCount++;
 
-                    if (!offerStats[oid]) offerStats[oid] = { clicks: 0, conv: 0, rev: 0 };
-                    offerStats[oid].clicks++;
-                    if (isApproved) {
-                        offerStats[oid].conv++;
-                        offerStats[oid].rev += payout;
-                    }
-
-                    if (!markerStats[sub1]) markerStats[sub1] = { clicks: 0, conv: 0, rev: 0 };
-                    markerStats[sub1].clicks++;
-                    if (isApproved) {
-                        markerStats[sub1].conv++;
-                        markerStats[sub1].rev += payout;
-                    }
-
-                    const dateStr = data.createdAt ? new Date(data.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A';
+                    const dateStr = data.createdAt ? new Date(data.createdAt).toLocaleString('en-IN') : 'N/A';
                     const badgeClass = isApproved ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
 
                     clicksListHtml.push(`
                         <tr class="border-b hover:bg-slate-50">
                             <td class="p-3 text-xs">${dateStr}</td>
-                            <td class="p-3 text-xs font-mono text-slate-600">${data.clickId || docSnap.id}</td>
-                            <td class="p-3 text-xs font-semibold">Offer #${oid}</td>
-                            <td class="p-3 text-xs font-mono font-bold text-blue-600">${data.sub1 || '-'}</td>
-                            <td class="p-3 text-xs"><span class="px-2 py-0.5 ${badgeClass} rounded text-[10px] font-bold uppercase">${data.status || 'Recorded'}</span></td>
+                            <td class="p-3 text-xs font-semibold">Offer #${data.offerId || '1'}</td>
+                            <td class="p-3 text-xs font-mono font-bold text-blue-600">${data.sub1 || 'Direct'}</td>
+                            <td class="p-3 text-xs"><span class="px-2 py-0.5 ${badgeClass} rounded text-[10px] font-bold uppercase">${data.status}</span></td>
                         </tr>
                     `);
 
                     if (isApproved) {
                         convListHtml.push(`
                             <tr class="border-b hover:bg-slate-50">
-                                <td class="p-3 text-xs">${data.approvedAt ? new Date(data.approvedAt).toLocaleDateString('en-IN') : dateStr}</td>
-                                <td class="p-3 text-xs font-semibold">Offer #${oid}</td>
-                                <td class="p-3 text-xs font-mono font-bold text-blue-600">${data.sub1 || '-'}</td>
-                                <td class="p-3 text-xs font-bold text-emerald-600">₹${payout}</td>
+                                <td class="p-3 text-xs">${dateStr}</td>
+                                <td class="p-3 text-xs font-semibold">Offer #${data.offerId || '1'}</td>
+                                <td class="p-3 text-xs font-bold text-emerald-600">₹${data.payoutCredited || 0}</td>
                                 <td class="p-3 text-xs"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold uppercase">Approved</span></td>
                             </tr>
                         `);
@@ -157,54 +126,34 @@
                 safeSetText('totalClicksDisplay', totalClicks);
                 safeSetText('perfClicks', totalClicks);
                 safeSetText('totalConvDisplay', approvedCount);
-                safeSetText('perfConv', approvedCount);
-                safeSetText('crDisplay', `${cr}%`);
-                safeSetText('perfCr', `${cr}%`);
+                safeSetText('crDisplay', ${cr}%);
 
                 const clicksBody = document.getElementById('clicksTableBody');
-                if (clicksBody) {
-                    clicksBody.innerHTML = clicksListHtml.join('') || `<tr><td colspan="5" class="p-6 text-center text-slate-400">Abhi tak koi click record nahi hua hai.</td></tr>`;
-                }
+                if (clicksBody) clicksBody.innerHTML = clicksListHtml.join('') || <tr><td colspan="4" class="p-4 text-center text-slate-400">No clicks yet.</td></tr>;
 
                 const convBody = document.getElementById('convTableBody');
-                if (convBody) {
-                    convBody.innerHTML = convListHtml.join('') || `<tr><td colspan="5" class="p-6 text-center text-slate-400">Abhi tak koi approved lead nahi hai.</td></tr>`;
-                }
+                if (convBody) convBody.innerHTML = convListHtml.join('') || <tr><td colspan="4" class="p-4 text-center text-slate-400">No approved conversions yet.</td></tr>;
+            });
 
-                const offerPerfBody = document.getElementById('offerPerfTableBody');
-                if (offerPerfBody) {
-                    const rows = Object.keys(offerStats).map(oid => {
-                        const s = offerStats[oid];
-                        const ocr = s.clicks > 0 ? ((s.conv / s.clicks) * 100).toFixed(1) : 0;
-                        return `<tr class="border-b hover:bg-slate-50">
-                            <td class="p-3 font-bold text-slate-800">Offer #${oid}</td>
-                            <td class="p-3">${s.clicks}</td>
-                            <td class="p-3 text-emerald-600 font-bold">${s.conv}</td>
-                            <td class="p-3">${ocr}%</td>
-                            <td class="p-3 font-bold text-slate-900">₹${s.rev}</td>
-                        </tr>`;
-                    });
-                    offerPerfBody.innerHTML = rows.join('') || `<tr><td colspan="5" class="p-6 text-center text-slate-400">No offer performance data yet.</td></tr>`;
-                }
-
-                const markerBody = document.getElementById('markerTableBody');
-                if (markerBody) {
-                    const mRows = Object.keys(markerStats).map(tag => {
-                        const m = markerStats[tag];
-                        return `<tr class="border-b hover:bg-slate-50">
-                            <td class="p-3 font-mono font-bold text-blue-600">${tag}</td>
-                            <td class="p-3">${m.clicks}</td>
-                            <td class="p-3 text-emerald-600 font-bold">${m.conv}</td>
-                            <td class="p-3 font-bold text-slate-900">₹${m.rev}</td>
-                        </tr>`;
-                    });
-                    markerBody.innerHTML = mRows.join('') || `<tr><td colspan="4" class="p-6 text-center text-slate-400">No Sub-ID / Marker data found.</td></tr>`;
-                }
-
-                initChart(totalClicks, approvedCount);
-            } catch (e) {
-                console.error("Error loading publisher data:", e);
-            }
+            const payoutsQuery = query(collection(db, "payouts"), where("publisherId", "==", pubId));
+            onSnapshot(payoutsQuery, (snapshot) => {
+                const rows = [];
+                snapshot.forEach(docSnap => {
+                    const p = docSnap.data();
+                    const dStr = p.requestedAt ? new Date(p.requestedAt).toLocaleDateString('en-IN') : 'N/A';
+                    const stColor = p.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
+                    rows.push(`
+                        <tr class="border-b hover:bg-slate-50">
+                            <td class="p-3 text-xs">${dStr}</td>
+                            <td class="p-3 text-xs font-bold text-slate-900">₹${p.amount || 0}</td>
+                            <td class="p-3 text-xs">${p.method || 'N/A'}</td>
+                            <td class="p-3 text-xs"><span class="px-2 py-0.5 ${stColor} rounded text-[10px] font-bold uppercase">${p.status || 'Pending'}</span></td>
+                        </tr>
+                    `);
+                });
+                const tbody = document.getElementById('payoutsTableBody');
+                if (tbody) tbody.innerHTML = rows.join('') || <tr><td colspan="4" class="p-4 text-center text-slate-400">No payout history.</td></tr>;
+            });
         }
 
         async function loadOffers() {
@@ -214,28 +163,18 @@
             try {
                 const snap = await getDocs(collection(db, "offers"));
                 container.innerHTML = "";
-                if (snap.empty) {
-                    container.innerHTML = `<div class="p-6 text-center text-slate-400 text-xs">No active offers available right now.</div>`;
-                    return;
-                }
                 snap.forEach(docSnap => {
                     const o = docSnap.data();
-                    const baseTrackingUrl = `https://affiliatewealthhub.online/go?oid=${docSnap.id}&pid=${pubId}`;
+                    const baseTrackingUrl = https://affiliatewealthhub.online/go?oid=${docSnap.id}&pid=${pubId};
                     container.innerHTML += `
-                        <div class="p-4 bg-white border-b flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-slate-50 transition">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white text-base shrink-0">
-                                    ${o.name ? o.name[0].toUpperCase() : 'O'}
-                                </div>
-                                <div>
-                                    <h4 class="font-bold text-slate-900 text-sm">${o.name || 'Campaign'}</h4>
-                                    <span class="text-xs text-blue-600 font-semibold block mt-0.5">Category: ${o.category || 'Financial'} • Payout: ₹${o.payout || 0}</span>
-                                    <p class="text-[11px] text-slate-400 mt-0.5">${o.description || 'Complete KYC / Account Opening to earn payout.'}</p>
-                                </div>
+                        <div class="p-4 bg-white border-b flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50">
+                            <div>
+                                <h4 class="font-bold text-slate-900 text-sm">${o.name || 'Campaign'}</h4>
+                                <span class="text-xs text-slate-500">Category: ${o.category || 'Financial'} | Payout: ₹${o.payout || 0}</span>
                             </div>
-                            <div class="flex flex-wrap items-center gap-2">
-                                <input type="text" id="subInput_${docSnap.id}" placeholder="Sub-ID (e.g. arun, atul)" class="border border-slate-300 rounded-lg px-3 py-2 text-xs w-40 focus:ring-2 focus:ring-blue-500 outline-none">
-                                <button type="button" onclick="generateAndCopyLink('${baseTrackingUrl}', 'subInput_${docSnap.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-sm transition cursor-pointer">
+                            <div class="flex items-center gap-2">
+                                <input type="text" id="subInput_${docSnap.id}" placeholder="Sub-ID" class="border rounded px-3 py-1.5 text-xs w-32 outline-none focus:ring-1 focus:ring-blue-500">
+                                <button onclick="generateAndCopyLink('${baseTrackingUrl}', 'subInput_${docSnap.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-xs font-bold shadow transition cursor-pointer">
                                     Copy Link
                                 </button>
                             </div>
@@ -243,55 +182,23 @@
                     `;
                 });
             } catch (e) {
-                container.innerHTML = `<div class="p-6 text-center text-red-500 text-xs">Error loading campaigns.</div>`;
+                container.innerHTML = <div class="p-4 text-red-500 text-xs">Error loading offers.</div>;
             }
         }
 
         window.generateAndCopyLink = (baseUrl, inputId) => {
             const subInput = document.getElementById(inputId);
             const subVal = subInput ? subInput.value.trim() : "";
-            const finalUrl = subVal ? `${baseUrl}&sub1=${encodeURIComponent(subVal)}` : baseUrl;
-
-            navigator.clipboard.writeText(finalUrl).then(() => {
-                alert("Tracking Link Copied!\n\n" + finalUrl);
-            }).catch(() => {
-                prompt("Copy your tracking link:", finalUrl);
-            });
+            const finalUrl = subVal ? ${baseUrl}&sub1=${encodeURIComponent(subVal)} : baseUrl;
+            navigator.clipboard.writeText(finalUrl).then(() => alert("Copied: " + finalUrl));
         };
-
-        async function loadPayoutHistory() {
-            const tbody = document.getElementById('payoutsTableBody');
-            if (!tbody) return;
-            const pubId = String(currentUser.publisherId || "662");
-            try {
-                const q = query(collection(db, "payouts"), where("publisherId", "==", pubId));
-                const snap = await getDocs(q);
-                const rows = [];
-                snap.forEach(docSnap => {
-                    const p = docSnap.data();
-                    const dStr = p.requestedAt ? new Date(p.requestedAt).toLocaleDateString('en-IN') : 'N/A';
-                    const stColor = p.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
-                    rows.push(`
-                        <tr class="border-b hover:bg-slate-50">
-                            <td class="p-3">${dStr}</td>
-                            <td class="p-3 font-bold text-slate-900">₹${p.amount || 0}</td>
-                            <td class="p-3">${p.method || 'Bank / UPI'}</td>
-                            <td class="p-3"><span class="px-2 py-0.5 ${stColor} rounded text-[10px] font-bold uppercase">${p.status || 'Pending'}</span></td>
-                        </tr>
-                    `);
-                });
-                tbody.innerHTML = rows.join('') || `<tr><td colspan="4" class="p-6 text-center text-slate-400">Abhi tak koi payout request nahi ki gayi hai.</td></tr>`;
-            } catch (e) {
-                tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-400">No payouts processed yet.</td></tr>`;
-            }
-        }
 
         window.requestPayout = async () => {
             if (currentBalance < 100) {
-                alert("Minimum withdrawal ₹100 hai. Aapka current balance ₹" + currentBalance + " hai.");
+                alert("Minimum withdrawal is ₹100. Current balance: ₹" + currentBalance);
                 return;
             }
-            const upi = prompt("Apna UPI ID ya Bank Account details dalein:");
+            const upi = prompt("Enter your UPI ID or Bank Details:");
             if (!upi) return;
 
             try {
@@ -304,48 +211,23 @@
                     status: "pending",
                     requestedAt: new Date().toISOString()
                 });
-                alert("₹" + currentBalance + " ki withdrawal request admin ko bhej di gayi hai!");
-                loadPayoutHistory();
+                alert("Payout request submitted!");
             } catch (err) {
-                alert("Request bhejne mein error aaya: " + err.message);
+                alert("Error: " + err.message);
             }
         };
-
-        function initChart(clicksCount, convCount) {
-            const canvas = document.getElementById('analyticsChart');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            if (window.myChart instanceof Chart) {
-                window.myChart.destroy();
-            }
-            window.myChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['Total Clicks', 'Approved Conversions'],
-                    datasets: [{
-                        label: 'Count',
-                        data: [clicksCount, convCount],
-                        backgroundColor: ['#2563eb', '#10b981'],
-                        borderRadius: 8,
-                        barThickness: 60
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-            });
-        }
 
         window.saveProfile = async (e) => {
             e.preventDefault();
             const nameInput = document.getElementById('profileName');
-            if (!nameInput) return;
+            if (!nameInput || !newName) return;
             const newName = nameInput.value.trim();
-            if (!newName || !currentUser.uid) return;
             try {
                 await updateDoc(doc(db, "users", currentUser.uid), { name: newName });
                 currentUser.name = newName;
                 localStorage.setItem("awh_user", JSON.stringify(currentUser));
                 updateUI();
-                alert("Profile name update ho gaya hai!");
+                alert("Profile updated!");
             } catch (err) {
                 alert("Error updating profile: " + err.message);
             }
@@ -356,28 +238,121 @@
             signOut(auth).then(() => window.location.replace("/affiliate/public/login/index.html"));
         };
 
-        window.addEventListener('DOMContentLoaded', () => {
-            initDashboard();
-        });
+        document.addEventListener('DOMContentLoaded', initDashboard);
     </script>
 </head>
 <body class="h-full bg-slate-100 font-sans text-slate-800">
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
-        <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 border-r border-slate-800">
-            <div class="p-5 border-b border-slate-800 flex items-center space-x-3">
-                <!-- APNA LOGO YAHAN LAGAYEIN: src="" mein apni logo image ka URL dalein -->
-                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-white text-sm shadow overflow-hidden shrink-0">
-                    <img src="" alt="AWH" onerror="this.style.display='none'; this.parentElement.innerText='AWH';" class="w-full h-full object-cover">
-                </div>
+        <aside class="w-64 bg-white border-r flex flex-col shrink-0">
+            <div class="p-5 border-b flex items-center space-x-3">
+                <div class="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white text-sm">AWH</div>
                 <div>
-                    <h2 class="font-extrabold text-white text-sm tracking-tight">AffiliateWealthHub</h2>
-                    <span class="text-[10px] text-blue-400 block font-bold uppercase tracking-wider">Partner Portal</span>
+                    <h2 class="font-bold text-slate-900 text-sm">AffiliateWealthHub</h2>
+                    <span class="text-[10px] text-slate-400 block font-bold uppercase">Partner Portal</span>
                 </div>
             </div>
             
-            <div class="flex-1 overflow-y-auto py-4 px-3 space-y-5 text-xs font-semibold">
+            <div class="flex-1 py-4 px-3 space-y-1 text-xs font-semibold">
+                <button onclick="switchTab('tab-dashboard', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 bg-blue-600 text-white rounded-lg transition text-left shadow-sm cursor-pointer">
+                    <span>📊 Dashboard</span>
+                </button>
+                <button onclick="switchTab('tab-offers', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
+                    <span>🎁 Offers</span>
+                </button>
+                <button onclick="switchTab('tab-earnings', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
+                    <span>💰 My Earnings</span>
+                </button>
+                <button onclick="switchTab('tab-payouts', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
+                    <span>💳 My Payouts</span>
+                </button>
+                <button onclick="switchTab('tab-profile', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
+                    <span>⚙️ Profile</span>
+                </button>
+            </div>
+
+            <!-- Account Manager Card -->
+            <div class="p-4 m-3 bg-slate-900 text-white rounded-xl text-xs">
+                <span class="font-bold text-blue-400 block mb-1 text-[10px] uppercase">Account Manager</span>
+                <p class="font-bold text-sm">Arun Rathore</p>
+                <p class="text-slate-400 truncate mt-0.5">arunrathor701@gmail.com</p>
+            </div>
+
+            <div class="p-3 border-t">
+                <button onclick="logout()" class="w-full px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition text-xs font-semibold text-left cursor-pointer">Exit / Logout</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-y-auto">
+            <header class="bg-white border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10">
                 <div>
-                    <button type="button" onclick="switchTab('tab-dashboard', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 bg-blue-600 text-white rounded-lg transition text-left shadow-sm cursor-pointer">
-                        <span>Dashboard</span>
-                    </button>
+                    <h1 class="text-lg font-bold text-slate-900">Partner Dashboard</h1>
+                    <p class="text-xs text-slate-500">Welcome back, <span class="pubNameDisplay font-semibold text-slate-800">Partner</span></p>
+                </div>
+                <div class="text-right">
+                    <span class="block text-[10px] text-slate-400 font-bold uppercase">Publisher ID</span>
+                    <span id="pubIdDisplay" class="font-bold text-slate-800 font-mono text-sm">662</span>
+                </div>
+            </header>
+
+            <main class="p-8 space-y-6 max-w-7xl mx-auto w-full">
+                <!-- 1. DASHBOARD -->
+                <div id="tab-dashboard" class="tab-content space-y-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div class="bg-white p-5 rounded-xl border shadow-2xs">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Clicks</span>
+                            <div id="totalClicksDisplay" class="text-3xl font-black text-blue-600 mt-1">0</div>
+                        </div>
+                        <div class="bg-white p-5 rounded-xl border shadow-2xs">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Approved Leads</span>
+                            <div id="totalConvDisplay" class="text-3xl font-black text-emerald-600 mt-1">0</div>
+                        </div>
+                        <div class="bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-5 rounded-xl shadow-md">
+                            <span class="text-[10px] font-bold text-blue-200 uppercase tracking-wider block">Wallet Balance</span>
+                            <div id="walletBalance" class="text-3xl font-black mt-1">₹0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. OFFERS -->
+                <div id="tab-offers" class="tab-content hidden space-y-4">
+                    <h2 class="font-bold text-base text-slate-900">Available Offers</h2>
+                    <div id="offersList" class="bg-white rounded-xl border divide-y"></div>
+                </div>
+
+                <!-- 3. MY EARNINGS -->
+                <div id="tab-earnings" class="tab-content hidden space-y-4">
+                    <div class="bg-white p-6 rounded-xl border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <span class="text-xs font-semibold text-slate-400 block uppercase">Available Balance</span>
+                            <div id="totalEarnings" class="text-4xl font-black text-emerald-600 mt-1">₹0</div>
+                        </div>
+                        <button onclick="requestPayout()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow transition cursor-pointer">
+                            Request Payout
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4. MY PAYOUTS -->
+                <div id="tab-payouts" class="tab-content hidden space-y-4">
+                    <h2 class="font-bold text-base text-slate-900">Payout History</h2>
+                    <div class="bg-white rounded-xl border overflow-hidden">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="border-b bg-slate-50 text-slate-600 font-bold">
+                                    <th class="p-3">Date</th>
+                                    <th class="p-3">Amount</th>
+                                    <th class="p-3">Method</th>
+                                    <th class="p-3">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payoutsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 5. PROFILE -->
+                <div id="tab-profile" class="tab-content hidden max-w-xl">
+                    <div class="bg-white p-6 rounded-xl border space-y-4">
+                        <h2 class="font-bold text-base border-b pb-
