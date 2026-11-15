@@ -128,17 +128,18 @@
                         Status: data.status || 'Recorded'
                     });
 
-                    clicksListHtml.push(`
-                        <tr class="border-b hover:bg-gray-50">
-                            <td class="p-3 text-xs">${dateStr}</td>
-                            <td class="p-3 text-xs font-mono text-gray-500">${data.clickId || docSnap.id}</td>
-                            <td class="p-3 text-xs font-semibold">Offer #${data.offerId || '1'}</td>
-                            <td class="p-3 text-xs font-mono font-bold text-blue-600">${data.sub1 || 'Direct'}</td>
-                            <td class="p-3 text-xs"><span class="px-2 py-0.5 ${badgeClass} rounded text-xs font-bold uppercase">${data.status || 'Recorded'}</span></td>
-                        </tr>
-                    `);
-                });
-
+                  clicksListHtml.push(`
+    <tr class="border-b hover:bg-gray-50">
+        <td class="p-3 text-xs">${dateStr}</td>
+        <td class="p-3 text-xs font-mono text-gray-500">${data.clickId || docSnap.id}</td>
+        <td class="p-3 text-xs font-semibold">Offer #${data.offerId || '1'}</td>
+        <td class="p-3 text-xs font-mono font-bold text-blue-600">${data.sub1 || 'Direct'}</td>
+        <td class="p-3 text-xs font-semibold">${data.customerName || '-'}</td>
+        <td class="p-3 text-xs font-mono">${data.customerPhone || '-'}</td>
+        <td class="p-3 text-xs font-mono uppercase">${data.customerPan || '-'}</td>
+        <td class="p-3 text-xs"><span class="px-2 py-0.5 ${badgeClass} rounded text-xs font-bold uppercase">${data.status || 'Recorded'}</span></td>
+    </tr>
+`);
                 safeSetText('totalClicksDisplay', totalClicks);
                 safeSetText('totalConvDisplay', approvedCount);
 
