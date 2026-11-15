@@ -24,32 +24,27 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-     // Security Check with Auth Persistence
-        import { browserLocalPersistence, setPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        let authResolved = false;
 
-        setPersistence(auth, browserLocalPersistence).then(() => {
-            onAuthStateChanged(auth, async (user) => {
-                if (!user) {
-                    // 1 second wait karein taaki session properly check ho sake
-                    setTimeout(() => {
-                        if (!auth.currentUser) {
-                            window.location.href = "/affiliate/public/login/index.html?redirect=admin";
-                        }
-                    }, 1000);
-                    return;
-                }
-                if (user.email === "arunrathor701@gmail.com") {
-                    loadAllData();
-                    return;
-                }
-                const userSnap = await getDoc(doc(db, "users", user.uid));
-                if (!userSnap.exists() || userSnap.data().role !== "admin") {
-                    alert("Access Denied! Admin only.");
-                    window.location.href = "/affiliate/public/dashboard/index.html";
-                    return;
-                }
+        onAuthStateChanged(auth, async (user) => {
+            authResolved = true;
+            if (!user) {
+                window.location.replace("/affiliate/public/login/index.html");
+                return;
+            }
+            if (user.email === "arunrathor701@gmail.com") {
+                document.getElementById('adminBody').classList.remove('hidden');
                 loadAllData();
-            });
+                return;
+            }
+            const userSnap = await getDoc(doc(db, "users", user.uid));
+            if (!userSnap.exists() || userSnap.data().role !== "admin") {
+                alert("Access Denied! Admin only.");
+                window.location.replace("/affiliate/public/dashboard/index.html");
+                return;
+            }
+            document.getElementById('adminBody').classList.remove('hidden');
+            loadAllData();
         });
 
         async function loadAllData() {
@@ -153,18 +148,15 @@
         window.approveClick = async (clickId, offerId, publisherId) => {
             if (!confirm(`Approve conversion for ${clickId} and credit payout to Publisher #${publisherId}?`)) return;
             try {
-                // Get Offer Payout
                 const offerSnap = await getDoc(doc(db, "offers", String(offerId)));
                 const payout = offerSnap.exists() ? Number(offerSnap.data().payout) : 400;
 
-                // Update Click status
                 await updateDoc(doc(db, "clicks", clickId), {
                     status: "approved",
                     payoutCredited: payout,
                     approvedAt: new Date().toISOString()
                 });
 
-                // Find Publisher by publisherId and increment balance
                 const uQuery = query(collection(db, "users"), where("publisherId", "==", Number(publisherId)));
                 const uSnap = await getDocs(uQuery);
                 if (!uSnap.empty) {
@@ -199,10 +191,10 @@
             });
         }
 
-        window.logout = () => signOut(auth).then(() => window.location.href = "/affiliate/public/login/index.html");
+        window.logout = () => signOut(auth).then(() => window.location.replace("/affiliate/public/login/index.html"));
     </script>
 </head>
-<body class="bg-slate-100 min-h-screen font-sans">
+<body id="adminBody" class="bg-slate-100 min-h-screen font-sans hidden">
     <!-- Top Bar -->
     <nav class="bg-slate-900 text-white px-6 py-4 flex justify-between items-center shadow-lg">
         <div>
