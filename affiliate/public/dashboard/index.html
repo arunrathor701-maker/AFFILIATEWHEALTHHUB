@@ -11,7 +11,7 @@
         import { getFirestore, doc, getDoc, collection, getDocs, query, where, updateDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey:"AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
+            apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
             authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
             projectId: "affiliatewealthhub-542e0",
             storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
@@ -78,9 +78,8 @@
                 if (doc.exists()) {
                     const data = doc.data();
                     currentBalance = Number(data.balance || 0);
-                    safeSetText('walletBalance', ₹${currentBalance});
-                    safeSetText('totalEarnings', ₹${currentBalance});
-                    safeSetText('perfEarnings', ₹${currentBalance});
+                    safeSetText('walletBalance', `₹${currentBalance}`);
+                    safeSetText('totalEarnings', `₹${currentBalance}`);
                 }
             });
 
@@ -88,8 +87,6 @@
             onSnapshot(clicksQuery, (snapshot) => {
                 let totalClicks = 0;
                 let approvedCount = 0;
-                const clicksListHtml = [];
-                const convListHtml = [];
 
                 snapshot.forEach((docSnap) => {
                     totalClicks++;
@@ -97,42 +94,10 @@
                     const status = (data.status || "pending").toLowerCase();
                     const isApproved = status === "approved";
                     if (isApproved) approvedCount++;
-
-                    const dateStr = data.createdAt ? new Date(data.createdAt).toLocaleString('en-IN') : 'N/A';
-                    const badgeClass = isApproved ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
-
-                    clicksListHtml.push(`
-                        <tr class="border-b hover:bg-slate-50">
-                            <td class="p-3 text-xs">${dateStr}</td>
-                            <td class="p-3 text-xs font-semibold">Offer #${data.offerId || '1'}</td>
-                            <td class="p-3 text-xs font-mono font-bold text-blue-600">${data.sub1 || 'Direct'}</td>
-                            <td class="p-3 text-xs"><span class="px-2 py-0.5 ${badgeClass} rounded text-[10px] font-bold uppercase">${data.status}</span></td>
-                        </tr>
-                    `);
-
-                    if (isApproved) {
-                        convListHtml.push(`
-                            <tr class="border-b hover:bg-slate-50">
-                                <td class="p-3 text-xs">${dateStr}</td>
-                                <td class="p-3 text-xs font-semibold">Offer #${data.offerId || '1'}</td>
-                                <td class="p-3 text-xs font-bold text-emerald-600">₹${data.payoutCredited || 0}</td>
-                                <td class="p-3 text-xs"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold uppercase">Approved</span></td>
-                            </tr>
-                        `);
-                    }
                 });
 
-                const cr = totalClicks > 0 ? ((approvedCount / totalClicks) * 100).toFixed(1) : 0;
                 safeSetText('totalClicksDisplay', totalClicks);
-                safeSetText('perfClicks', totalClicks);
                 safeSetText('totalConvDisplay', approvedCount);
-                safeSetText('crDisplay', ${cr}%);
-
-                const clicksBody = document.getElementById('clicksTableBody');
-                if (clicksBody) clicksBody.innerHTML = clicksListHtml.join('') || <tr><td colspan="4" class="p-4 text-center text-slate-400">No clicks yet.</td></tr>;
-
-                const convBody = document.getElementById('convTableBody');
-                if (convBody) convBody.innerHTML = convListHtml.join('') || <tr><td colspan="4" class="p-4 text-center text-slate-400">No approved conversions yet.</td></tr>;
             });
 
             const payoutsQuery = query(collection(db, "payouts"), where("publisherId", "==", pubId));
@@ -152,7 +117,7 @@
                     `);
                 });
                 const tbody = document.getElementById('payoutsTableBody');
-                if (tbody) tbody.innerHTML = rows.join('') || <tr><td colspan="4" class="p-4 text-center text-slate-400">No payout history.</td></tr>;
+                if (tbody) tbody.innerHTML = rows.join('') || `<tr><td colspan="4" class="p-4 text-center text-slate-400">No payout history.</td></tr>`;
             });
         }
 
@@ -165,7 +130,7 @@
                 container.innerHTML = "";
                 snap.forEach(docSnap => {
                     const o = docSnap.data();
-                    const baseTrackingUrl = https://affiliatewealthhub.online/go?oid=${docSnap.id}&pid=${pubId};
+                    const baseTrackingUrl = `https://affiliatewealthhub.online/go?oid=${docSnap.id}&pid=${pubId}`;
                     container.innerHTML += `
                         <div class="p-4 bg-white border-b flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50">
                             <div>
@@ -174,7 +139,7 @@
                             </div>
                             <div class="flex items-center gap-2">
                                 <input type="text" id="subInput_${docSnap.id}" placeholder="Sub-ID" class="border rounded px-3 py-1.5 text-xs w-32 outline-none focus:ring-1 focus:ring-blue-500">
-                                <button onclick="generateAndCopyLink('${baseTrackingUrl}', 'subInput_${docSnap.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-xs font-bold shadow transition cursor-pointer">
+                                <button type="button" onclick="generateAndCopyLink('${baseTrackingUrl}', 'subInput_${docSnap.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-xs font-bold shadow transition cursor-pointer">
                                     Copy Link
                                 </button>
                             </div>
@@ -182,14 +147,14 @@
                     `;
                 });
             } catch (e) {
-                container.innerHTML = <div class="p-4 text-red-500 text-xs">Error loading offers.</div>;
+                container.innerHTML = `<div class="p-4 text-red-500 text-xs">Error loading offers.</div>`;
             }
         }
 
         window.generateAndCopyLink = (baseUrl, inputId) => {
             const subInput = document.getElementById(inputId);
             const subVal = subInput ? subInput.value.trim() : "";
-            const finalUrl = subVal ? ${baseUrl}&sub1=${encodeURIComponent(subVal)} : baseUrl;
+            const finalUrl = subVal ? `${baseUrl}&sub1=${encodeURIComponent(subVal)}` : baseUrl;
             navigator.clipboard.writeText(finalUrl).then(() => alert("Copied: " + finalUrl));
         };
 
@@ -220,8 +185,9 @@
         window.saveProfile = async (e) => {
             e.preventDefault();
             const nameInput = document.getElementById('profileName');
-            if (!nameInput || !newName) return;
+            if(!nameInput) return;
             const newName = nameInput.value.trim();
+            if (!newName || !currentUser.uid) return;
             try {
                 await updateDoc(doc(db, "users", currentUser.uid), { name: newName });
                 currentUser.name = newName;
@@ -254,19 +220,19 @@
             </div>
             
             <div class="flex-1 py-4 px-3 space-y-1 text-xs font-semibold">
-                <button onclick="switchTab('tab-dashboard', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 bg-blue-600 text-white rounded-lg transition text-left shadow-sm cursor-pointer">
+                <button type="button" onclick="switchTab('tab-dashboard', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 bg-blue-600 text-white rounded-lg transition text-left shadow-sm cursor-pointer">
                     <span>📊 Dashboard</span>
                 </button>
-                <button onclick="switchTab('tab-offers', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
+                <button type="button" onclick="switchTab('tab-offers', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
                     <span>🎁 Offers</span>
                 </button>
-                <button onclick="switchTab('tab-earnings', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
+                <button type="button" onclick="switchTab('tab-earnings', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
                     <span>💰 My Earnings</span>
                 </button>
-                <button onclick="switchTab('tab-payouts', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
+                <button type="button" onclick="switchTab('tab-payouts', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
                     <span>💳 My Payouts</span>
                 </button>
-                <button onclick="switchTab('tab-profile', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
+                <button type="button" onclick="switchTab('tab-profile', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
                     <span>⚙️ Profile</span>
                 </button>
             </div>
@@ -279,7 +245,7 @@
             </div>
 
             <div class="p-3 border-t">
-                <button onclick="logout()" class="w-full px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition text-xs font-semibold text-left cursor-pointer">Exit / Logout</button>
+                <button type="button" onclick="logout()" class="w-full px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition text-xs font-semibold text-left cursor-pointer">Exit / Logout</button>
             </div>
         </aside>
 
@@ -328,7 +294,7 @@
                             <span class="text-xs font-semibold text-slate-400 block uppercase">Available Balance</span>
                             <div id="totalEarnings" class="text-4xl font-black text-emerald-600 mt-1">₹0</div>
                         </div>
-                        <button onclick="requestPayout()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow transition cursor-pointer">
+                        <button type="button" onclick="requestPayout()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow transition cursor-pointer">
                             Request Payout
                         </button>
                     </div>
@@ -345,7 +311,7 @@
                                     <th class="p-3">Amount</th>
                                     <th class="p-3">Method</th>
                                     <th class="p-3">Status</th>
-                                </tr>
+                                 </tr>
                             </thead>
                             <tbody id="payoutsTableBody"></tbody>
                         </table>
@@ -355,4 +321,22 @@
                 <!-- 5. PROFILE -->
                 <div id="tab-profile" class="tab-content hidden max-w-xl">
                     <div class="bg-white p-6 rounded-xl border space-y-4">
-                        <h2 class="font-bold text-base border-b pb-
+                        <h2 class="font-bold text-base border-b pb-3 text-slate-900">My Profile</h2>
+                        <form onsubmit="saveProfile(event)" class="space-y-4 text-xs">
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1 uppercase">Full Name</label>
+                                <input type="text" id="profileName" class="w-full border p-3 rounded-lg outline-none focus:ring-1 focus:ring-blue-500" required>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1 uppercase">Email Address</label>
+                                <input type="email" id="profileEmail" class="w-full border p-3 rounded-lg bg-slate-100 text-slate-500 cursor-not-allowed" readonly>
+                            </div>
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-bold transition cursor-pointer">Update Name</button>
+                        </form>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+</body>
+</html>
