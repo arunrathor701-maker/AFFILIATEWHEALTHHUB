@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AffiliateWealthHub - Partner Dashboard</title>
-    <!-- Stable Tailwind CSS CDN -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module">
@@ -40,7 +39,7 @@
             const toast = document.getElementById('fixedToast');
             if (!toast) return;
             toast.innerText = message;
-            toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl text-xs font-bold transition-all duration-300 z-50 text-white pointer-events-none ${isError ? 'bg-red-600' : 'bg-slate-900'}`;
+            toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl text-xs font-bold transition-all duration-300 z-50 text-white pointer-events-none ${isError ? 'bg-red-600' : 'bg-gray-900'}`;
             toast.style.opacity = '1';
             toast.style.transform = 'translateY(0)';
             setTimeout(() => {
@@ -56,10 +55,10 @@
             
             document.querySelectorAll('.nav-link').forEach(el => {
                 el.classList.remove('bg-blue-600', 'text-white', 'shadow-sm');
-                el.classList.add('text-slate-600', 'hover:bg-slate-100');
+                el.classList.add('text-gray-600', 'hover:bg-gray-100');
             });
             if (btnEl) {
-                btnEl.classList.remove('text-slate-600', 'hover:bg-slate-100');
+                btnEl.classList.remove('text-gray-600', 'hover:bg-gray-100');
                 btnEl.classList.add('bg-blue-600', 'text-white', 'shadow-sm');
             }
         };
@@ -130,12 +129,12 @@
                     });
 
                     clicksListHtml.push(`
-                        <tr class="border-b hover:bg-slate-50">
+                        <tr class="border-b hover:bg-gray-50">
                             <td class="p-3 text-xs">${dateStr}</td>
-                            <td class="p-3 text-xs font-mono text-slate-500">${data.clickId || docSnap.id}</td>
+                            <td class="p-3 text-xs font-mono text-gray-500">${data.clickId || docSnap.id}</td>
                             <td class="p-3 text-xs font-semibold">Offer #${data.offerId || '1'}</td>
                             <td class="p-3 text-xs font-mono font-bold text-blue-600">${data.sub1 || 'Direct'}</td>
-                            <td class="p-3 text-xs"><span class="px-2 py-0.5 ${badgeClass} rounded text-[10px] font-bold uppercase">${data.status || 'Recorded'}</span></td>
+                            <td class="p-3 text-xs"><span class="px-2 py-0.5 ${badgeClass} rounded text-xs font-bold uppercase">${data.status || 'Recorded'}</span></td>
                         </tr>
                     `);
                 });
@@ -145,7 +144,7 @@
 
                 const clicksBody = document.getElementById('clicksTableBody');
                 if (clicksBody) {
-                    clicksBody.innerHTML = clicksListHtml.join('') || `<tr><td colspan="5" class="p-4 text-center text-slate-400">No clicks recorded yet.</td></tr>`;
+                    clicksBody.innerHTML = clicksListHtml.join('') || `<tr><td colspan="5" class="p-4 text-center text-gray-400">No clicks recorded yet.</td></tr>`;
                 }
 
                 updateChart(totalClicks, approvedCount);
@@ -168,16 +167,16 @@
                     });
 
                     rows.push(`
-                        <tr class="border-b hover:bg-slate-50">
+                        <tr class="border-b hover:bg-gray-50">
                             <td class="p-3 text-xs">${dStr}</td>
-                            <td class="p-3 text-xs font-bold text-slate-900">₹${p.amount || 0}</td>
+                            <td class="p-3 text-xs font-bold text-gray-900">₹${p.amount || 0}</td>
                             <td class="p-3 text-xs">${p.method || 'N/A'}</td>
-                            <td class="p-3 text-xs"><span class="px-2 py-0.5 ${stColor} rounded text-[10px] font-bold uppercase">${p.status || 'Pending'}</span></td>
+                            <td class="p-3 text-xs"><span class="px-2 py-0.5 ${stColor} rounded text-xs font-bold uppercase">${p.status || 'Pending'}</span></td>
                         </tr>
                     `);
                 });
                 const tbody = document.getElementById('payoutsTableBody');
-                if (tbody) tbody.innerHTML = rows.join('') || `<tr><td colspan="4" class="p-4 text-center text-slate-400">No payout history.</td></tr>`;
+                if (tbody) tbody.innerHTML = rows.join('') || `<tr><td colspan="4" class="p-4 text-center text-gray-400">No payout history.</td></tr>`;
             });
         }
 
@@ -192,10 +191,10 @@
                     const o = docSnap.data();
                     const baseTrackingUrl = `https://affiliatewealthhub.online/go?oid=${docSnap.id}&pid=${pubId}`;
                     container.innerHTML += `
-                        <div class="p-4 bg-white border-b flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50">
+                        <div class="p-4 bg-white border-b flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-gray-50">
                             <div>
-                                <h4 class="font-bold text-slate-900 text-sm">${o.name || 'Campaign'}</h4>
-                                <span class="text-xs text-slate-500">Category: ${o.category || 'Financial'} | Payout: ₹${o.payout || 0}</span>
+                                <h4 class="font-bold text-gray-900 text-sm">${o.name || 'Campaign'}</h4>
+                                <span class="text-xs text-gray-500">Category: ${o.category || 'Financial'} | Payout: ₹${o.payout || 0}</span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <input type="text" id="subInput_${docSnap.id}" placeholder="Sub-ID (e.g. Atul)" class="border rounded-lg px-3 py-1.5 text-xs w-36 outline-none focus:ring-2 focus:ring-blue-500">
@@ -210,7 +209,6 @@
                 container.innerHTML = `<div class="p-4 text-red-500 text-xs">Error loading offers.</div>`;
             }
         }
-
         window.generateAndCopyLink = (baseUrl, inputId) => {
             const subInput = document.getElementById(inputId);
             const subVal = subInput ? subInput.value.trim() : "";
@@ -331,32 +329,32 @@
         document.addEventListener('DOMContentLoaded', initDashboard);
     </script>
 </head>
-<body class="h-full bg-slate-100 font-sans text-slate-800">
+<body class="h-full bg-gray-100 font-sans text-gray-800">
     <!-- Toast Notification -->
-    <div id="fixedToast" style="opacity:0; transform:translateY(20px);" class="fixed bottom-6 right-6 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl text-xs font-bold transition-all duration-300 z-50 pointer-events-none"></div>
+    <div id="fixedToast" style="opacity:0; transform:translateY(20px);" class="fixed bottom-6 right-6 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-2xl text-xs font-bold transition-all duration-300 z-50 pointer-events-none"></div>
 
     <!-- Custom Withdrawal Modal -->
-    <div id="payoutModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+    <div id="payoutModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-200">
             <div class="flex justify-between items-center border-b pb-3 mb-4">
-                <h3 class="font-extrabold text-base text-slate-900">Request Withdrawal</h3>
-                <button type="button" onclick="closePayoutModal()" class="text-slate-400 hover:text-slate-700 font-bold text-lg cursor-pointer">&times;</button>
+                <h3 class="font-extrabold text-base text-gray-900">Request Withdrawal</h3>
+                <button type="button" onclick="closePayoutModal()" class="text-gray-400 hover:text-gray-700 font-bold text-lg cursor-pointer">&times;</button>
             </div>
             <form onsubmit="submitPayoutRequest(event)" class="space-y-4 text-xs">
                 <div class="bg-blue-50 p-3 rounded-xl flex justify-between items-center">
-                    <span class="font-bold text-slate-600">Available Wallet Balance:</span>
+                    <span class="font-bold text-gray-600">Available Wallet Balance:</span>
                     <span id="modalAvailBal" class="font-black text-base text-blue-700">₹0</span>
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1 uppercase">Withdrawal Amount (₹)</label>
-                    <input type="number" id="withdrawAmount" min="100" class="w-full border border-slate-300 p-3 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500" required>
+                    <label class="block font-bold text-gray-600 mb-1 uppercase">Withdrawal Amount (₹)</label>
+                    <input type="number" id="withdrawAmount" min="100" class="w-full border border-gray-300 p-3 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500" required>
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1 uppercase">UPI ID / Bank Account Details</label>
-                    <input type="text" id="withdrawMethod" placeholder="e.g. 9479532362@ybl or Bank A/C + IFSC" class="w-full border border-slate-300 p-3 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-blue-500" required>
+                    <label class="block font-bold text-gray-600 mb-1 uppercase">UPI ID / Bank Account Details</label>
+                    <input type="text" id="withdrawMethod" placeholder="e.g. 9479532362@ybl or Bank A/C + IFSC" class="w-full border border-gray-300 p-3 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-blue-500" required>
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
-                    <button type="button" onclick="closePayoutModal()" class="px-4 py-2.5 rounded-xl font-bold text-slate-600 hover:bg-slate-100 cursor-pointer">Cancel</button>
+                    <button type="button" onclick="closePayoutModal()" class="px-4 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100 cursor-pointer">Cancel</button>
                     <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-bold shadow cursor-pointer">Submit Request</button>
                 </div>
             </form>
@@ -365,12 +363,12 @@
 
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
-        <aside class="w-64 bg-white border-r flex flex-col shrink-0">
+        <aside class="w-64 bg-white border-r flex flex-col flex-shrink-0">
             <div class="p-5 border-b flex items-center space-x-3">
                 <div class="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white text-sm">AWH</div>
                 <div>
-                    <h2 class="font-bold text-slate-900 text-sm">AffiliateWealthHub</h2>
-                    <span class="text-[10px] text-slate-400 block font-bold uppercase">Partner Portal</span>
+                    <h2 class="font-bold text-gray-900 text-sm">AffiliateWealthHub</h2>
+                    <span class="text-xs text-gray-400 block font-bold uppercase">Partner Portal</span>
                 </div>
             </div>
             
@@ -378,8 +376,178 @@
                 <button type="button" onclick="switchTab('tab-dashboard', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 bg-blue-600 text-white rounded-lg transition text-left shadow-sm cursor-pointer">
                     <span>📊 Dashboard</span>
                 </button>
-                <button type="button" onclick="switchTab('tab-offers', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
+                <button type="button" onclick="switchTab('tab-offers', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
                     <span>🎁 Offers</span>
                 </button>
-                <button type="button" onclick="switchTab('tab-clicks', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
-                    <span>🖱️ Click & Lead Repor
+                <button type="button" onclick="switchTab('tab-clicks', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
+                    <span>🖱️ Click & Lead Reports</span>
+                </button>
+                <button type="button" onclick="switchTab('tab-earnings', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
+                    <span>💰 My Earnings</span>
+                </button>
+                <button type="button" onclick="switchTab('tab-payouts', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
+                    <span>💳 My Payouts</span>
+                </button>
+                <button type="button" onclick="switchTab('tab-profile', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
+                    <span>⚙️ Profile</span>
+                </button>
+            </div>
+
+            <!-- Account Manager Card -->
+            <div class="p-4 m-3 bg-gray-900 text-white rounded-xl text-xs space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="font-bold text-blue-400 text-xs uppercase">Account Manager</span>
+                    <span class="h-2 w-2 rounded-full bg-green-500"></span>
+                </div>
+                <div>
+                    <p class="font-bold text-sm">Arun Rathore</p>
+                    <p class="text-gray-300 text-xs mt-0.5">📞 +91 9479532362</p>
+                    <p class="text-gray-400 text-xs truncate">✉️ arunrathor701@gmail.com</p>
+                </div>
+                <a href="https://wa.me/919479532362" target="_blank" class="w-full bg-green-600 hover:bg-green-700 text-white block text-center py-2 rounded-lg font-bold transition">
+                    💬 WhatsApp Support
+                </a>
+            </div>
+
+            <div class="p-3 border-t">
+                <button type="button" onclick="logout()" class="w-full px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition text-xs font-semibold text-left cursor-pointer">Exit / Logout</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-y-auto">
+            <header class="bg-white border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+                <div>
+                    <h1 class="text-lg font-bold text-gray-900">Partner Dashboard</h1>
+                    <p class="text-xs text-gray-500">Welcome back, <span class="pubNameDisplay font-semibold text-gray-800">Arun Rathore</span></p>
+                </div>
+                <div class="text-right">
+                    <span class="block text-xs text-gray-400 font-bold uppercase">Publisher ID</span>
+                    <span id="pubIdDisplay" class="font-bold text-gray-800 font-mono text-sm">662</span>
+                </div>
+            </header>
+
+            <main class="p-8 space-y-6 max-w-7xl mx-auto w-full">
+                <!-- 1. DASHBOARD -->
+                <div id="tab-dashboard" class="tab-content space-y-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div class="bg-white p-5 rounded-xl border">
+                            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Total Clicks</span>
+                            <div id="totalClicksDisplay" class="text-3xl font-black text-blue-600 mt-1">0</div>
+                        </div>
+                        <div class="bg-white p-5 rounded-xl border">
+                            <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Approved Leads</span>
+                            <div id="totalConvDisplay" class="text-3xl font-black text-green-600 mt-1">0</div>
+                        </div>
+                        <div class="bg-blue-600 text-white p-5 rounded-xl shadow-md">
+                            <span class="text-xs font-bold text-blue-200 uppercase tracking-wider block">Wallet Balance</span>
+                            <div id="walletBalance" class="text-3xl font-black mt-1">₹0</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl border">
+                        <h3 class="font-bold text-sm mb-4">Performance Overview</h3>
+                        <div class="h-64 w-full"><canvas id="perfChart"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- 2. OFFERS -->
+                <div id="tab-offers" class="tab-content hidden space-y-4">
+                    <h2 class="font-bold text-base text-gray-900">Available Offers</h2>
+                    <div id="offersList" class="bg-white rounded-xl border divide-y"></div>
+                </div>
+
+                <!-- 3. CLICKS & LEAD REPORTS -->
+                <div id="tab-clicks" class="tab-content hidden space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="font-bold text-base text-gray-900">Clicks & Lead Reports</h2>
+                            <p class="text-xs text-gray-500">Real-time tracking of date, Click ID, Sub-ID & approval status.</p>
+                        </div>
+                        <button type="button" onclick="exportCSV('clicks_report.csv', cachedClicks)" class="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer">
+                            📥 Export CSV
+                        </button>
+                    </div>
+                    <div class="bg-white rounded-xl border overflow-hidden">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="border-b bg-gray-50 text-gray-600 font-bold">
+                                    <th class="p-3">Date & Time</th>
+                                    <th class="p-3">Click ID</th>
+                                    <th class="p-3">Offer</th>
+                                    <th class="p-3">Sub ID</th>
+                                    <th class="p-3">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clicksTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 4. MY EARNINGS -->
+                <div id="tab-earnings" class="tab-content hidden space-y-4">
+                    <div class="bg-white p-6 rounded-xl border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <span class="text-xs font-semibold text-gray-400 block uppercase">Available Balance</span>
+                            <div id="totalEarnings" class="text-4xl font-black text-green-600 mt-1">₹0</div>
+                        </div>
+                        <button type="button" onclick="openPayoutModal()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow transition cursor-pointer">
+                            Request Payout
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 5. MY PAYOUTS -->
+                <div id="tab-payouts" class="tab-content hidden space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h2 class="font-bold text-base text-gray-900">Payout History</h2>
+                        <div class="flex gap-2">
+                            <button type="button" onclick="openPayoutModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer">
+                                + New Request
+                            </button>
+                            <button type="button" onclick="exportCSV('payouts_report.csv', cachedPayouts)" class="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer">
+                                📥 Export CSV
+                            </button>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl border overflow-hidden">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="border-b bg-gray-50 text-gray-600 font-bold">
+                                    <th class="p-3">Date</th>
+                                    <th class="p-3">Amount</th>
+                                    <th class="p-3">Method</th>
+                                    <th class="p-3">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payoutsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 6. PROFILE -->
+                <div id="tab-profile" class="tab-content hidden max-w-xl">
+                    <div class="bg-white p-6 rounded-xl border space-y-4">
+                        <h2 class="font-bold text-base border-b pb-3 text-gray-900">Publisher Profile Details</h2>
+                        <form onsubmit="saveProfile(event)" class="space-y-4 text-xs">
+                            <div>
+                                <label class="block font-bold text-gray-500 mb-1 uppercase">Publisher ID</label>
+                                <input type="text" id="profilePubId" class="w-full border p-3 rounded-lg bg-gray-100 font-mono font-bold text-gray-600 cursor-not-allowed" readonly>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-gray-500 mb-1 uppercase">Full Name</label>
+                                <input type="text" id="profileName" class="w-full border p-3 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-semibold" required>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-gray-500 mb-1 uppercase">Email Address</label>
+                                <input type="email" id="profileEmail" class="w-full border p-3 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed" readonly>
+                            </div>
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-bold transition cursor-pointer">Update Name</button>
+                        </form>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+</body>
+</html>
