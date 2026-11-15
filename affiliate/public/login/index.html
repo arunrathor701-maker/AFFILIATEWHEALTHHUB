@@ -1,17 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-slate-50">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AffiliateWealthHub - Login & Register</title>
+    <title>Login - AffiliateWealthHub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
+            apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw"
             authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
             projectId: "affiliatewealthhub-542e0",
             storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
@@ -24,133 +24,80 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        setPersistence(auth, browserLocalPersistence);
-
-        window.toggleForm = (type) => {
-            const loginSec = document.getElementById('loginSection');
-            const regSec = document.getElementById('registerSection');
-            const msgBox = document.getElementById('msgBox');
-            if(msgBox) msgBox.innerText = "";
-            if (type === 'register') {
-                loginSec.classList.add('hidden');
-                regSec.classList.remove('hidden');
-            } else {
-                regSec.classList.add('hidden');
-                loginSec.classList.remove('hidden');
-            }
-        };
-
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        window.handleLogin = async (e) => {
             e.preventDefault();
-            const email = document.getElementById('loginEmail').value.trim();
-            const pass = document.getElementById('loginPass').value;
-            const msg = document.getElementById('msgBox');
-            msg.className = "text-center text-sm text-blue-600 font-semibold mt-3";
-            msg.innerText = "Logging in...";
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('submitBtn');
+            const errDiv = document.getElementById('errorDiv');
+            
+            errDiv.classList.add('hidden');
+            btn.disabled = true;
+            btn.innerHTML = `
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Authenticating...
+            `;
 
             try {
-                const cred = await signInWithEmailAndPassword(auth, email, pass);
-                const userSnap = await getDoc(doc(db, "users", cred.user.uid));
-                const userData = userSnap.exists() ? userSnap.data() : { email: email, name: "Publisher", role: "publisher" };
-
-                localStorage.setItem("awh_user", JSON.stringify({
-                    uid: cred.user.uid,
-                    email: email,
-                    name: userData.name || "Publisher",
-                    role: email === "arunrathor701@gmail.com" ? "admin" : (userData.role || "publisher"),
-                    publisherId: userData.publisherId || Math.floor(100 + Math.random() * 900)
-                }));
-
-                if (email === "arunrathor701@gmail.com" || userData.role === "admin") {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                const userData = userDoc.exists() ? userDoc.data() : { name: user.displayName || "Publisher", role: "publisher", publisherId: "662" };
+                
+                const sessionData = {
+                    uid: user.uid,
+                    email: user.email,
+                    name: userData.name,
+                    role: userData.role || "publisher",
+                    publisherId: userData.publisherId || "662"
+                };
+                
+                localStorage.setItem("awh_user", JSON.stringify(sessionData));
+                
+                if (sessionData.role === "admin" || sessionData.email === "arunrathor701@gmail.com") {
                     window.location.replace("/affiliate/public/admin/index.html");
                 } else {
                     window.location.replace("/affiliate/public/dashboard/index.html");
                 }
             } catch (err) {
-                msg.className = "text-center text-sm text-red-600 font-semibold mt-3";
-                msg.innerText = err.message;
+                errDiv.innerText = err.message.replace("Firebase: ", "");
+                errDiv.classList.remove('hidden');
+                btn.disabled = false;
+                btn.innerHTML = "Sign In";
             }
-        });
-
-        document.getElementById('registerForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const name = document.getElementById('regName').value.trim();
-            const email = document.getElementById('regEmail').value.trim();
-            const pass = document.getElementById('regPass').value;
-            const msg = document.getElementById('msgBox');
-            msg.className = "text-center text-sm text-blue-600 font-semibold mt-3";
-            msg.innerText = "Creating account...";
-
-            try {
-                const cred = await createUserWithEmailAndPassword(auth, email, pass);
-                const pubId = Math.floor(100 + Math.random() * 900);
-                const role = email === "arunrathor701@gmail.com" ? "admin" : "publisher";
-
-                await setDoc(doc(db, "users", cred.user.uid), {
-                    uid: cred.user.uid,
-                    name: name,
-                    email: email,
-                    publisherId: pubId,
-                    role: role,
-                    balance: 0,
-                    status: "approved",
-                    createdAt: new Date().toISOString()
-                });
-
-                localStorage.setItem("awh_user", JSON.stringify({ uid: cred.user.uid, email, name, role, publisherId: pubId }));
-                window.location.replace(role === "admin" ? "/affiliate/public/admin/index.html" : "/affiliate/public/dashboard/index.html");
-            } catch (err) {
-                msg.className = "text-center text-sm text-red-600 font-semibold mt-3";
-                msg.innerText = err.message;
-            }
-        });
+        };
     </script>
 </head>
-<body class="bg-blue-700 min-h-screen flex items-center justify-center p-4 font-sans">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-        <div class="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-center text-white">
-            <h1 class="text-2xl font-extrabold tracking-wide">AFFILIATE WEALTH HUB</h1>
-            <p class="text-xs text-blue-100 mt-1">CPA Network & Tracking Portal</p>
+<body class="h-full bg-slate-900 flex items-center justify-center p-4">
+    <div class="max-w-md w-full space-y-8 bg-slate-800 p-8 rounded-3xl shadow-2xl border border-slate-700">
+        <div class="text-center">
+            <div class="mx-auto h-16 w-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-white text-2xl shadow-lg shadow-blue-500/30 mb-4 border border-blue-400/20">AWH</div>
+            <h2 class="text-2xl font-black text-white tracking-tight">Welcome Back</h2>
+            <p class="text-xs text-slate-400 mt-1 font-medium">Access your AffiliateWealthHub Partner Portal</p>
         </div>
 
-        <div class="p-6">
-            <div id="loginSection">
-                <h2 class="text-xl font-bold text-slate-800 text-center mb-4">Publisher Login</h2>
-                <form id="loginForm" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-600 mb-1">Email Address</label>
-                        <input type="email" id="loginEmail" required class="w-full border rounded-lg px-3 py-2 text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-600 mb-1">Password</label>
-                        <input type="password" id="loginPass" required class="w-full border rounded-lg px-3 py-2 text-sm">
-                    </div>
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg shadow">Login</button>
-                </form>
-                <p class="text-center text-xs text-slate-500 mt-4">New here? <button type="button" onclick="toggleForm('register')" class="text-blue-600 font-bold">Register Account</button></p>
+        <form class="mt-8 space-y-5" onsubmit="handleLogin(event)">
+            <div id="errorDiv" class="hidden p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs text-center font-medium"></div>
+            <div>
+                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Email Address</label>
+                <input id="email" type="email" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition placeholder-slate-600" placeholder="name@domain.com">
             </div>
-
-            <div id="registerSection" class="hidden">
-                <h2 class="text-xl font-bold text-slate-800 text-center mb-4">Publisher Registration</h2>
-                <form id="registerForm" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-600 mb-1">Full Name</label>
-                        <input type="text" id="regName" required class="w-full border rounded-lg px-3 py-2 text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-600 mb-1">Email Address</label>
-                        <input type="email" id="regEmail" required class="w-full border rounded-lg px-3 py-2 text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-600 mb-1">Password</label>
-                        <input type="password" id="regPass" required minlength="6" class="w-full border rounded-lg px-3 py-2 text-sm">
-                    </div>
-                    <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg shadow">Register Account</button>
-                </form>
-                <p class="text-center text-xs text-slate-500 mt-4">Already have an account? <button type="button" onclick="toggleForm('login')" class="text-blue-600 font-bold">Login</button></p>
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider">Password</label>
+                </div>
+                <input id="password" type="password" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition placeholder-slate-600" placeholder="••••••••">
             </div>
-
-            <div id="msgBox"></div>
+            <div>
+                <button id="submitBtn" type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-blue-600/30 transition transform active:scale-95 text-sm">Sign In</button>
+            </div>
+        </form>
+        <div class="text-center pt-2 border-t border-slate-700/50">
+            <p class="text-xs text-slate-500">Need access? Contact your network administrator.</p>
         </div>
     </div>
 </body>
