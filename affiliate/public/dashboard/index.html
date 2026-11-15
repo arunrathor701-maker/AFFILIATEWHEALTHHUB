@@ -4,20 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AffiliateWealthHub - Partner Dashboard</title>
-    <!-- Tailwind CSS with fallback -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: { extend: { colors: { brand: { 50: '#eff6ff', 600: '#2563eb', 700: '#1d4ed8' } } } }
-        }
-    </script>
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, collection, getDocs, query, where, updateDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, collection, getDocs, query, where, updateDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDO06SrF0Y15lFcFhXwJIyDbGFsTuxoswY",
@@ -339,8 +331,10 @@
     </script>
 </head>
 <body class="h-full bg-slate-100 font-sans text-slate-800">
+    <!-- Toast Notification -->
     <div id="fixedToast" style="opacity:0; transform:translateY(20px);" class="fixed bottom-6 right-6 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl text-xs font-bold transition-all duration-300 z-50 pointer-events-none"></div>
 
+    <!-- Custom Withdrawal Modal -->
     <div id="payoutModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
             <div class="flex justify-between items-center border-b pb-3 mb-4">
@@ -369,11 +363,10 @@
     </div>
 
     <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
         <aside class="w-64 bg-white border-r flex flex-col shrink-0">
             <div class="p-5 border-b flex items-center space-x-3">
-                <div class="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white text-sm overflow-hidden">
-                    <img src="" alt="AWH" onerror="this.style.display='none'; this.parentElement.innerText='AWH';" class="w-full h-full object-cover">
-                </div>
+                <div class="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white text-sm">AWH</div>
                 <div>
                     <h2 class="font-bold text-slate-900 text-sm">AffiliateWealthHub</h2>
                     <span class="text-[10px] text-slate-400 block font-bold uppercase">Partner Portal</span>
@@ -383,3 +376,11 @@
             <div class="flex-1 py-4 px-3 space-y-1 text-xs font-semibold">
                 <button type="button" onclick="switchTab('tab-dashboard', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 bg-blue-600 text-white rounded-lg transition text-left shadow-sm cursor-pointer">
                     <span>📊 Dashboard</span>
+                </button>
+                <button type="button" onclick="switchTab('tab-offers', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
+                    <span>🎁 Offers</span>
+                </button>
+                <button type="button" onclick="switchTab('tab-clicks', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
+                    <span>🖱️ Click & Lead Reports</span>
+                </button>
+                <button type="button" onclick="
