@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Publisher Dashboard - AffiliateWealthHub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyD0O6SrF0Y15lFcFhXwJIyDbGFsTuxosw",
+            authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
+            projectId: "affiliatewealthhub-542e0",
+            storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
+            messagingSenderId: "1088047960863",
+            appId: "1:1088047960863:web:bd7fe0e8e0404fdf9bb562a",
+            measurementId: "G-PX59VJN9TK"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentPublisherId = "";
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (userDoc.exists()) {
+                    const data = userDoc.data();
+                    currentPublisherId = data.publisherId || "N/A";
+                    document.getElementById('pubName').innerText = data.name;
+                    document.getElementById('pubEmail').innerText = data.email;
+                    document.getElementById('pubIdDisplay').innerText = currentPublisherId;
+                    document.getElementById('walletBalance').innerText = `₹${data.balance || 0}`;
+                }
+            } else {
+                window.location.href = "/affiliate/public/login/index.html";
+            }
+        });
+
+        window.logout = () => {
+            signOut(auth).then(() => {
+                window.location.href = "/affiliate/public/login/index.html";
+            });
+        };
+
+        window.generateLink = (offerId, offerName) => {
+            const trackingDomain = "https://affiliatewealthhub.online";
+            const trackingLink = `${trackingDomain}/go/index.html?oid=${offerId}&pid=${currentPublisherId}`;
+            
+            const modal = document.getElementById('linkModal');
+            document.getElementById('modalOfferName').innerText = offerName;
+            document.getElementById('trackingLinkInput').value = trackingLink;
+            modal.classList.remove('hidden');
+        };
+
+        window.closeModal = () => {
+            document.getElementById('linkModal').classList.add('hidden');
+        };
+
+        window.copyLink = () => {
+            const input = document.getElementById('trackingLinkInput');
+            input.select();
+            document.execCommand('copy');
+            alert("Tracking link copied to clipboard!");
+        };
+    </script>
+</head>
+<body class="bg-slate-100 min-h-screen font-sans">
+    <!-- Navbar -->
+    <nav class="bg-slate-900 text-white px-6 py-4 shadow-md flex justify-between items-center">
+        <div class="flex items-center space-x-3">
+            <span class="bg-blue-600 text-white font-bold p-2 rounded-lg">AWH</span>
+            <div>
+                <h1 class="font-bold text-lg leading-none">AffiliateWealthHub</h1>
+                <span class="text-xs text-slate-400">Publisher Portal</span>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div class="text-right hidden md:block">
+                <div id="pubName" class="font-semibold text-sm">Loading...</div>
+                <div id="pubEmail" class="text-xs text-slate-400">Loading...</div>
+            </div>
+            <button onclick="logout()" class="bg-red-600 hover:bg-red-700 text-sm px-4 py-2 rounded-lg font-medium transition">Logout</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="p-6 max-w-6xl mx-auto space-y-6">
+        <!-- Stats Row -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg">
+                <h3 class="text-emerald-100 font-medium text-sm">Wallet Balance</h3>
+                <div id="walletBalance" class="text-3xl font-bold mt-2">₹0</div>
+            </div>
+            <div class="bg-white rounded-2xl p-6 shadow-md border border-slate-200">
+                <h3 class="text-slate-500 font-medium text-sm">Your Publisher ID</h3>
+                <div id="pubIdDisplay" class="text-3xl font-bold text-slate-800 mt-2">000</div>
+            </div>
+            <div class="bg-white rounded-2xl p-6 shadow-md border border-slate-200 flex items-center justify-between">
+                <div>
+                    <h3 class="text-slate-500 font-medium text-sm">Account Status</h3>
+                    <span class="inline-block mt-2 px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full uppercase">Approved</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Offers Section -->
+        <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+            <div class="p-6 border-b border-slate-100 flex justify-between items-center">
+                <h2 class="text-xl font-bold text-slate-800">Active Campaigns</h2>
+                <span class="text-xs text-slate-400">Click 'Get Link' to promote</span>
+            </div>
+            <div class="divide-y divide-slate-100">
+                <!-- Offer 1 -->
+                <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition">
+                    <div>
+                        <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded">FINANCIAL</span>
+                        <h3 class="font-bold text-lg text-slate-800 mt-1">Upstox Demat Account</h3>
+                        <p class="text-sm text-slate-500">Instant payout on successful account opening.</p>
+                    </div>
+                    <div class="flex items-center justify-between md:space-x-6">
+                        <div class="text-right md:text-left">
+                            <span class="text-xs text-slate-400 block">Payout</span>
+                            <span class="font-bold text-emerald-600 text-lg">₹400 / Lead</span>
+                        </div>
+                        <button onclick="generateLink('57', 'Upstox Demat Account')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm shadow-md transition">Get Link</button>
+                    </div>
+                </div>
+                <!-- Offer 2 -->
+                <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition">
+                    <div>
+                        <span class="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded">INSTANT</span>
+                        <h3 class="font-bold text-lg text-slate-800 mt-1">Angel One NXT</h3>
+                        <p class="text-sm text-slate-500">Trade within 7 days for validation.</p>
+                    </div>
+                    <div class="flex items-center justify-between md:space-x-6">
+                        <div class="text-right md:text-left">
+                            <span class="text-xs text-slate-400 block">Payout</span>
+                            <span class="font-bold text-emerald-600 text-lg">₹550 / Lead</span>
+                        </div>
+                        <button onclick="generateLink('58', 'Angel One NXT')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm shadow-md transition">Get Link</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal for Link Generation -->
+    <div id="linkModal" class="fixed inset-0 bg-slate-900 bg-opacity-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 id="modalOfferName" class="font-bold text-lg text-slate-800">Offer Name</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 font-bold p-1">✕</button>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Your Unique Tracking Link</label>
+                <div class="flex">
+                    <input type="text" id="trackingLinkInput" readonly class="w-full bg-slate-100 border rounded-l-lg px-3 py-2 text-sm text-slate-600 focus:outline-none">
+                    <button onclick="copyLink()" class="bg-slate-900 hover:bg-slate-800 text-white px-4 rounded-r-lg font-semibold text-sm">Copy</button>
+                </div>
+            </div>
+            <p class="text-xs text-slate-400 leading-relaxed">Share this link directly on your social media or website. Clicks and conversions will be tracked automatically.</p>
+        </div>
+    </div>
+</body>
+</html>
