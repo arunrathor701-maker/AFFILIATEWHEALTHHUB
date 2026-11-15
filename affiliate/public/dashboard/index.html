@@ -8,7 +8,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
@@ -40,43 +40,61 @@
             document.getElementById('pubIdDisplay').innerText = currentPublisherId;
 
             if (savedUser.uid) {
-                const userDoc = await getDoc(doc(db, "users", savedUser.uid));
-                if (userDoc.exists()) {
-                    const data = userDoc.data();
-                    currentPublisherId = data.publisherId || currentPublisherId;
-                    document.getElementById('pubName').innerText = data.name || savedUser.name;
-                    document.getElementById('pubIdDisplay').innerText = currentPublisherId;
-                    document.getElementById('walletBalance').innerText = `₹${data.balance || 0}`;
+                try {
+                    const userDoc = await getDoc(doc(db, "users", savedUser.uid));
+                    if (userDoc.exists()) {
+                        const data = userDoc.data();
+                        currentPublisherId = data.publisherId || currentPublisherId;
+                        document.getElementById('pubName').innerText = data.name || savedUser.name;
+                        document.getElementById('pubIdDisplay').innerText = currentPublisherId;
+                        document.getElementById('walletBalance').innerText = `₹${data.balance || 0}`;
+                    }
+                } catch (e) {
+                    console.error("User profile fetch error:", e);
                 }
             }
-            loadCampaigns();
+            listenLiveCampaigns();
         }
 
-        async function loadCampaigns() {
+        // Real-Time Live Campaigns Listener (Admin se add hote hi turant dikhega)
+        function listenLiveCampaigns() {
             const container = document.getElementById('offersContainer');
-            const snap = await getDocs(collection(db, "offers"));
-            if (!snap.empty) {
+            onSnapshot(collection(db, "offers"), (snap) => {
+                if (snap.empty) {
+                    container.innerHTML = `<div class="p-6 text-center text-sm text-slate-500">No active campaigns available right now.</div>`;
+                    return;
+                }
                 container.innerHTML = "";
                 snap.forEach((docSnap) => {
                     const o = docSnap.data();
+                    if (o.status && o.status !== "active") return;
+
+                    const safeName = (o.name || "Campaign").replace(/'/g, "\\'");
+                    const oid = o.offerId || docSnap.id;
+
                     container.innerHTML += `
                         <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition">
                             <div>
-                                <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded">${o.category || 'FINANCIAL'}</span>
-                                <h3 class="font-bold text-lg text-slate-800 mt-1">${o.name}</h3>
+                                <div class="flex items-center space-x-2">
+                                    <span class="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-semibold rounded uppercase">${o.category || 'FINANCIAL'}</span>
+                                    <span class="text-xs text-slate-400 font-mono">#${oid}</span>
+                                </div>
+                                <h3 class="font-bold text-lg text-slate-800 mt-1">${o.name || 'Untitled Offer'}</h3>
                                 <p class="text-sm text-slate-500">${o.description || 'Complete KYC & follow campaign steps.'}</p>
                             </div>
                             <div class="flex items-center justify-between md:space-x-6">
                                 <div class="text-right md:text-left">
                                     <span class="text-xs text-slate-400 block">Payout</span>
-                                    <span class="font-bold text-emerald-600 text-lg">₹${o.payout} / Lead</span>
+                                    <span class="font-bold text-emerald-600 text-lg">₹${o.payout || 0} / Lead</span>
                                 </div>
-                                <button onclick="generateLink('${o.offerId}', '${o.name}')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm shadow-md transition">Get Link</button>
+                                <button onclick="generateLink('${oid}', '${safeName}')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm shadow-md transition">Get Link</button>
                             </div>
                         </div>
                     `;
                 });
-            }
+            }, (error) => {
+                container.innerHTML = `<div class="p-6 text-center text-sm text-red-600">Error loading campaigns: ${error.message}</div>`;
+            });
         }
 
         window.logout = () => {
@@ -139,37 +157,10 @@
         <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
             <div class="p-6 border-b border-slate-100 flex justify-between items-center">
                 <h2 class="text-xl font-bold text-slate-800">Active Campaigns</h2>
-                <span class="text-xs text-slate-400">Click 'Get Link' to promote</span>
+                <span class="text-xs text-emerald-600 font-semibold">● Live Sync</span>
             </div>
             <div id="offersContainer" class="divide-y divide-slate-100">
-                <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition">
-                    <div>
-                        <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded">FINANCIAL</span>
-                        <h3 class="font-bold text-lg text-slate-800 mt-1">Upstox Demat Account</h3>
-                        <p class="text-sm text-slate-500">Instant payout on successful account opening.</p>
-                    </div>
-                    <div class="flex items-center justify-between md:space-x-6">
-                        <div class="text-right md:text-left">
-                            <span class="text-xs text-slate-400 block">Payout</span>
-                            <span class="font-bold text-emerald-600 text-lg">₹400 / Lead</span>
-                        </div>
-                        <button onclick="generateLink('57', 'Upstox Demat Account')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm shadow-md transition">Get Link</button>
-                    </div>
-                </div>
-                <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition">
-                    <div>
-                        <span class="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded">INSTANT</span>
-                        <h3 class="font-bold text-lg text-slate-800 mt-1">Angel One NXT</h3>
-                        <p class="text-sm text-slate-500">Trade within 7 days for validation.</p>
-                    </div>
-                    <div class="flex items-center justify-between md:space-x-6">
-                        <div class="text-right md:text-left">
-                            <span class="text-xs text-slate-400 block">Payout</span>
-                            <span class="font-bold text-emerald-600 text-lg">₹550 / Lead</span>
-                        </div>
-                        <button onclick="generateLink('58', 'Angel One NXT')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm shadow-md transition">Get Link</button>
-                    </div>
-                </div>
+                <div class="p-6 text-center text-sm text-slate-400">Loading live campaigns...</div>
             </div>
         </div>
     </main>
