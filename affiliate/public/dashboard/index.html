@@ -8,7 +8,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
@@ -32,15 +32,16 @@
             initDashboard();
         }
 
-        let currentPublisherId = savedUser ? savedUser.publisherId : "000";
+        let currentPublisherId = savedUser ? savedUser.publisherId : "662";
+        let activeOfferId = "";
 
         async function initDashboard() {
             document.getElementById('pubName').innerText = savedUser.name || "Publisher";
             document.getElementById('pubEmail').innerText = savedUser.email || "";
             document.getElementById('pubIdDisplay').innerText = currentPublisherId;
 
-            if (savedUser.uid) {
-                try {
+            try {
+                if (savedUser.uid) {
                     const userDoc = await getDoc(doc(db, "users", savedUser.uid));
                     if (userDoc.exists()) {
                         const data = userDoc.data();
@@ -49,52 +50,63 @@
                         document.getElementById('pubIdDisplay').innerText = currentPublisherId;
                         document.getElementById('walletBalance').innerText = `₹${data.balance || 0}`;
                     }
-                } catch (e) {
-                    console.error("User profile fetch error:", e);
+                } else if (savedUser.email) {
+                    const q = query(collection(db, "users"), where("email", "==", savedUser.email));
+                    const qSnap = await getDocs(q);
+                    if (!qSnap.empty) {
+                        const data = qSnap.docs[0].data();
+                        currentPublisherId = data.publisherId || currentPublisherId;
+                        document.getElementById('pubIdDisplay').innerText = currentPublisherId;
+                        document.getElementById('walletBalance').innerText = `₹${data.balance || 0}`;
+                    }
                 }
+            } catch (e) {
+                console.error("Profile error:", e);
             }
-            listenLiveCampaigns();
+
+            await loadCampaigns();
         }
 
-        // Real-Time Live Campaigns Listener (Admin se add hote hi turant dikhega)
-        function listenLiveCampaigns() {
+        async function loadCampaigns() {
             const container = document.getElementById('offersContainer');
-            onSnapshot(collection(db, "offers"), (snap) => {
+            try {
+                const snap = await getDocs(collection(db, "offers"));
+                container.innerHTML = "";
                 if (snap.empty) {
                     container.innerHTML = `<div class="p-6 text-center text-sm text-slate-500">No active campaigns available right now.</div>`;
                     return;
                 }
-                container.innerHTML = "";
                 snap.forEach((docSnap) => {
                     const o = docSnap.data();
-                    if (o.status && o.status !== "active") return;
-
-                    const safeName = (o.name || "Campaign").replace(/'/g, "\\'");
                     const oid = o.offerId || docSnap.id;
+                    const name = o.name || "Campaign";
+                    const payout = o.payout || 0;
+                    const cat = (o.category || "FINANCIAL").toUpperCase();
+                    const desc = o.description || "Complete campaign steps.";
 
                     container.innerHTML += `
                         <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition">
                             <div>
                                 <div class="flex items-center space-x-2">
-                                    <span class="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-semibold rounded uppercase">${o.category || 'FINANCIAL'}</span>
+                                    <span class="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-semibold rounded uppercase">${cat}</span>
                                     <span class="text-xs text-slate-400 font-mono">#${oid}</span>
                                 </div>
-                                <h3 class="font-bold text-lg text-slate-800 mt-1">${o.name || 'Untitled Offer'}</h3>
-                                <p class="text-sm text-slate-500">${o.description || 'Complete KYC & follow campaign steps.'}</p>
+                                <h3 class="font-bold text-lg text-slate-800 mt-1">${name}</h3>
+                                <p class="text-sm text-slate-500">${desc}</p>
                             </div>
                             <div class="flex items-center justify-between md:space-x-6">
                                 <div class="text-right md:text-left">
                                     <span class="text-xs text-slate-400 block">Payout</span>
-                                    <span class="font-bold text-emerald-600 text-lg">₹${o.payout || 0} / Lead</span>
+                                    <span class="font-bold text-emerald-600 text-lg">₹${payout} / Lead</span>
                                 </div>
-                                <button onclick="generateLink('${oid}', '${safeName}')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm shadow-md transition">Get Link</button>
+                                <button onclick="generateLink('${oid}', '${name.replace(/'/g, "\\'")}')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm shadow-md transition">Get Link</button>
                             </div>
                         </div>
                     `;
                 });
-            }, (error) => {
-                container.innerHTML = `<div class="p-6 text-center text-sm text-red-600">Error loading campaigns: ${error.message}</div>`;
-            });
+            } catch (err) {
+                container.innerHTML = `<div class="p-6 text-center text-sm text-red-600 font-semibold">Error: ${err.message}</div>`;
+            }
         }
 
         window.logout = () => {
@@ -103,10 +115,20 @@
         };
 
         window.generateLink = (offerId, offerName) => {
-            const trackingLink = `https://affiliatewealthhub.online/go/index.html?oid=${offerId}&pid=${currentPublisherId}`;
+            activeOfferId = offerId;
             document.getElementById('modalOfferName').innerText = offerName;
-            document.getElementById('trackingLinkInput').value = trackingLink;
+            document.getElementById('subIdInput').value = "";
+            updateTrackingLink();
             document.getElementById('linkModal').classList.remove('hidden');
+        };
+
+        window.updateTrackingLink = () => {
+            const subId = document.getElementById('subIdInput').value.trim();
+            let trackingLink = `https://affiliatewealthhub.online/go/index.html?oid=${activeOfferId}&pid=${currentPublisherId}`;
+            if (subId) {
+                trackingLink += `&sub1=${encodeURIComponent(subId)}`;
+            }
+            document.getElementById('trackingLinkInput').value = trackingLink;
         };
 
         window.closeModal = () => document.getElementById('linkModal').classList.add('hidden');
@@ -144,7 +166,7 @@
             </div>
             <div class="bg-white rounded-2xl p-6 shadow-md border border-slate-200">
                 <h3 class="text-slate-500 font-medium text-sm">Your Publisher ID</h3>
-                <div id="pubIdDisplay" class="text-3xl font-bold text-slate-800 mt-2">000</div>
+                <div id="pubIdDisplay" class="text-3xl font-bold text-slate-800 mt-2">662</div>
             </div>
             <div class="bg-white rounded-2xl p-6 shadow-md border border-slate-200 flex items-center justify-between">
                 <div>
@@ -157,7 +179,7 @@
         <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
             <div class="p-6 border-b border-slate-100 flex justify-between items-center">
                 <h2 class="text-xl font-bold text-slate-800">Active Campaigns</h2>
-                <span class="text-xs text-emerald-600 font-semibold">● Live Sync</span>
+                <button onclick="location.reload()" class="text-xs bg-slate-200 hover:bg-slate-300 px-3 py-1 rounded font-semibold">Refresh Offers</button>
             </div>
             <div id="offersContainer" class="divide-y divide-slate-100">
                 <div class="p-6 text-center text-sm text-slate-400">Loading live campaigns...</div>
@@ -165,11 +187,17 @@
         </div>
     </main>
 
+    <!-- Tracking Link Modal with Sub ID -->
     <div id="linkModal" class="fixed inset-0 bg-slate-900 bg-opacity-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
                 <h3 id="modalOfferName" class="font-bold text-lg text-slate-800">Offer Name</h3>
                 <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 font-bold p-1">✕</button>
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Team / Sub ID (Optional)</label>
+                <input type="text" id="subIdInput" oninput="updateTrackingLink()" placeholder="e.g. team_rahul or source1" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-blue-500">
+                <p class="text-[11px] text-slate-400 mt-1">Apni team member ka naam ya code likhein — link apne aap update ho jayega.</p>
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Your Unique Tracking Link</label>
