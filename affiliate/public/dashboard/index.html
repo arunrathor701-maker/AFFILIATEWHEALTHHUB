@@ -1,14 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hi" class="h-full bg-slate-100">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Publisher Dashboard - AffiliateWealthHub</title>
+    <title>Affilentra Style Dashboard - AffiliateWealthHub</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, collection, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
@@ -24,191 +25,306 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        window.currentPublisherId = "662";
-        window.activeOfferId = "";
-
-        const savedUser = JSON.parse(localStorage.getItem("awh_user") || "null");
-        if (!savedUser) {
-            window.location.replace("/affiliate/public/login/index.html");
-        } else {
-            if (savedUser.publisherId) window.currentPublisherId = String(savedUser.publisherId);
-            document.getElementById('dashBody').classList.remove('hidden');
-            initDashboard();
-        }
+        let currentUser = JSON.parse(localStorage.getItem("awh_user") || "null");
 
         async function initDashboard() {
-            document.getElementById('pubName').innerText = savedUser.name || "Publisher";
-            document.getElementById('pubEmail').innerText = savedUser.email || "";
-            document.getElementById('pubIdDisplay').innerText = window.currentPublisherId;
-
-            try {
-                if (savedUser.uid) {
-                    const userDoc = await getDoc(doc(db, "users", savedUser.uid));
-                    if (userDoc.exists()) {
-                        const data = userDoc.data();
-                        if (data.publisherId) window.currentPublisherId = String(data.publisherId);
-                        document.getElementById('pubName').innerText = data.name || savedUser.name;
-                        document.getElementById('pubIdDisplay').innerText = window.currentPublisherId;
-                        document.getElementById('walletBalance').innerText = `₹${data.balance || 0}`;
-                    }
-                } else if (savedUser.email) {
-                    const q = query(collection(db, "users"), where("email", "==", savedUser.email));
-                    const qSnap = await getDocs(q);
-                    if (!qSnap.empty) {
-                        const data = qSnap.docs[0].data();
-                        if (data.publisherId) window.currentPublisherId = String(data.publisherId);
-                        document.getElementById('pubIdDisplay').innerText = window.currentPublisherId;
-                        document.getElementById('walletBalance').innerText = `₹${data.balance || 0}`;
-                    }
-                }
-            } catch (e) {
-                console.error("Profile error:", e);
+            if(!currentUser) {
+                window.location.replace("/affiliate/public/login/index.html");
+                return;
             }
-
-            await loadCampaigns();
+            updateUI();
+            loadOffers();
+            initChart();
         }
 
-        async function loadCampaigns() {
-            const container = document.getElementById('offersContainer');
+        function updateUI() {
+            document.querySelectorAll('.pubNameDisplay').forEach(el => el.innerText = currentUser.name || "Arun Rathore");
+            document.getElementById('pubIdDisplay').innerText = currentUser.publisherId || "955";
+            document.getElementById('pubEmailDisplay').innerText = currentUser.email || "arunrathor701@gmail.com";
+            
+            // Profile Form Fill
+            if(document.getElementById('profileName')) {
+                document.getElementById('profileName').value = currentUser.name || "";
+                document.getElementById('profileEmail').value = currentUser.email || "";
+            }
+
+            fetchBalance();
+        }
+
+        async function fetchBalance() {
+            try {
+                const userDoc = await getDoc(doc(db, "users", currentUser.uid || "dummy"));
+                if(userDoc.exists()) {
+                    const d = userDoc.data();
+                    document.getElementById('walletBalance').innerText = `₹${d.balance || 0}`;
+                    document.getElementById('totalEarnings').innerText = `₹${d.balance || 0}`;
+                }
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        async function loadOffers() {
+            const container = document.getElementById('offersList');
+            if(!container) return;
             try {
                 const snap = await getDocs(collection(db, "offers"));
                 container.innerHTML = "";
-                if (snap.empty) {
-                    container.innerHTML = `<div class="p-6 text-center text-sm text-slate-500">No active campaigns available right now.</div>`;
-                    return;
-                }
-                snap.forEach((docSnap) => {
+                snap.forEach(docSnap => {
                     const o = docSnap.data();
-                    const oid = o.offerId || docSnap.id;
-                    const name = o.name || "Campaign";
-                    const payout = o.payout || 0;
-                    const cat = (o.category || "FINANCIAL").toUpperCase();
-                    const desc = o.description || "Complete campaign steps.";
-
                     container.innerHTML += `
-                        <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition">
-                            <div>
-                                <div class="flex items-center space-x-2">
-                                    <span class="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-semibold rounded uppercase">${cat}</span>
-                                    <span class="text-xs text-slate-400 font-mono">#${oid}</span>
+                        <div class="p-4 bg-white border-b flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center font-bold text-blue-600 text-sm">
+                                    ${o.name ? o.name[0] : 'O'}
                                 </div>
-                                <h3 class="font-bold text-lg text-slate-800 mt-1">${name}</h3>
-                                <p class="text-sm text-slate-500">${desc}</p>
-                            </div>
-                            <div class="flex items-center justify-between md:space-x-6">
-                                <div class="text-right md:text-left">
-                                    <span class="text-xs text-slate-400 block">Payout</span>
-                                    <span class="font-bold text-emerald-600 text-lg">₹${payout} / Lead</span>
+                                <div>
+                                    <h4 class="font-bold text-slate-800 text-sm">${o.name || 'Campaign'}</h4>
+                                    <span class="text-xs text-slate-400">Category: ${o.category || 'Financial'} • Payout: ₹${o.payout || 0}</span>
                                 </div>
-                                <button onclick="generateLink('${oid}', '${name.replace(/'/g, "\\'")}')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm shadow-md transition">Get Link</button>
                             </div>
+                            <button onclick="alert('Tracking Link: https://affiliatewealthhub.online/go?oid=${docSnap.id}&pid=${currentUser.publisherId || 955}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-sm transition self-start md:self-auto">
+                                Get Link
+                            </button>
                         </div>
                     `;
                 });
-            } catch (err) {
-                container.innerHTML = `<div class="p-6 text-center text-sm text-red-600 font-semibold">Error: ${err.message}</div>`;
+            } catch(e) {
+                container.innerHTML = `<div class="p-6 text-center text-red-500 text-xs">Error loading campaigns.</div>`;
             }
         }
+
+        function initChart() {
+            const canvas = document.getElementById('analyticsChart');
+            if(!canvas) return;
+            const ctx = canvas.getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Nov 10', 'Nov 11', 'Nov 12', 'Nov 13', 'Nov 14', 'Nov 15', 'Nov 16'],
+                    datasets: [{
+                        label: 'Clicks',
+                        data: [0, 0, 1, 0, 2, 0, 4],
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }, {
+                        label: 'Conversions',
+                        data: [0, 0, 0, 0, 0, 0, 0],
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } } }
+            });
+        }
+
+        window.switchTab = (tabId) => {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            const activeTab = document.getElementById(tabId);
+            if(activeTab) activeTab.classList.remove('hidden');
+
+            document.querySelectorAll('.nav-link').forEach(el => {
+                el.classList.remove('bg-blue-600', 'text-white');
+                el.classList.add('text-slate-300', 'hover:bg-slate-800');
+            });
+            event.currentTarget.classList.remove('text-slate-300', 'hover:bg-slate-800');
+            event.currentTarget.classList.add('bg-blue-600', 'text-white');
+        };
+
+        window.saveProfile = async (e) => {
+            e.preventDefault();
+            const newName = document.getElementById('profileName').value;
+            try {
+                await updateDoc(doc(db, "users", currentUser.uid), { name: newName });
+                currentUser.name = newName;
+                localStorage.setItem("awh_user", JSON.stringify(currentUser));
+                updateUI();
+                alert("Profile updated successfully!");
+            } catch(err) {
+                alert("Error updating profile.");
+            }
+        };
 
         window.logout = () => {
             localStorage.removeItem("awh_user");
             signOut(auth).then(() => window.location.replace("/affiliate/public/login/index.html"));
         };
 
-        window.generateLink = (offerId, offerName) => {
-            window.activeOfferId = offerId;
-            document.getElementById('modalOfferName').innerText = offerName;
-            document.getElementById('subIdInput').value = "";
-            updateTrackingLink();
-            document.getElementById('linkModal').classList.remove('hidden');
-        };
-
-        window.updateTrackingLink = () => {
-            const subId = document.getElementById('subIdInput').value.trim();
-            let trackingLink = `https://affiliatewealthhub.online/go/index.html?oid=${window.activeOfferId}&pid=${window.currentPublisherId}`;
-            if (subId) {
-                trackingLink += `&sub1=${encodeURIComponent(subId)}`;
-            }
-            document.getElementById('trackingLinkInput').value = trackingLink;
-        };
-
-        window.closeModal = () => document.getElementById('linkModal').classList.add('hidden');
-
-        window.copyLink = () => {
-            const input = document.getElementById('trackingLinkInput');
-            navigator.clipboard.writeText(input.value);
-            alert("Tracking link copied!");
-        };
+        window.onload = initDashboard;
     </script>
 </head>
-<body id="dashBody" class="bg-slate-100 min-h-screen font-sans hidden">
-    <!-- Top Navbar with Your Custom Logo -->
-    <nav class="bg-slate-900 text-white px-6 py-3 shadow-md flex justify-between items-center">
-        <div class="flex items-center space-x-3">
-            <img src="./logo.jpg" alt="AWH Logo" class="h-12 w-12 rounded-full object-cover border-2 border-amber-400 shadow">
-            <div>
-                <h1 class="font-bold text-lg leading-none tracking-wide">AffiliateWealthHub</h1>
-                <span class="text-xs text-slate-400">Publisher Portal</span>
-            </div>
-        </div>
-        <div class="flex items-center space-x-4">
-            <div class="text-right hidden md:block">
-                <div id="pubName" class="font-semibold text-sm">Publisher</div>
-                <div id="pubEmail" class="text-xs text-slate-400"></div>
-            </div>
-            <button onclick="logout()" class="bg-red-600 hover:bg-red-700 text-sm px-4 py-2 rounded-lg font-medium transition">Logout</button>
-        </div>
-    </nav>
-
-    <main class="p-6 max-w-6xl mx-auto space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg">
-                <h3 class="text-emerald-100 font-medium text-sm">Wallet Balance</h3>
-                <div id="walletBalance" class="text-3xl font-bold mt-2">₹0</div>
-            </div>
-            <div class="bg-white rounded-2xl p-6 shadow-md border border-slate-200">
-                <h3 class="text-slate-500 font-medium text-sm">Your Publisher ID</h3>
-                <div id="pubIdDisplay" class="text-3xl font-bold text-slate-800 mt-2">662</div>
-            </div>
-            <div class="bg-white rounded-2xl p-6 shadow-md border border-slate-200 flex items-center justify-between">
+<body class="h-full bg-slate-100 font-sans text-slate-800">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0">
+            <div class="p-5 border-b border-slate-800 flex items-center space-x-3">
+                <div class="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center font-black text-white text-base">A</div>
                 <div>
-                    <h3 class="text-slate-500 font-medium text-sm">Account Status</h3>
-                    <span class="inline-block mt-2 px-3 py-1 bg-green-100 text-green-800 text-xs font-bold rounded-full uppercase">Approved</span>
+                    <h2 class="font-extrabold text-white text-sm tracking-tight">Affilentra</h2>
+                    <span class="text-[10px] text-slate-400 block">Affiliate Portal</span>
                 </div>
             </div>
-        </div>
+            
+            <div class="flex-1 overflow-y-auto py-4 px-3 space-y-6 text-xs font-semibold">
+                <div>
+                    <button onclick="switchTab('tab-dashboard')" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 bg-blue-600 text-white rounded-lg transition text-left">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                        <span>Dashboard</span>
+                    </button>
+                </div>
 
-        <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
-            <div class="p-6 border-b border-slate-100 flex justify-between items-center">
-                <h2 class="text-xl font-bold text-slate-800">Active Campaigns</h2>
-                <button onclick="location.reload()" class="text-xs bg-slate-200 hover:bg-slate-300 px-3 py-1 rounded font-semibold">Refresh Offers</button>
-            </div>
-            <div id="offersContainer" class="divide-y divide-slate-100">
-                <div class="p-6 text-center text-sm text-slate-400">Loading live campaigns...</div>
-            </div>
-        </div>
-    </main>
+                <div>
+                    <div class="px-3 py-1 text-slate-500 uppercase tracking-wider text-[10px]">AFFILIATE</div>
+                    <button onclick="switchTab('tab-offers')" class="nav-link w-full flex items-center space-x-3 px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left mt-1">Offers</button>
+                </div>
 
-    <!-- Tracking Link Modal with Sub ID -->
-    <div id="linkModal" class="fixed inset-0 bg-slate-900 bg-opacity-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h3 id="modalOfferName" class="font-bold text-lg text-slate-800">Offer Name</h3>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 font-bold p-1">✕</button>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Team / Sub ID (Optional)</label>
-                <input type="text" id="subIdInput" oninput="updateTrackingLink()" placeholder="e.g. team_rahul or source1" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:border-blue-500">
-                <p class="text-[11px] text-slate-400 mt-1">Apni team member ka naam ya code likhein.</p>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-500 uppercase mb-1">Your Unique Tracking Link</label>
-                <div class="flex">
-                    <input type="text" id="trackingLinkInput" readonly class="w-full bg-slate-100 border rounded-l-lg px-3 py-2 text-sm text-slate-600 focus:outline-none">
-                    <button onclick="copyLink()" class="bg-slate-900 hover:bg-slate-800 text-white px-4 rounded-r-lg font-semibold text-sm">Copy</button>
+                <div>
+                    <div class="px-3 py-1 text-slate-500 uppercase tracking-wider text-[10px]">REPORTS & FINANCE</div>
+                    <div class="space-y-1 mt-1">
+                        <button onclick="switchTab('tab-clicks')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Clicks Report</button>
+                        <button onclick="switchTab('tab-conversions')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Conversion Report</button>
+                        <button onclick="switchTab('tab-offer-perf')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Offer Performance</button>
+                        <button onclick="switchTab('tab-marker')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Marker Report</button>
+                        <button onclick="switchTab('tab-my-perf')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">My Performance</button>
+                        <button onclick="switchTab('tab-earnings')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">My Earnings</button>
+                        <button onclick="switchTab('tab-payouts')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Payouts</button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="px-3 py-1 text-slate-500 uppercase tracking-wider text-[10px]">SETTINGS</div>
+                    <div class="space-y-1 mt-1">
+                        <button onclick="switchTab('tab-notifications')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Notifications</button>
+                        <button onclick="switchTab('tab-profile')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Profile</button>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
-</body>
-</html>
+
+            <div class="p-3 border-t border-slate-800">
+                <button onclick="logout()" class="w-full flex items-center space-x-3 px-3 py-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition text-xs font-semibold">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="flex-1 flex flex-col overflow-y-auto">
+            <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
+                <div class="flex items-center space-x-4">
+                    <div class="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-xs pubNameDisplay">AR</div>
+                    <div>
+                        <h1 class="text-base font-extrabold text-slate-900">Affiliate Portal</h1>
+                        <p class="text-[11px] text-slate-500">Welcome back, <span class="pubNameDisplay font-bold text-slate-800">Arun Rathore</span></p>
+                    </div>
+                </div>
+                <div class="text-right flex items-center space-x-4">
+                    <div class="text-left text-xs">
+                        <span class="block text-slate-400 font-medium text-[10px]">PUBLISHER ID</span>
+                        <span id="pubIdDisplay" class="font-bold text-slate-800 font-mono">955</span>
+                    </div>
+                    <span class="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold uppercase">Approved</span>
+                </div>
+            </header>
+
+            <main class="p-6 space-y-6 max-w-7xl mx-auto w-full">
+                
+                <!-- 1. DASHBOARD TAB -->
+                <div id="tab-dashboard" class="tab-content space-y-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="bg-white p-5 rounded-xl border border-slate-200/60 shadow-xs">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">TOTAL CLICKS</span>
+                            <div class="text-2xl font-black text-slate-900 mt-1">4</div>
+                        </div>
+                        <div class="bg-white p-5 rounded-xl border border-slate-200/60 shadow-xs">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CONVERSION RATE</span>
+                            <div class="text-2xl font-black text-slate-900 mt-1">0%</div>
+                        </div>
+                        <div class="bg-white p-5 rounded-xl border border-slate-200/60 shadow-xs">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CONVERSIONS</span>
+                            <div class="text-2xl font-black text-slate-900 mt-1">0</div>
+                        </div>
+                        <div class="bg-white p-5 rounded-xl border border-slate-200/60 shadow-xs bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
+                            <span class="text-[11px] font-bold text-blue-200 uppercase tracking-wider block">WALLET BALANCE</span>
+                            <div id="walletBalance" class="text-2xl font-black mt-1">₹0</div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl border border-slate-200/60 shadow-xs">
+                        <h3 class="font-black text-slate-900 text-sm mb-4">Traffic & Performance</h3>
+                        <div class="h-72 w-full"><canvas id="analyticsChart"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- 2. OFFERS TAB -->
+                <div id="tab-offers" class="tab-content space-y-4 hidden bg-white rounded-xl border border-slate-200 shadow-xs">
+                    <div class="p-4 border-b bg-slate-50 font-bold text-sm">Available Offers</div>
+                    <div id="offersList" class="divide-y"></div>
+                </div>
+
+                <!-- 3. CLICKS REPORT TAB -->
+                <div id="tab-clicks" class="tab-content space-y-4 hidden bg-white p-6 rounded-xl border">
+                    <h2 class="font-bold text-lg">Clicks Report</h2>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <tr class="border-b bg-slate-50 text-slate-500 font-bold"><th class="p-2">Date</th><th class="p-2">Offer</th><th class="p-2">IP</th><th class="p-2">Status</th></tr>
+                            <tr class="border-b"><td class="p-2">15 Nov 2026</td><td class="p-2">Lemon</td><td class="p-2">1.187.220.48</td><td class="p-2 text-emerald-600">Clean</td></tr>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 4. CONVERSION REPORT TAB -->
+                <div id="tab-conversions" class="tab-content space-y-4 hidden bg-white p-6 rounded-xl border">
+                    <h2 class="font-bold text-lg">Converted Leads</h2>
+                    <p class="text-xs text-slate-400">No conversions recorded yet.</p>
+                </div>
+
+                <!-- 5. OFFER PERFORMANCE TAB -->
+                <div id="tab-offer-perf" class="tab-content space-y-4 hidden bg-white p-6 rounded-xl border">
+                    <h2 class="font-bold text-lg">Offer Performance</h2>
+                    <div class="text-xs text-slate-400">Campaign statistics breakdown.</div>
+                </div>
+
+                <!-- 6. MARKER REPORT TAB -->
+                <div id="tab-marker" class="tab-content space-y-4 hidden bg-white p-6 rounded-xl border">
+                    <h2 class="font-bold text-lg">Marker Report</h2>
+                    <p class="text-xs text-slate-400">No marker data found.</p>
+                </div>
+
+                <!-- 7. MY PERFORMANCE TAB -->
+                <div id="tab-my-perf" class="tab-content space-y-4 hidden bg-white p-6 rounded-xl border">
+                    <h2 class="font-bold text-lg">My Performance Overview</h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="p-4 bg-blue-50 rounded-lg"><span class="text-xs text-slate-500 block">Total Clicks</span><span class="text-xl font-bold">4</span></div>
+                        <div class="p-4 bg-emerald-50 rounded-lg"><span class="text-xs text-slate-500 block">Total Earnings</span><span id="totalEarnings" class="text-xl font-bold">₹0</span></div>
+                    </div>
+                </div>
+
+                <!-- 8. MY EARNINGS TAB -->
+                <div id="tab-earnings" class="tab-content space-y-4 hidden bg-white p-6 rounded-xl border">
+                    <h2 class="font-bold text-lg">My Earnings</h2>
+                    <div class="p-4 border rounded-lg flex justify-between items-center bg-slate-50">
+                        <div><span class="text-xs text-slate-400 block">Available Balance</span><span id="walletBalance" class="text-lg font-bold">₹0</span></div>
+                        <button onclick="alert('Minimum withdrawal threshold not met.')" class="bg-blue-600 text-white px-4 py-2 rounded text-xs font-bold">Request Withdrawal</button>
+                    </div>
+                </div>
+
+                <!-- 9. PAYOUTS TAB -->
+                <div id="tab-payouts" class="tab-content space-y-4 hidden bg-white p-6 rounded-xl border">
+                    <h2 class="font-bold text-lg">Payment History</h2>
+                    <p class="text-xs text-slate-400">No payout requests.</p>
+                </div>
+
+                <!-- 10. NOTIFICATIONS TAB -->
+                <div id="tab-notifications" class="tab-content space-y-4 hidden bg-white p-6 rounded-xl border">
+                    <h2 class="font-bold text-lg">Notifications</h2>
+                    <p class="text-xs text-slate-400">No new notifications.</p>
+                </div>
+
+                <!-- 11. PROFILE & ACCOUNT MANAGER TAB -->
+                <div id="tab-profile" class="tab-content space-y-6 hidden max-w-2xl">
+                    <div class="bg-white p-6 rounded-xl border">
+                        <h2 class="font-bold text-lg
