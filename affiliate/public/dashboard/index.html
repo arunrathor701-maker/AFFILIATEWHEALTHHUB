@@ -197,7 +197,7 @@ container.innerHTML += `
 <span class="text-xs text-gray-500">Category: ${o.category || 'Financial'} | Payout: ₹${o.payout || 0}</span>																									
 </div>																									
 <div class="flex items-center gap-2">																									
-<input type="text" id="subInput_${docSnap.id}" placeholder="Sub-ID (e.g. Atul)" class="border rounded-lg px-3 py-1.5 text-xs w-36 outline-none focus:ring-2 focus:ring-blue-500">																									
+<input type="text" id="subInput_${docSnap.id}" placeholder="Sub-ID (e.g. Atul)" class="border rounded-full px-3 py-1.5 text-xs w-36 outline-none focus:ring-2 focus:ring-blue-500">																									
 <button type="button" onclick="generateAndCopyLink('${baseTrackingUrl}', 'subInput_${docSnap.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow transition cursor-pointer">																									
 Copy Link																									
 </button>																									
