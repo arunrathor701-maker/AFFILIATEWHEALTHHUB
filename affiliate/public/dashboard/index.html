@@ -5,11 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AffiliateWealthHub - Partner Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, collection, getDocs, query, where, updateDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, collection, getDocs, query, where, updateDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
@@ -26,25 +25,10 @@
 
         let currentUser = JSON.parse(localStorage.getItem("awh_user") || "null");
         let currentBalance = 0;
-        let cachedClicks = [];
-        let cachedPayouts = [];
 
         function safeSetText(id, text) {
             const el = document.getElementById(id);
             if (el) el.innerText = text;
-        }
-
-        function showToast(message, isError = false) {
-            const toast = document.getElementById('fixedToast');
-            if (!toast) return;
-            toast.innerText = message;
-            toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl text-xs font-bold transition-all duration-300 z-50 text-white ${isError ? 'bg-red-600' : 'bg-slate-900'}`;
-            toast.style.opacity = '1';
-            toast.style.transform = 'translateY(0)';
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateY(20px)';
-            }, 3000);
         }
 
         window.switchTab = function(tabId, btnEl) {
@@ -73,7 +57,7 @@
         }
 
         function updateUI() {
-            const name = currentUser.name || "Arun Rathore";
+            const name = currentUser.name || "Partner";
             const pubId = currentUser.publisherId || "662";
             const email = currentUser.email || "";
 
@@ -82,23 +66,20 @@
             
             const profName = document.getElementById('profileName');
             const profEmail = document.getElementById('profileEmail');
-            const profPubId = document.getElementById('profilePubId');
             if (profName) profName.value = name;
             if (profEmail) profEmail.value = email;
-            if (profPubId) profPubId.value = pubId;
         }
 
         function setupRealtimeListeners() {
             const pubId = String(currentUser.publisherId || "662");
             const userRef = doc(db, "users", currentUser.uid);
 
-            onSnapshot(userRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
+            onSnapshot(userRef, (doc) => {
+                if (doc.exists()) {
+                    const data = doc.data();
                     currentBalance = Number(data.balance || 0);
                     safeSetText('walletBalance', `₹${currentBalance}`);
                     safeSetText('totalEarnings', `₹${currentBalance}`);
-                    safeSetText('modalAvailBal', `₹${currentBalance}`);
                 }
             });
 
@@ -106,8 +87,6 @@
             onSnapshot(clicksQuery, (snapshot) => {
                 let totalClicks = 0;
                 let approvedCount = 0;
-                const clicksListHtml = [];
-                cachedClicks = [];
 
                 snapshot.forEach((docSnap) => {
                     totalClicks++;
@@ -115,56 +94,19 @@
                     const status = (data.status || "pending").toLowerCase();
                     const isApproved = status === "approved";
                     if (isApproved) approvedCount++;
-
-                    const dateStr = data.createdAt ? new Date(data.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A';
-                    const badgeClass = isApproved ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
-                    
-                    cachedClicks.push({
-                        Date: dateStr,
-                        ClickID: data.clickId || docSnap.id,
-                        Offer: `Offer #${data.offerId || '1'}`,
-                        SubID: data.sub1 || 'Direct',
-                        Status: data.status || 'Recorded'
-                    });
-
-                    clicksListHtml.push(`
-                        <tr class="border-b hover:bg-slate-50">
-                            <td class="p-3 text-xs">${dateStr}</td>
-                            <td class="p-3 text-xs font-mono text-slate-500">${data.clickId || docSnap.id}</td>
-                            <td class="p-3 text-xs font-semibold">Offer #${data.offerId || '1'}</td>
-                            <td class="p-3 text-xs font-mono font-bold text-blue-600">${data.sub1 || 'Direct'}</td>
-                            <td class="p-3 text-xs"><span class="px-2 py-0.5 ${badgeClass} rounded text-[10px] font-bold uppercase">${data.status || 'Recorded'}</span></td>
-                        </tr>
-                    `);
                 });
 
                 safeSetText('totalClicksDisplay', totalClicks);
                 safeSetText('totalConvDisplay', approvedCount);
-
-                const clicksBody = document.getElementById('clicksTableBody');
-                if (clicksBody) {
-                    clicksBody.innerHTML = clicksListHtml.join('') || `<tr><td colspan="5" class="p-4 text-center text-slate-400">No clicks recorded yet.</td></tr>`;
-                }
-
-                updateChart(totalClicks, approvedCount);
             });
 
             const payoutsQuery = query(collection(db, "payouts"), where("publisherId", "==", pubId));
             onSnapshot(payoutsQuery, (snapshot) => {
                 const rows = [];
-                cachedPayouts = [];
                 snapshot.forEach(docSnap => {
                     const p = docSnap.data();
                     const dStr = p.requestedAt ? new Date(p.requestedAt).toLocaleDateString('en-IN') : 'N/A';
                     const stColor = p.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
-                    
-                    cachedPayouts.push({
-                        Date: dStr,
-                        Amount: p.amount || 0,
-                        Method: p.method || 'N/A',
-                        Status: p.status || 'Pending'
-                    });
-
                     rows.push(`
                         <tr class="border-b hover:bg-slate-50">
                             <td class="p-3 text-xs">${dStr}</td>
@@ -196,8 +138,8 @@
                                 <span class="text-xs text-slate-500">Category: ${o.category || 'Financial'} | Payout: ₹${o.payout || 0}</span>
                             </div>
                             <div class="flex items-center gap-2">
-                                <input type="text" id="subInput_${docSnap.id}" placeholder="Sub-ID (e.g. Atul)" class="border rounded-lg px-3 py-1.5 text-xs w-36 outline-none focus:ring-2 focus:ring-blue-500">
-                                <button type="button" onclick="generateAndCopyLink('${baseTrackingUrl}', 'subInput_${docSnap.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow transition cursor-pointer">
+                                <input type="text" id="subInput_${docSnap.id}" placeholder="Sub-ID" class="border rounded px-3 py-1.5 text-xs w-32 outline-none focus:ring-1 focus:ring-blue-500">
+                                <button type="button" onclick="generateAndCopyLink('${baseTrackingUrl}', 'subInput_${docSnap.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-xs font-bold shadow transition cursor-pointer">
                                     Copy Link
                                 </button>
                             </div>
@@ -213,82 +155,37 @@
             const subInput = document.getElementById(inputId);
             const subVal = subInput ? subInput.value.trim() : "";
             const finalUrl = subVal ? `${baseUrl}&sub1=${encodeURIComponent(subVal)}` : baseUrl;
-            
-            navigator.clipboard.writeText(finalUrl).then(() => {
-                showToast("✓ Tracking Link Copied!");
-            }).catch(() => {
-                showToast("Link: " + finalUrl);
-            });
+            navigator.clipboard.writeText(finalUrl).then(() => alert("Copied: " + finalUrl));
         };
 
-        window.exportCSV = (filename, dataArray) => {
-            if (!dataArray || dataArray.length === 0) {
-                showToast("No data available to export.", true);
-                return;
-            }
-            const headers = Object.keys(dataArray[0]);
-            const csvRows = [headers.join(',')];
-            for (const row of dataArray) {
-                const values = headers.map(h => `"${('' + row[h]).replace(/"/g, '""')}"`);
-                csvRows.push(values.join(','));
-            }
-            const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            showToast("✓ CSV Report Downloaded!");
-        };
-
-        // Custom Modal Controls (No browser prompt/alert!)
-        window.openPayoutModal = () => {
+        window.requestPayout = async () => {
             if (currentBalance < 100) {
-                showToast("Minimum withdrawal ₹100 hai. Current balance: ₹" + currentBalance, true);
+                alert("Minimum withdrawal is ₹100. Current balance: ₹" + currentBalance);
                 return;
             }
-            document.getElementById('withdrawAmount').value = currentBalance;
-            document.getElementById('payoutModal').classList.remove('hidden');
-        };
-
-        window.closePayoutModal = () => {
-            document.getElementById('payoutModal').classList.add('hidden');
-        };
-
-        window.submitPayoutRequest = async (e) => {
-            e.preventDefault();
-            const amount = Number(document.getElementById('withdrawAmount').value);
-            const method = document.getElementById('withdrawMethod').value.trim();
-
-            if (!method || amount < 100 || amount > currentBalance) {
-                showToast("Valid amount aur UPI/Bank details dalein.", true);
-                return;
-            }
+            const upi = prompt("Enter your UPI ID or Bank Details:");
+            if (!upi) return;
 
             try {
                 await addDoc(collection(db, "payouts"), {
                     publisherId: String(currentUser.publisherId || "662"),
                     publisherName: currentUser.name || "Publisher",
                     uid: currentUser.uid || "",
-                    amount: amount,
-                    method: method,
+                    amount: currentBalance,
+                    method: upi,
                     status: "pending",
                     requestedAt: new Date().toISOString()
                 });
-                closePayoutModal();
-                document.getElementById('withdrawMethod').value = "";
-                showToast("✓ Withdrawal request bhej di gayi hai!");
+                alert("Payout request submitted!");
             } catch (err) {
-                showToast("Error: " + err.message, true);
+                alert("Error: " + err.message);
             }
         };
 
         window.saveProfile = async (e) => {
             e.preventDefault();
             const nameInput = document.getElementById('profileName');
-            if (!nameInput) return;
+            if(!nameInput) return;
             const newName = nameInput.value.trim();
             if (!newName || !currentUser.uid) return;
             try {
@@ -296,9 +193,9 @@
                 currentUser.name = newName;
                 localStorage.setItem("awh_user", JSON.stringify(currentUser));
                 updateUI();
-                showToast("✓ Profile updated successfully!");
+                alert("Profile updated!");
             } catch (err) {
-                showToast("Error updating profile", true);
+                alert("Error updating profile: " + err.message);
             }
         };
 
@@ -307,63 +204,10 @@
             signOut(auth).then(() => window.location.replace("/affiliate/public/login/index.html"));
         };
 
-        let myChart = null;
-        function updateChart(clicks, convs) {
-            const canvas = document.getElementById('perfChart');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            if (myChart) myChart.destroy();
-            myChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['Total Clicks', 'Approved Leads'],
-                    datasets: [{
-                        label: 'Count',
-                        data: [clicks, convs],
-                        backgroundColor: ['#2563eb', '#10b981'],
-                        borderRadius: 8,
-                        barThickness: 55
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-            });
-        }
-
         document.addEventListener('DOMContentLoaded', initDashboard);
     </script>
 </head>
 <body class="h-full bg-slate-100 font-sans text-slate-800">
-    <!-- Toast Notification -->
-    <div id="fixedToast" style="opacity:0; transform:translateY(20px);" class="fixed bottom-6 right-6 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl text-xs font-bold transition-all duration-300 z-50 pointer-events-none"></div>
-
-    <!-- Custom Withdrawal Modal -->
-    <div id="payoutModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
-            <div class="flex justify-between items-center border-b pb-3 mb-4">
-                <h3 class="font-extrabold text-base text-slate-900">Request Withdrawal</h3>
-                <button type="button" onclick="closePayoutModal()" class="text-slate-400 hover:text-slate-700 font-bold text-lg cursor-pointer">&times;</button>
-            </div>
-            <form onsubmit="submitPayoutRequest(event)" class="space-y-4 text-xs">
-                <div class="bg-blue-50 p-3 rounded-xl flex justify-between items-center">
-                    <span class="font-bold text-slate-600">Available Wallet Balance:</span>
-                    <span id="modalAvailBal" class="font-black text-base text-blue-700">₹0</span>
-                </div>
-                <div>
-                    <label class="block font-bold text-slate-600 mb-1 uppercase">Withdrawal Amount (₹)</label>
-                    <input type="number" id="withdrawAmount" min="100" class="w-full border border-slate-300 p-3 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500" required>
-                </div>
-                <div>
-                    <label class="block font-bold text-slate-600 mb-1 uppercase">UPI ID / Bank Account Details</label>
-                    <input type="text" id="withdrawMethod" placeholder="e.g. 9479532362@ybl or Bank A/C + IFSC" class="w-full border border-slate-300 p-3 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-blue-500" required>
-                </div>
-                <div class="flex justify-end gap-2 pt-2">
-                    <button type="button" onclick="closePayoutModal()" class="px-4 py-2.5 rounded-xl font-bold text-slate-600 hover:bg-slate-100 cursor-pointer">Cancel</button>
-                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold shadow cursor-pointer">Submit Request</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
         <aside class="w-64 bg-white border-r flex flex-col shrink-0">
@@ -382,5 +226,117 @@
                 <button type="button" onclick="switchTab('tab-offers', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
                     <span>🎁 Offers</span>
                 </button>
-                <button type="button" onclick="switchTab('tab-clicks', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
-                    <span>🖱️ Click & Lead Reports</span>
+                <button type="button" onclick="switchTab('tab-earnings', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
+                    <span>💰 My Earnings</span>
+                </button>
+                <button type="button" onclick="switchTab('tab-payouts', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
+                    <span>💳 My Payouts</span>
+                </button>
+                <button type="button" onclick="switchTab('tab-profile', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
+                    <span>⚙️ Profile</span>
+                </button>
+            </div>
+
+            <!-- Account Manager Card -->
+            <div class="p-4 m-3 bg-slate-900 text-white rounded-xl text-xs">
+                <span class="font-bold text-blue-400 block mb-1 text-[10px] uppercase">Account Manager</span>
+                <p class="font-bold text-sm">Arun Rathore</p>
+                <p class="text-slate-400 truncate mt-0.5">arunrathor701@gmail.com</p>
+            </div>
+
+            <div class="p-3 border-t">
+                <button type="button" onclick="logout()" class="w-full px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition text-xs font-semibold text-left cursor-pointer">Exit / Logout</button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col overflow-y-auto">
+            <header class="bg-white border-b px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900">Partner Dashboard</h1>
+                    <p class="text-xs text-slate-500">Welcome back, <span class="pubNameDisplay font-semibold text-slate-800">Partner</span></p>
+                </div>
+                <div class="text-right">
+                    <span class="block text-[10px] text-slate-400 font-bold uppercase">Publisher ID</span>
+                    <span id="pubIdDisplay" class="font-bold text-slate-800 font-mono text-sm">662</span>
+                </div>
+            </header>
+
+            <main class="p-8 space-y-6 max-w-7xl mx-auto w-full">
+                <!-- 1. DASHBOARD -->
+                <div id="tab-dashboard" class="tab-content space-y-6">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div class="bg-white p-5 rounded-xl border shadow-2xs">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Clicks</span>
+                            <div id="totalClicksDisplay" class="text-3xl font-black text-blue-600 mt-1">0</div>
+                        </div>
+                        <div class="bg-white p-5 rounded-xl border shadow-2xs">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Approved Leads</span>
+                            <div id="totalConvDisplay" class="text-3xl font-black text-emerald-600 mt-1">0</div>
+                        </div>
+                        <div class="bg-gradient-to-br from-blue-600 to-indigo-700 text-white p-5 rounded-xl shadow-md">
+                            <span class="text-[10px] font-bold text-blue-200 uppercase tracking-wider block">Wallet Balance</span>
+                            <div id="walletBalance" class="text-3xl font-black mt-1">₹0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. OFFERS -->
+                <div id="tab-offers" class="tab-content hidden space-y-4">
+                    <h2 class="font-bold text-base text-slate-900">Available Offers</h2>
+                    <div id="offersList" class="bg-white rounded-xl border divide-y"></div>
+                </div>
+
+                <!-- 3. MY EARNINGS -->
+                <div id="tab-earnings" class="tab-content hidden space-y-4">
+                    <div class="bg-white p-6 rounded-xl border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <span class="text-xs font-semibold text-slate-400 block uppercase">Available Balance</span>
+                            <div id="totalEarnings" class="text-4xl font-black text-emerald-600 mt-1">₹0</div>
+                        </div>
+                        <button type="button" onclick="requestPayout()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow transition cursor-pointer">
+                            Request Payout
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4. MY PAYOUTS -->
+                <div id="tab-payouts" class="tab-content hidden space-y-4">
+                    <h2 class="font-bold text-base text-slate-900">Payout History</h2>
+                    <div class="bg-white rounded-xl border overflow-hidden">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="border-b bg-slate-50 text-slate-600 font-bold">
+                                    <th class="p-3">Date</th>
+                                    <th class="p-3">Amount</th>
+                                    <th class="p-3">Method</th>
+                                    <th class="p-3">Status</th>
+                                 </tr>
+                            </thead>
+                            <tbody id="payoutsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 5. PROFILE -->
+                <div id="tab-profile" class="tab-content hidden max-w-xl">
+                    <div class="bg-white p-6 rounded-xl border space-y-4">
+                        <h2 class="font-bold text-base border-b pb-3 text-slate-900">My Profile</h2>
+                        <form onsubmit="saveProfile(event)" class="space-y-4 text-xs">
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1 uppercase">Full Name</label>
+                                <input type="text" id="profileName" class="w-full border p-3 rounded-lg outline-none focus:ring-1 focus:ring-blue-500" required>
+                            </div>
+                            <div>
+                                <label class="block font-bold text-slate-500 mb-1 uppercase">Email Address</label>
+                                <input type="email" id="profileEmail" class="w-full border p-3 rounded-lg bg-slate-100 text-slate-500 cursor-not-allowed" readonly>
+                            </div>
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-bold transition cursor-pointer">Update Name</button>
+                        </form>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+</body>
+</html>
