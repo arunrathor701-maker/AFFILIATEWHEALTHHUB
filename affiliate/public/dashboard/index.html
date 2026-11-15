@@ -9,7 +9,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, collection, getDocs, query, where, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, collection, getDocs, query, where, updateDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDO06SrF0Y15lFcFhXwJIyDbGFsTuxoswY",
@@ -26,11 +26,34 @@
         const db = getFirestore(app);
 
         let currentUser = JSON.parse(localStorage.getItem("awh_user") || "null");
+        let currentBalance = 0;
 
-        function setText(id, text) {
+        function safeSetText(id, text) {
             const el = document.getElementById(id);
             if (el) el.innerText = text;
         }
+
+        // Global Tab Switcher (Works immediately without waiting for Firebase)
+        window.switchTab = function(tabId, btnEl) {
+            document.querySelectorAll('.tab-content').forEach(el => {
+                el.classList.add('hidden');
+            });
+            
+            const activeTab = document.getElementById(tabId);
+            if (activeTab) {
+                activeTab.classList.remove('hidden');
+            }
+
+            document.querySelectorAll('.nav-link').forEach(el => {
+                el.classList.remove('bg-blue-600', 'text-white', 'shadow-sm');
+                el.classList.add('text-slate-300', 'hover:bg-slate-800');
+            });
+
+            if (btnEl) {
+                btnEl.classList.remove('text-slate-300', 'hover:bg-slate-800');
+                btnEl.classList.add('bg-blue-600', 'text-white', 'shadow-sm');
+            }
+        };
 
         async function initDashboard() {
             if (!currentUser) {
@@ -38,8 +61,11 @@
                 return;
             }
             updateUI();
-            loadPublisherData();
-            loadOffers();
+            await Promise.all([
+                loadPublisherData(),
+                loadOffers(),
+                loadPayoutHistory()
+            ]);
         }
 
         function updateUI() {
@@ -48,8 +74,7 @@
             const email = currentUser.email || "";
 
             document.querySelectorAll('.pubNameDisplay').forEach(el => el.innerText = name);
-            setText('pubIdDisplay', pubId);
-            setText('pubEmailDisplay', email);
+            safeSetText('pubIdDisplay', pubId);
 
             const profName = document.getElementById('profileName');
             const profEmail = document.getElementById('profileEmail');
@@ -60,17 +85,18 @@
         async function loadPublisherData() {
             const pubId = String(currentUser.publisherId || "662");
             try {
-                let balance = 0;
+                // 1. Fetch User Balance
                 if (currentUser.uid) {
                     const userDoc = await getDoc(doc(db, "users", currentUser.uid));
                     if (userDoc.exists()) {
-                        balance = userDoc.data().balance || 0;
+                        currentBalance = Number(userDoc.data().balance || 0);
                     }
                 }
-                setText('walletBalance', `₹${balance}`);
-                setText('totalEarnings', `₹${balance}`);
-                setText('perfEarnings', `₹${balance}`);
+                safeSetText('walletBalance', `₹${currentBalance}`);
+                safeSetText('totalEarnings', `₹${currentBalance}`);
+                safeSetText('perfEarnings', `₹${currentBalance}`);
 
+                // 2. Fetch Clicks & Conversions
                 const q = query(collection(db, "clicks"), where("publisherId", "==", pubId));
                 const querySnapshot = await getDocs(q);
 
@@ -78,49 +104,113 @@
                 let approvedCount = 0;
                 const clicksListHtml = [];
                 const convListHtml = [];
+                const offerStats = {};
+                const markerStats = {};
 
                 querySnapshot.forEach((docSnap) => {
                     totalClicks++;
                     const data = docSnap.data();
-                    const isApproved = (data.status || "").toLowerCase() === "approved";
+                    const status = (data.status || "pending").toLowerCase();
+                    const isApproved = status === "approved";
+                    const payout = Number(data.payoutCredited || 0);
+                    const oid = data.offerId || "1";
+                    const sub1 = data.sub1 || "Direct / No Sub-ID";
+
                     if (isApproved) approvedCount++;
 
-                    const dateStr = data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A';
+                    // Offer-wise stats
+                    if (!offerStats[oid]) offerStats[oid] = { clicks: 0, conv: 0, rev: 0 };
+                    offerStats[oid].clicks++;
+                    if (isApproved) {
+                        offerStats[oid].conv++;
+                        offerStats[oid].rev += payout;
+                    }
+
+                    // Marker / Sub1 stats
+                    if (!markerStats[sub1]) markerStats[sub1] = { clicks: 0, conv: 0, rev: 0 };
+                    markerStats[sub1].clicks++;
+                    if (isApproved) {
+                        markerStats[sub1].conv++;
+                        markerStats[sub1].rev += payout;
+                    }
+
+                    const dateStr = data.createdAt ? new Date(data.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A';
+                    const badgeClass = isApproved ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
+
                     clicksListHtml.push(`
                         <tr class="border-b hover:bg-slate-50">
-                            <td class="p-3">${dateStr}</td>
-                            <td class="p-3 font-semibold">Offer #${data.offerId || '1'}</td>
-                            <td class="p-3 font-mono text-slate-500">${data.sub1 || '-'}</td>
-                            <td class="p-3"><span class="px-2 py-1 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold uppercase">${data.status || 'Recorded'}</span></td>
+                            <td class="p-3 text-xs">${dateStr}</td>
+                            <td class="p-3 text-xs font-mono text-slate-600">${data.clickId || docSnap.id}</td>
+                            <td class="p-3 text-xs font-semibold">Offer #${oid}</td>
+                            <td class="p-3 text-xs font-mono text-slate-500">${data.sub1 || '-'}</td>
+                            <td class="p-3 text-xs"><span class="px-2 py-0.5 ${badgeClass} rounded text-[10px] font-bold uppercase">${data.status || 'Recorded'}</span></td>
                         </tr>
                     `);
 
                     if (isApproved) {
                         convListHtml.push(`
                             <tr class="border-b hover:bg-slate-50">
-                                <td class="p-3">${dateStr}</td>
-                                <td class="p-3 font-semibold">Offer #${data.offerId || '1'}</td>
-                                <td class="p-3 font-bold text-emerald-600">₹${data.payoutCredited || 0}</td>
-                                <td class="p-3"><span class="px-2 py-1 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold uppercase">Approved</span></td>
+                                <td class="p-3 text-xs">${data.approvedAt ? new Date(data.approvedAt).toLocaleDateString('en-IN') : dateStr}</td>
+                                <td class="p-3 text-xs font-semibold">Offer #${oid}</td>
+                                <td class="p-3 text-xs font-mono text-slate-500">${data.sub1 || '-'}</td>
+                                <td class="p-3 text-xs font-bold text-emerald-600">₹${payout}</td>
+                                <td class="p-3 text-xs"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold uppercase">Approved</span></td>
                             </tr>
                         `);
                     }
                 });
 
+                // Update Top Cards & My Performance
                 const cr = totalClicks > 0 ? ((approvedCount / totalClicks) * 100).toFixed(1) : 0;
-                setText('totalClicksDisplay', totalClicks);
-                setText('perfClicks', totalClicks);
-                setText('totalConvDisplay', approvedCount);
-                setText('crDisplay', `${cr}%`);
+                safeSetText('totalClicksDisplay', totalClicks);
+                safeSetText('perfClicks', totalClicks);
+                safeSetText('totalConvDisplay', approvedCount);
+                safeSetText('perfConv', approvedCount);
+                safeSetText('crDisplay', `${cr}%`);
+                safeSetText('perfCr', `${cr}%`);
 
+                // Render Clicks Table
                 const clicksBody = document.getElementById('clicksTableBody');
                 if (clicksBody) {
-                    clicksBody.innerHTML = clicksListHtml.join('') || `<tr><td colspan="4" class="p-4 text-center text-slate-400">No click records found.</td></tr>`;
+                    clicksBody.innerHTML = clicksListHtml.join('') || `<tr><td colspan="5" class="p-6 text-center text-slate-400">Abhi tak koi click record nahi hua hai.</td></tr>`;
                 }
 
+                // Render Conversions Table
                 const convBody = document.getElementById('convTableBody');
                 if (convBody) {
-                    convBody.innerHTML = convListHtml.join('') || `<tr><td colspan="4" class="p-4 text-center text-slate-400">No conversions recorded yet.</td></tr>`;
+                    convBody.innerHTML = convListHtml.join('') || `<tr><td colspan="5" class="p-6 text-center text-slate-400">Abhi tak koi approved lead nahi hai.</td></tr>`;
+                }
+
+                // Render Offer Performance Table
+                const offerPerfBody = document.getElementById('offerPerfTableBody');
+                if (offerPerfBody) {
+                    const rows = Object.keys(offerStats).map(oid => {
+                        const s = offerStats[oid];
+                        const ocr = s.clicks > 0 ? ((s.conv / s.clicks) * 100).toFixed(1) : 0;
+                        return `<tr class="border-b hover:bg-slate-50">
+                            <td class="p-3 font-bold text-slate-800">Offer #${oid}</td>
+                            <td class="p-3">${s.clicks}</td>
+                            <td class="p-3 text-emerald-600 font-bold">${s.conv}</td>
+                            <td class="p-3">${ocr}%</td>
+                            <td class="p-3 font-bold text-slate-900">₹${s.rev}</td>
+                        </tr>`;
+                    });
+                    offerPerfBody.innerHTML = rows.join('') || `<tr><td colspan="5" class="p-6 text-center text-slate-400">No offer performance data yet.</td></tr>`;
+                }
+
+                // Render Marker Report Table
+                const markerBody = document.getElementById('markerTableBody');
+                if (markerBody) {
+                    const mRows = Object.keys(markerStats).map(tag => {
+                        const m = markerStats[tag];
+                        return `<tr class="border-b hover:bg-slate-50">
+                            <td class="p-3 font-mono font-bold text-blue-600">${tag}</td>
+                            <td class="p-3">${m.clicks}</td>
+                            <td class="p-3 text-emerald-600 font-bold">${m.conv}</td>
+                            <td class="p-3 font-bold text-slate-900">₹${m.rev}</td>
+                        </tr>`;
+                    });
+                    markerBody.innerHTML = mRows.join('') || `<tr><td colspan="4" class="p-6 text-center text-slate-400">No Sub-ID / Marker data found.</td></tr>`;
                 }
 
                 initChart(totalClicks, approvedCount);
@@ -146,17 +236,20 @@
                     container.innerHTML += `
                         <div class="p-4 bg-white border-b flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition">
                             <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white text-sm">
+                                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white text-base shrink-0">
                                     ${o.name ? o.name[0].toUpperCase() : 'O'}
                                 </div>
                                 <div>
                                     <h4 class="font-bold text-slate-900 text-sm">${o.name || 'Campaign'}</h4>
-                                    <span class="text-xs text-blue-600 font-semibold">Category: ${o.category || 'Financial'} • Payout: ₹${o.payout || 0}</span>
+                                    <span class="text-xs text-blue-600 font-semibold block mt-0.5">Category: ${o.category || 'Financial'} • Payout: ₹${o.payout || 0}</span>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">${o.description || 'Complete KYC / Account Opening to earn payout.'}</p>
                                 </div>
                             </div>
-                            <button onclick="prompt('Copy your tracking link:', '${trackingUrl}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-md transition self-start md:self-auto">
-                                Get Link
-                            </button>
+                            <div class="flex items-center space-x-2">
+                                <button onclick="copyTrackingLink('${trackingUrl}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-sm transition cursor-pointer">
+                                    Copy Link
+                                </button>
+                            </div>
                         </div>
                     `;
                 });
@@ -164,6 +257,66 @@
                 container.innerHTML = `<div class="p-6 text-center text-red-500 text-xs">Error loading campaigns.</div>`;
             }
         }
+
+        window.copyTrackingLink = (url) => {
+            navigator.clipboard.writeText(url).then(() => {
+                alert("Tracking Link Copied!\n\n" + url);
+            }).catch(() => {
+                prompt("Copy your tracking link:", url);
+            });
+        };
+
+        async function loadPayoutHistory() {
+            const tbody = document.getElementById('payoutsTableBody');
+            if (!tbody) return;
+            const pubId = String(currentUser.publisherId || "662");
+            try {
+                const q = query(collection(db, "payouts"), where("publisherId", "==", pubId));
+                const snap = await getDocs(q);
+                const rows = [];
+                snap.forEach(docSnap => {
+                    const p = docSnap.data();
+                    const dStr = p.requestedAt ? new Date(p.requestedAt).toLocaleDateString('en-IN') : 'N/A';
+                    const stColor = p.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
+                    rows.push(`
+                        <tr class="border-b hover:bg-slate-50">
+                            <td class="p-3">${dStr}</td>
+                            <td class="p-3 font-bold text-slate-900">₹${p.amount || 0}</td>
+                            <td class="p-3">${p.method || 'Bank / UPI'}</td>
+                            <td class="p-3"><span class="px-2 py-0.5 ${stColor} rounded text-[10px] font-bold uppercase">${p.status || 'Pending'}</span></td>
+                        </tr>
+                    `);
+                });
+                tbody.innerHTML = rows.join('') || `<tr><td colspan="4" class="p-6 text-center text-slate-400">Abhi tak koi payout request nahi ki gayi hai.</td></tr>`;
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-400">No payouts processed yet.</td></tr>`;
+            }
+        }
+
+        window.requestPayout = async () => {
+            if (currentBalance < 100) {
+                alert("Minimum withdrawal ₹100 hai. Aapka current balance ₹" + currentBalance + " hai.");
+                return;
+            }
+            const upi = prompt("Apna UPI ID ya Bank Account details dalein:");
+            if (!upi) return;
+
+            try {
+                await addDoc(collection(db, "payouts"), {
+                    publisherId: String(currentUser.publisherId || "662"),
+                    publisherName: currentUser.name || "Publisher",
+                    uid: currentUser.uid || "",
+                    amount: currentBalance,
+                    method: upi,
+                    status: "pending",
+                    requestedAt: new Date().toISOString()
+                });
+                alert("₹" + currentBalance + " ki withdrawal request admin ko bhej di gayi hai!");
+                loadPayoutHistory();
+            } catch (err) {
+                alert("Request bhejne mein error aaya: " + err.message);
+            }
+        };
 
         function initChart(clicksCount, convCount) {
             const canvas = document.getElementById('analyticsChart');
@@ -180,38 +333,26 @@
                         label: 'Count',
                         data: [clicksCount, convCount],
                         backgroundColor: ['#2563eb', '#10b981'],
-                        borderRadius: 8
+                        borderRadius: 8,
+                        barThickness: 60
                     }]
                 },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
         }
 
-        window.switchTab = (tabId, btnEl) => {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-            const activeTab = document.getElementById(tabId);
-            if (activeTab) activeTab.classList.remove('hidden');
-
-            document.querySelectorAll('.nav-link').forEach(el => {
-                el.classList.remove('bg-blue-600', 'text-white');
-                el.classList.add('text-slate-300', 'hover:bg-slate-800');
-            });
-            if (btnEl) {
-                btnEl.classList.remove('text-slate-300', 'hover:bg-slate-800');
-                btnEl.classList.add('bg-blue-600', 'text-white');
-            }
-        };
-
         window.saveProfile = async (e) => {
             e.preventDefault();
-            const newName = document.getElementById('profileName').value.trim();
+            const nameInput = document.getElementById('profileName');
+            if (!nameInput) return;
+            const newName = nameInput.value.trim();
             if (!newName || !currentUser.uid) return;
             try {
                 await updateDoc(doc(db, "users", currentUser.uid), { name: newName });
                 currentUser.name = newName;
                 localStorage.setItem("awh_user", JSON.stringify(currentUser));
                 updateUI();
-                alert("Profile updated successfully!");
+                alert("Profile name update ho gaya hai!");
             } catch (err) {
                 alert("Error updating profile: " + err.message);
             }
@@ -222,137 +363,32 @@
             signOut(auth).then(() => window.location.replace("/affiliate/public/login/index.html"));
         };
 
-        window.onload = initDashboard;
+        window.addEventListener('DOMContentLoaded', () => {
+            initDashboard();
+        });
     </script>
 </head>
 <body class="h-full bg-slate-100 font-sans text-slate-800">
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
-        <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0">
+        <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0 border-r border-slate-800">
             <div class="p-5 border-b border-slate-800 flex items-center space-x-3">
-                <div class="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center font-black text-white text-xs">AWH</div>
+                <!-- APNA LOGO YAHAN LAGAYEIN: src="" mein apni logo image ka URL dalein -->
+                <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-white text-sm shadow overflow-hidden shrink-0">
+                    <img src="" alt="AWH" onerror="this.style.display='none'; this.parentElement.innerText='AWH';" class="w-full h-full object-cover">
+                </div>
                 <div>
                     <h2 class="font-extrabold text-white text-sm tracking-tight">AffiliateWealthHub</h2>
-                    <span class="text-[10px] text-blue-400 block font-bold">Partner Portal</span>
+                    <span class="text-[10px] text-blue-400 block font-bold uppercase tracking-wider">Partner Portal</span>
                 </div>
             </div>
             
             <div class="flex-1 overflow-y-auto py-4 px-3 space-y-5 text-xs font-semibold">
                 <div>
-                    <button onclick="switchTab('tab-dashboard', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 bg-blue-600 text-white rounded-lg transition text-left">
+                    <button type="button" onclick="switchTab('tab-dashboard', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 bg-blue-600 text-white rounded-lg transition text-left shadow-sm cursor-pointer">
                         <span>Dashboard</span>
                     </button>
                 </div>
 
                 <div>
-                    <div class="px-3 py-1 text-slate-500 uppercase tracking-wider text-[10px]">AFFILIATE</div>
-                    <button onclick="switchTab('tab-offers', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left mt-1">Offers</button>
-                </div>
-
-                <div>
-                    <div class="px-3 py-1 text-slate-500 uppercase tracking-wider text-[10px]">REPORTS & FINANCE</div>
-                    <div class="space-y-1 mt-1">
-                        <button onclick="switchTab('tab-clicks', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Clicks Report</button>
-                        <button onclick="switchTab('tab-conversions', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Conversion Report</button>
-                        <button onclick="switchTab('tab-offer-perf', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Offer Performance</button>
-                        <button onclick="switchTab('tab-marker', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Marker Report</button>
-                        <button onclick="switchTab('tab-my-perf', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">My Performance</button>
-                        <button onclick="switchTab('tab-earnings', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">My Earnings</button>
-                        <button onclick="switchTab('tab-payouts', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Payouts</button>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="px-3 py-1 text-slate-500 uppercase tracking-wider text-[10px]">SETTINGS</div>
-                    <div class="space-y-1 mt-1">
-                        <button onclick="switchTab('tab-notifications', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Notifications</button>
-                        <button onclick="switchTab('tab-profile', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Profile & Manager</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="p-3 border-t border-slate-800">
-                <button onclick="logout()" class="w-full px-3 py-2 text-red-400 hover:bg-slate-800 rounded-lg transition text-xs font-semibold text-left">
-                    Logout
-                </button>
-            </div>
-        </aside>
-
-        <!-- Main Content Area -->
-        <div class="flex-1 flex flex-col overflow-y-auto">
-            <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-                <div class="flex items-center space-x-3">
-                    <div class="h-9 w-9 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-xs">AWH</div>
-                    <div>
-                        <h1 class="text-base font-extrabold text-slate-900">AffiliateWealthHub</h1>
-                        <p class="text-[11px] text-slate-500">Welcome back, <span class="pubNameDisplay font-bold text-slate-800">Publisher</span></p>
-                    </div>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <div class="text-right text-xs">
-                        <span class="block text-slate-400 font-medium text-[10px]">PUBLISHER ID</span>
-                        <span id="pubIdDisplay" class="font-bold text-slate-800 font-mono">662</span>
-                    </div>
-                    <span class="inline-block px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold uppercase">Approved</span>
-                </div>
-            </header>
-
-            <main class="p-6 space-y-6 max-w-7xl mx-auto w-full">
-                
-                <!-- 1. DASHBOARD TAB -->
-                <div id="tab-dashboard" class="tab-content space-y-6">
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div class="bg-white p-5 rounded-xl border border-slate-200">
-                            <span class="text-[11px] font-bold text-slate-400 uppercase block">TOTAL CLICKS</span>
-                            <div id="totalClicksDisplay" class="text-2xl font-black text-blue-600 mt-1">0</div>
-                        </div>
-                        <div class="bg-white p-5 rounded-xl border border-slate-200">
-                            <span class="text-[11px] font-bold text-slate-400 uppercase block">CONVERSION RATE</span>
-                            <div id="crDisplay" class="text-2xl font-black text-slate-900 mt-1">0%</div>
-                        </div>
-                        <div class="bg-white p-5 rounded-xl border border-slate-200">
-                            <span class="text-[11px] font-bold text-slate-400 uppercase block">APPROVED LEADS</span>
-                            <div id="totalConvDisplay" class="text-2xl font-black text-slate-900 mt-1">0</div>
-                        </div>
-                        <div class="bg-gradient-to-br from-blue-600 to-indigo-800 text-white p-5 rounded-xl">
-                            <span class="text-[11px] font-bold text-blue-200 uppercase block">WALLET BALANCE</span>
-                            <div id="walletBalance" class="text-2xl font-black mt-1">₹0</div>
-                        </div>
-                    </div>
-                    <div class="bg-white p-6 rounded-xl border border-slate-200">
-                        <h3 class="font-black text-slate-900 text-sm mb-4">Traffic & Conversion Overview</h3>
-                        <div class="h-64 w-full"><canvas id="analyticsChart"></canvas></div>
-                    </div>
-                </div>
-
-                <!-- 2. OFFERS TAB -->
-                <div id="tab-offers" class="tab-content hidden bg-white rounded-xl border border-slate-200 overflow-hidden">
-                    <div class="p-4 border-b bg-slate-50 flex justify-between items-center">
-                        <span class="font-bold text-sm">Available Offers</span>
-                        <button onclick="loadOffers()" class="text-xs text-blue-600 font-bold">Refresh</button>
-                    </div>
-                    <div id="offersList" class="divide-y"></div>
-                </div>
-
-                <!-- 3. CLICKS REPORT TAB -->
-                <div id="tab-clicks" class="tab-content hidden bg-white p-6 rounded-xl border border-slate-200">
-                    <h2 class="font-bold text-base mb-4">Clicks Report</h2>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs">
-                            <thead>
-                                <tr class="border-b bg-slate-100 text-slate-600 font-bold">
-                                    <th class="p-3">Date</th>
-                                    <th class="p-3">Offer</th>
-                                    <th class="p-3">Sub ID</th>
-                                    <th class="p-3">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="clicksTableBody"></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- 4. CONVERSION REPORT TAB -->
-                <div id="tab-conversions" class="tab-content hidden bg-white p-6 rounded-xl border border-slate-200">
-                    <h2 class="font-bold text-base mb-4">Conversion Report</h2>
-                    <div class="overflow-
+                    <div class="px-3 py-1 text-slate-500 uppe
