@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AffiliateWealthHub - Partner Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Stable Tailwind CSS CDN -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -12,7 +13,7 @@
         import { getFirestore, doc, collection, getDocs, query, where, updateDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyDO06SrF0Y15lFcFhXwJIyDbGFsTuxoswY",
+            apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
             authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
             projectId: "affiliatewealthhub-542e0",
             storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
@@ -118,7 +119,7 @@
                     if (isApproved) approvedCount++;
 
                     const dateStr = data.createdAt ? new Date(data.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A';
-                    const badgeClass = isApproved ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
+                    const badgeClass = isApproved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
 
                     cachedClicks.push({
                         Date: dateStr,
@@ -157,7 +158,7 @@
                 snapshot.forEach(docSnap => {
                     const p = docSnap.data();
                     const dStr = p.requestedAt ? new Date(p.requestedAt).toLocaleDateString('en-IN') : 'N/A';
-                    const stColor = p.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800';
+                    const stColor = p.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
 
                     cachedPayouts.push({
                         Date: dStr,
@@ -318,7 +319,7 @@
                     datasets: [{
                         label: 'Count',
                         data: [clicks, convs],
-                        backgroundColor: ['#2563eb', '#10b981'],
+                        backgroundColor: ['#3b82f6', '#10b981'],
                         borderRadius: 8,
                         barThickness: 55
                     }]
@@ -356,7 +357,7 @@
                 </div>
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button" onclick="closePayoutModal()" class="px-4 py-2.5 rounded-xl font-bold text-slate-600 hover:bg-slate-100 cursor-pointer">Cancel</button>
-                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold shadow cursor-pointer">Submit Request</button>
+                    <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-bold shadow cursor-pointer">Submit Request</button>
                 </div>
             </form>
         </div>
@@ -381,6 +382,4 @@
                     <span>🎁 Offers</span>
                 </button>
                 <button type="button" onclick="switchTab('tab-clicks', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
-                    <span>🖱️ Click & Lead Reports</span>
-                </button>
-                <button type="button" onclick="
+                    <span>🖱️ Click & Lead Repor
