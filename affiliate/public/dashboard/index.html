@@ -35,12 +35,11 @@
             if (el) el.innerText = text;
         }
 
-        // Smooth Toast Notification (Replaces browser alert)
         function showToast(message, isError = false) {
             const toast = document.getElementById('fixedToast');
             if (!toast) return;
             toast.innerText = message;
-            toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl text-xs font-bold transition-all duration-300 z-50 text-white ${isError ? 'bg-red-600' : 'bg-slate-900'}`;
+            toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl text-xs font-bold transition-all duration-300 z-50 text-white pointer-events-none ${isError ? 'bg-red-600' : 'bg-slate-900'}`;
             toast.style.opacity = '1';
             toast.style.transform = 'translateY(0)';
             setTimeout(() => {
@@ -94,7 +93,6 @@
             const pubId = String(currentUser.publisherId || "662");
             const userRef = doc(db, "users", currentUser.uid);
 
-            // 1. Real-time Wallet Balance
             onSnapshot(userRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
@@ -105,7 +103,6 @@
                 }
             });
 
-            // 2. Real-time Clicks & Conversions
             const clicksQuery = query(collection(db, "clicks"), where("publisherId", "==", pubId));
             onSnapshot(clicksQuery, (snapshot) => {
                 let totalClicks = 0;
@@ -153,7 +150,6 @@
                 updateChart(totalClicks, approvedCount);
             });
 
-            // 3. Real-time Payout History
             const payoutsQuery = query(collection(db, "payouts"), where("publisherId", "==", pubId));
             onSnapshot(payoutsQuery, (snapshot) => {
                 const rows = [];
@@ -247,7 +243,6 @@
             showToast("✓ CSV Report Downloaded!");
         };
 
-        // Custom Withdrawal Modal Functions
         window.openPayoutModal = () => {
             if (currentBalance < 100) {
                 showToast("Minimum withdrawal ₹100 hai. Current balance: ₹" + currentBalance, true);
@@ -371,7 +366,6 @@
         <!-- Sidebar -->
         <aside class="w-64 bg-white border-r flex flex-col shrink-0">
             <div class="p-5 border-b flex items-center space-x-3">
-                <!-- Logo Placeholder: Replace src="" with your logo URL if needed -->
                 <div class="w-9 h-9 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white text-sm overflow-hidden">
                     <img src="" alt="AWH" onerror="this.style.display='none'; this.parentElement.innerText='AWH';" class="w-full h-full object-cover">
                 </div>
@@ -385,4 +379,7 @@
                 <button type="button" onclick="switchTab('tab-dashboard', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 bg-blue-600 text-white rounded-lg transition text-left shadow-sm cursor-pointer">
                     <span>📊 Dashboard</span>
                 </button>
-                <button type="button" onclick="switchTab('tab-offers', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 ho
+                <button type="button" onclick="switchTab('tab-offers', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg transition text-left cursor-pointer">
+                    <span>🎁 Offers</span>
+                </button>
+                <button type="button" onclick="switchTab('tab-clicks', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-slate-600 hover:bg-slate-100
