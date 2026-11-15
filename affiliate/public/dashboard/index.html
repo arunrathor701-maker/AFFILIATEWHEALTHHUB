@@ -7,11 +7,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyD0O6SrF0Y15lFcFhXwJIyDbGFsTuxosw",
+            apiKey: "AIzaSyD0O6SrF0Y15lFcFhXwJIyDbGFsTuxoswY",
             authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
             projectId: "affiliatewealthhub-542e0",
             storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
@@ -24,54 +24,83 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        let currentPublisherId = "";
+        const savedUser = JSON.parse(localStorage.getItem("awh_user") || "null");
+        if (!savedUser) {
+            window.location.replace("/affiliate/public/login/index.html");
+        } else {
+            document.getElementById('dashBody').classList.remove('hidden');
+            initDashboard();
+        }
 
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                const userDoc = await getDoc(doc(db, "users", user.uid));
+        let currentPublisherId = savedUser ? savedUser.publisherId : "000";
+
+        async function initDashboard() {
+            document.getElementById('pubName').innerText = savedUser.name || "Publisher";
+            document.getElementById('pubEmail').innerText = savedUser.email || "";
+            document.getElementById('pubIdDisplay').innerText = currentPublisherId;
+
+            if (savedUser.uid) {
+                const userDoc = await getDoc(doc(db, "users", savedUser.uid));
                 if (userDoc.exists()) {
                     const data = userDoc.data();
-                    currentPublisherId = data.publisherId || "N/A";
-                    document.getElementById('pubName').innerText = data.name;
-                    document.getElementById('pubEmail').innerText = data.email;
+                    currentPublisherId = data.publisherId || currentPublisherId;
+                    document.getElementById('pubName').innerText = data.name || savedUser.name;
                     document.getElementById('pubIdDisplay').innerText = currentPublisherId;
                     document.getElementById('walletBalance').innerText = `₹${data.balance || 0}`;
                 }
-            } else {
-                window.location.href = "/affiliate/public/login/index.html";
             }
-        });
+            loadCampaigns();
+        }
+
+        async function loadCampaigns() {
+            const container = document.getElementById('offersContainer');
+            const snap = await getDocs(collection(db, "offers"));
+            if (!snap.empty) {
+                container.innerHTML = "";
+                snap.forEach((docSnap) => {
+                    const o = docSnap.data();
+                    container.innerHTML += `
+                        <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition">
+                            <div>
+                                <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded">${o.category || 'FINANCIAL'}</span>
+                                <h3 class="font-bold text-lg text-slate-800 mt-1">${o.name}</h3>
+                                <p class="text-sm text-slate-500">${o.description || 'Complete KYC & follow campaign steps.'}</p>
+                            </div>
+                            <div class="flex items-center justify-between md:space-x-6">
+                                <div class="text-right md:text-left">
+                                    <span class="text-xs text-slate-400 block">Payout</span>
+                                    <span class="font-bold text-emerald-600 text-lg">₹${o.payout} / Lead</span>
+                                </div>
+                                <button onclick="generateLink('${o.offerId}', '${o.name}')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm shadow-md transition">Get Link</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+        }
 
         window.logout = () => {
-            signOut(auth).then(() => {
-                window.location.href = "/affiliate/public/login/index.html";
-            });
+            localStorage.removeItem("awh_user");
+            signOut(auth).then(() => window.location.replace("/affiliate/public/login/index.html"));
         };
 
         window.generateLink = (offerId, offerName) => {
-            const trackingDomain = "https://affiliatewealthhub.online";
-            const trackingLink = `${trackingDomain}/go/index.html?oid=${offerId}&pid=${currentPublisherId}`;
-            
-            const modal = document.getElementById('linkModal');
+            const trackingLink = `https://affiliatewealthhub.online/go/index.html?oid=${offerId}&pid=${currentPublisherId}`;
             document.getElementById('modalOfferName').innerText = offerName;
             document.getElementById('trackingLinkInput').value = trackingLink;
-            modal.classList.remove('hidden');
+            document.getElementById('linkModal').classList.remove('hidden');
         };
 
-        window.closeModal = () => {
-            document.getElementById('linkModal').classList.add('hidden');
-        };
+        window.closeModal = () => document.getElementById('linkModal').classList.add('hidden');
 
         window.copyLink = () => {
             const input = document.getElementById('trackingLinkInput');
-            input.select();
-            document.execCommand('copy');
-            alert("Tracking link copied to clipboard!");
+            navigator.clipboard.writeText(input.value);
+            alert("Tracking link copied!");
         };
     </script>
 </head>
-<body class="bg-slate-100 min-h-screen font-sans">
-    <!-- Navbar -->
+<body id="dashBody" class="bg-slate-100 min-h-screen font-sans hidden">
     <nav class="bg-slate-900 text-white px-6 py-4 shadow-md flex justify-between items-center">
         <div class="flex items-center space-x-3">
             <span class="bg-blue-600 text-white font-bold p-2 rounded-lg">AWH</span>
@@ -82,16 +111,14 @@
         </div>
         <div class="flex items-center space-x-4">
             <div class="text-right hidden md:block">
-                <div id="pubName" class="font-semibold text-sm">Loading...</div>
-                <div id="pubEmail" class="text-xs text-slate-400">Loading...</div>
+                <div id="pubName" class="font-semibold text-sm">Publisher</div>
+                <div id="pubEmail" class="text-xs text-slate-400"></div>
             </div>
             <button onclick="logout()" class="bg-red-600 hover:bg-red-700 text-sm px-4 py-2 rounded-lg font-medium transition">Logout</button>
         </div>
     </nav>
 
-    <!-- Main Content -->
     <main class="p-6 max-w-6xl mx-auto space-y-6">
-        <!-- Stats Row -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div class="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg">
                 <h3 class="text-emerald-100 font-medium text-sm">Wallet Balance</h3>
@@ -109,14 +136,12 @@
             </div>
         </div>
 
-        <!-- Offers Section -->
         <div class="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
             <div class="p-6 border-b border-slate-100 flex justify-between items-center">
                 <h2 class="text-xl font-bold text-slate-800">Active Campaigns</h2>
                 <span class="text-xs text-slate-400">Click 'Get Link' to promote</span>
             </div>
-            <div class="divide-y divide-slate-100">
-                <!-- Offer 1 -->
+            <div id="offersContainer" class="divide-y divide-slate-100">
                 <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition">
                     <div>
                         <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded">FINANCIAL</span>
@@ -131,7 +156,6 @@
                         <button onclick="generateLink('57', 'Upstox Demat Account')" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm shadow-md transition">Get Link</button>
                     </div>
                 </div>
-                <!-- Offer 2 -->
                 <div class="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition">
                     <div>
                         <span class="px-2 py-1 bg-purple-100 text-purple-800 text-xs font-semibold rounded">INSTANT</span>
@@ -150,7 +174,6 @@
         </div>
     </main>
 
-    <!-- Modal for Link Generation -->
     <div id="linkModal" class="fixed inset-0 bg-slate-900 bg-opacity-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
             <div class="flex justify-between items-center border-b pb-3">
@@ -164,7 +187,6 @@
                     <button onclick="copyLink()" class="bg-slate-900 hover:bg-slate-800 text-white px-4 rounded-r-lg font-semibold text-sm">Copy</button>
                 </div>
             </div>
-            <p class="text-xs text-slate-400 leading-relaxed">Share this link directly on your social media or website. Clicks and conversions will be tracked automatically.</p>
         </div>
     </div>
 </body>
