@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecting... | AffiliateWealthHub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyD0O6SrF0Y15lFcFhXwJIyDbGFsTuxosw",
+            authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
+            projectId: "affiliatewealthhub-542e0",
+            storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
+            messagingSenderId: "1088047960863",
+            appId: "1:1088047960863:web:bd7fe0e8e0404fdf9bb562a",
+            measurementId: "G-PX59VJN9TK"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        async function trackAndRedirect() {
+            const params = new URLSearchParams(window.location.search);
+            const oid = params.get('oid');
+            const pid = params.get('pid');
+
+            if (!oid || !pid) {
+                document.getElementById('statusText').innerText = "Invalid Tracking Link!";
+                return;
+            }
+
+            // Unique Click ID generate karein
+            const clickId = "AWH_" + Date.now() + "_" + Math.floor(1000 + Math.random() * 9000);
+
+            try {
+                // 1. Firestore mein Click record karein
+                await setDoc(doc(db, "clicks", clickId), {
+                    clickId: clickId,
+                    offerId: oid,
+                    publisherId: pid,
+                    status: "pending",
+                    userAgent: navigator.userAgent,
+                    createdAt: new Date().toISOString()
+                });
+
+                // 2. Offer ka destination URL Firestore se fetch karein
+                const offerSnap = await getDoc(doc(db, "offers", oid));
+                let targetUrl = "";
+
+                if (offerSnap.exists() && offerSnap.data().targetUrl) {
+                    targetUrl = offerSnap.data().targetUrl;
+                } else {
+                    // Fallback URLs (jab tak aap Admin Panel se naye offers add nahi karte)
+                    const fallbackOffers = {
+                        "57": "https://upstox.com/open-demat-account/",
+                        "58": "https://www.angelone.in/open-demat-account"
+                    };
+                    targetUrl = fallbackOffers[oid] || "https://affiliatewealthhub.online";
+                }
+
+                // 3. Target URL mein clickId ko sub1 parameter ke roop mein jodein
+                const separator = targetUrl.includes('?') ? '&' : '?';
+                const finalUrl = `${targetUrl}${separator}sub1=${clickId}&aff_sub=${pid}`;
+
+                // Redirect user
+                window.location.replace(finalUrl);
+            } catch (error) {
+                console.error("Tracking Error:", error);
+                document.getElementById('statusText').innerText = "Redirecting error. Please try again.";
+            }
+        }
+
+        trackAndRedirect();
+    </script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center">
+    <div class="text-center space-y-3">
+        <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+        <p id="statusText" class="text-sm text-slate-300 font-medium">Verifying & Redirecting securely...</p>
+    </div>
+</body>
+</html>
