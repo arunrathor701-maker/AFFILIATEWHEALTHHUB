@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - AffiliateWealthHub</title>
+    <title>Partner Login - AffiliateWealthHub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw"
+            apiKey: "AIzaSyDO06SrF0Y15lFcFhXwJIyDbGFsTuxoswY",
             authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
             projectId: "affiliatewealthhub-542e0",
             storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
@@ -24,80 +24,178 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        window.handleLogin = async (e) => {
+        let isRegisterMode = false;
+
+        window.toggleMode = () => {
+            isRegisterMode = !isRegisterMode;
+            document.getElementById('nameField').classList.toggle('hidden', !isRegisterMode);
+            document.getElementById('formTitle').innerText = isRegisterMode ? "Create Affiliate Account" : "Welcome back";
+            document.getElementById('formSubtitle').innerText = isRegisterMode ? "Register to start earning with AffiliateWealthHub." : "Sign in to access your affiliate dashboard.";
+            document.getElementById('submitBtn').innerText = isRegisterMode ? "Create Account" : "Sign In";
+            document.getElementById('toggleText').innerHTML = isRegisterMode
+                ? `Already have an account? <button type="button" onclick="toggleMode()" class="font-bold text-blue-600 hover:text-blue-500">Sign In</button>`
+                : `Don't have an account? <button type="button" onclick="toggleMode()" class="font-bold text-blue-600 hover:text-blue-500">Create Affiliate Account</button>`;
+        };
+
+        window.forgotPassword = async () => {
+            const email = document.getElementById('email').value.trim();
+            if (!email) {
+                alert("Pehle upar Email box mein apna email likhein, phir Forgot Password dabayein.");
+                return;
+            }
+            try {
+                await sendPasswordResetEmail(auth, email);
+                alert("Password reset link aapke email (" + email + ") par bhej diya gaya hai!");
+            } catch (err) {
+                alert("Error: " + err.message);
+            }
+        };
+
+        window.handleAuth = async (e) => {
             e.preventDefault();
             const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
+            const fullName = document.getElementById('fullName').value.trim();
             const btn = document.getElementById('submitBtn');
             const errDiv = document.getElementById('errorDiv');
-            
+
             errDiv.classList.add('hidden');
             btn.disabled = true;
-            btn.innerHTML = `
-                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Authenticating...
-            `;
+            btn.innerText = isRegisterMode ? "Creating Account..." : "Signing In...";
 
             try {
-                const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
-                
-                const userDoc = await getDoc(doc(db, "users", user.uid));
-                const userData = userDoc.exists() ? userDoc.data() : { name: user.displayName || "Publisher", role: "publisher", publisherId: "662" };
-                
-                const sessionData = {
-                    uid: user.uid,
-                    email: user.email,
-                    name: userData.name,
-                    role: userData.role || "publisher",
-                    publisherId: userData.publisherId || "662"
-                };
-                
-                localStorage.setItem("awh_user", JSON.stringify(sessionData));
-                
-                if (sessionData.role === "admin" || sessionData.email === "arunrathor701@gmail.com") {
-                    window.location.replace("/affiliate/public/admin/index.html");
-                } else {
+                if (isRegisterMode) {
+                    const cred = await createUserWithEmailAndPassword(auth, email, password);
+                    const newPubId = Math.floor(100 + Math.random() * 899);
+                    const userData = {
+                        uid: cred.user.uid,
+                        name: fullName || "Publisher",
+                        email: email,
+                        role: "publisher",
+                        publisherId: newPubId,
+                        balance: 0,
+                        createdAt: new Date().toISOString()
+                    };
+                    await setDoc(doc(db, "users", cred.user.uid), userData);
+                    localStorage.setItem("awh_user", JSON.stringify(userData));
                     window.location.replace("/affiliate/public/dashboard/index.html");
+                } else {
+                    const cred = await signInWithEmailAndPassword(auth, email, password);
+                    const userDoc = await getDoc(doc(db, "users", cred.user.uid));
+                    const userData = userDoc.exists() ? userDoc.data() : { name: "Publisher", role: "publisher", publisherId: "662" };
+                    const sessionData = {
+                        uid: cred.user.uid,
+                        email: cred.user.email,
+                        name: userData.name,
+                        role: userData.role || "publisher",
+                        publisherId: userData.publisherId || "662"
+                    };
+                    localStorage.setItem("awh_user", JSON.stringify(sessionData));
+
+                    if (sessionData.role === "admin" || sessionData.email === "arunrathor701@gmail.com") {
+                        window.location.replace("/affiliate/public/admin/index.html");
+                    } else {
+                        window.location.replace("/affiliate/public/dashboard/index.html");
+                    }
                 }
             } catch (err) {
                 errDiv.innerText = err.message.replace("Firebase: ", "");
                 errDiv.classList.remove('hidden');
                 btn.disabled = false;
-                btn.innerHTML = "Sign In";
+                btn.innerText = isRegisterMode ? "Create Account" : "Sign In";
             }
         };
     </script>
 </head>
-<body class="h-full bg-slate-900 flex items-center justify-center p-4">
-    <div class="max-w-md w-full space-y-8 bg-slate-800 p-8 rounded-3xl shadow-2xl border border-slate-700">
-        <div class="text-center">
-            <div class="mx-auto h-16 w-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-black text-white text-2xl shadow-lg shadow-blue-500/30 mb-4 border border-blue-400/20">AWH</div>
-            <h2 class="text-2xl font-black text-white tracking-tight">Welcome Back</h2>
-            <p class="text-xs text-slate-400 mt-1 font-medium">Access your AffiliateWealthHub Partner Portal</p>
+<body class="h-full font-sans antialiased">
+    <div class="min-h-screen flex flex-col lg:flex-row">
+        <!-- Left Branding Panel -->
+        <div class="lg:w-1/2 bg-[#1e295d] text-white p-8 lg:p-12 flex flex-col justify-between relative overflow-hidden">
+            <div class="relative z-10">
+                <div class="bg-white/10 backdrop-blur-md px-3 py-1 rounded-md text-xs font-semibold inline-block mb-8 border border-white/10 uppercase tracking-wider">
+                    Performance Marketing Platform
+                </div>
+                <h1 class="text-3xl lg:text-5xl font-black leading-tight tracking-tight mb-6">Grow. Track. Earn.</h1>
+                <p class="text-blue-200 text-sm lg:text-base mb-8 max-w-md">Register and start earning by promoting our high-converting financial & digital offers.</p>
+
+                <ul class="space-y-4 mb-12">
+                    <li class="flex items-center space-x-3 text-sm font-medium">
+                        <svg class="w-5 h-5 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span>Real-time campaign & Sub-ID tracking</span>
+                    </li>
+                    <li class="flex items-center space-x-3 text-sm font-medium">
+                        <svg class="w-5 h-5 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span>Detailed performance reports</span>
+                    </li>
+                    <li class="flex items-center space-x-3 text-sm font-medium">
+                        <svg class="w-5 h-5 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span>Instant conversion attribution</span>
+                    </li>
+                </ul>
+
+                <div class="bg-black/20 rounded-2xl p-6 backdrop-blur-sm border border-white/5">
+                    <div class="text-[11px] font-bold text-blue-300 uppercase tracking-widest mb-2">NETWORK GROWTH • LIVE STATS</div>
+                    <div class="text-2xl font-black mb-4 text-emerald-400">+18.4% Active Payouts</div>
+                    <div class="grid grid-cols-3 gap-2 text-xs text-blue-300 border-t border-white/10 pt-4">
+                        <div><span class="block text-[10px] text-gray-400">CLICKS</span> 12.4K+</div>
+                        <div><span class="block text-[10px] text-gray-400">LEADS</span> 3.1K+</div>
+                        <div><span class="block text-[10px] text-gray-400">PAYOUTS</span> ₹24L+</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="relative z-10 mt-12 pt-6 border-t border-white/10 flex justify-between text-xs text-blue-300">
+                <span>AffiliateWealthHub Network</span>
+                <span>© 2026 All rights reserved.</span>
+            </div>
         </div>
 
-        <form class="mt-8 space-y-5" onsubmit="handleLogin(event)">
-            <div id="errorDiv" class="hidden p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs text-center font-medium"></div>
-            <div>
-                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Email Address</label>
-                <input id="email" type="email" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition placeholder-slate-600" placeholder="name@domain.com">
-            </div>
-            <div>
-                <div class="flex items-center justify-between mb-2">
-                    <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider">Password</label>
+        <!-- Right Login / Register Form -->
+        <div class="lg:w-1/2 bg-slate-50 p-8 lg:p-12 flex flex-col justify-center items-center">
+            <div class="w-full max-w-md space-y-6 bg-white p-8 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100">
+                <div class="flex items-center space-x-3">
+                    <div class="h-10 w-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-white text-sm">AWH</div>
+                    <span class="font-black text-xl tracking-tight text-slate-900">AffiliateWealthHub</span>
                 </div>
-                <input id="password" type="password" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition placeholder-slate-600" placeholder="••••••••">
+
+                <div>
+                    <h2 id="formTitle" class="text-2xl font-extrabold text-slate-900 tracking-tight">Welcome back</h2>
+                    <p id="formSubtitle" class="text-sm text-slate-500 mt-1">Sign in to access your affiliate dashboard.</p>
+                </div>
+
+                <form class="space-y-4" onsubmit="handleAuth(event)">
+                    <div id="errorDiv" class="hidden p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs font-semibold"></div>
+
+                    <div id="nameField" class="hidden">
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Full Name</label>
+                        <input id="fullName" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter your full name">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Email Address</label>
+                        <input id="email" type="email" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter your email">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Password</label>
+                        <input id="password" type="password" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter your password">
+                    </div>
+
+                    <div class="flex items-center justify-between text-sm">
+                        <label class="flex items-center text-slate-600">
+                            <input type="checkbox" checked class="h-4 w-4 text-blue-600 border-gray-300 rounded">
+                            <span class="ml-2 text-xs font-medium">Remember me</span>
+                        </label>
+                        <button type="button" onclick="forgotPassword()" class="text-xs font-semibold text-blue-600 hover:text-blue-500">Forgot password?</button>
+                    </div>
+
+                    <button id="submitBtn" type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-blue-600/20 transition text-sm">Sign In</button>
+                </form>
+
+                <div id="toggleText" class="text-center pt-4 border-t border-slate-100 text-xs text-slate-600">
+                    Don't have an account? <button type="button" onclick="toggleMode()" class="font-bold text-blue-600 hover:text-blue-500">Create Affiliate Account</button>
+                </div>
             </div>
-            <div>
-                <button id="submitBtn" type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-blue-600/30 transition transform active:scale-95 text-sm">Sign In</button>
-            </div>
-        </form>
-        <div class="text-center pt-2 border-t border-slate-700/50">
-            <p class="text-xs text-slate-500">Need access? Contact your network administrator.</p>
         </div>
     </div>
 </body>
