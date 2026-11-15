@@ -12,7 +12,7 @@
         import { getFirestore, doc, getDoc, collection, getDocs, query, where, updateDoc, addDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey:  "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
+            apiKey:"AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
             authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
             projectId: "affiliatewealthhub-542e0",
             storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
@@ -33,22 +33,19 @@
             if (el) el.innerText = text;
         }
 
-        // Global Tab Switcher (Works immediately without waiting for Firebase)
+        // Instant Tab Switcher
         window.switchTab = function(tabId, btnEl) {
             document.querySelectorAll('.tab-content').forEach(el => {
                 el.classList.add('hidden');
             });
-            
             const activeTab = document.getElementById(tabId);
             if (activeTab) {
                 activeTab.classList.remove('hidden');
             }
-
             document.querySelectorAll('.nav-link').forEach(el => {
                 el.classList.remove('bg-blue-600', 'text-white', 'shadow-sm');
                 el.classList.add('text-slate-300', 'hover:bg-slate-800');
             });
-
             if (btnEl) {
                 btnEl.classList.remove('text-slate-300', 'hover:bg-slate-800');
                 btnEl.classList.add('bg-blue-600', 'text-white', 'shadow-sm');
@@ -85,7 +82,6 @@
         async function loadPublisherData() {
             const pubId = String(currentUser.publisherId || "662");
             try {
-                // 1. Fetch User Balance
                 if (currentUser.uid) {
                     const userDoc = await getDoc(doc(db, "users", currentUser.uid));
                     if (userDoc.exists()) {
@@ -96,7 +92,6 @@
                 safeSetText('totalEarnings', `₹${currentBalance}`);
                 safeSetText('perfEarnings', `₹${currentBalance}`);
 
-                // 2. Fetch Clicks & Conversions
                 const q = query(collection(db, "clicks"), where("publisherId", "==", pubId));
                 const querySnapshot = await getDocs(q);
 
@@ -114,11 +109,10 @@
                     const isApproved = status === "approved";
                     const payout = Number(data.payoutCredited || 0);
                     const oid = data.offerId || "1";
-                    const sub1 = data.sub1 || "Direct / No Sub-ID";
+                    const sub1 = data.sub1 || "Direct (No Sub-ID)";
 
                     if (isApproved) approvedCount++;
 
-                    // Offer-wise stats
                     if (!offerStats[oid]) offerStats[oid] = { clicks: 0, conv: 0, rev: 0 };
                     offerStats[oid].clicks++;
                     if (isApproved) {
@@ -126,7 +120,6 @@
                         offerStats[oid].rev += payout;
                     }
 
-                    // Marker / Sub1 stats
                     if (!markerStats[sub1]) markerStats[sub1] = { clicks: 0, conv: 0, rev: 0 };
                     markerStats[sub1].clicks++;
                     if (isApproved) {
@@ -142,7 +135,7 @@
                             <td class="p-3 text-xs">${dateStr}</td>
                             <td class="p-3 text-xs font-mono text-slate-600">${data.clickId || docSnap.id}</td>
                             <td class="p-3 text-xs font-semibold">Offer #${oid}</td>
-                            <td class="p-3 text-xs font-mono text-slate-500">${data.sub1 || '-'}</td>
+                            <td class="p-3 text-xs font-mono font-bold text-blue-600">${data.sub1 || '-'}</td>
                             <td class="p-3 text-xs"><span class="px-2 py-0.5 ${badgeClass} rounded text-[10px] font-bold uppercase">${data.status || 'Recorded'}</span></td>
                         </tr>
                     `);
@@ -152,7 +145,7 @@
                             <tr class="border-b hover:bg-slate-50">
                                 <td class="p-3 text-xs">${data.approvedAt ? new Date(data.approvedAt).toLocaleDateString('en-IN') : dateStr}</td>
                                 <td class="p-3 text-xs font-semibold">Offer #${oid}</td>
-                                <td class="p-3 text-xs font-mono text-slate-500">${data.sub1 || '-'}</td>
+                                <td class="p-3 text-xs font-mono font-bold text-blue-600">${data.sub1 || '-'}</td>
                                 <td class="p-3 text-xs font-bold text-emerald-600">₹${payout}</td>
                                 <td class="p-3 text-xs"><span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold uppercase">Approved</span></td>
                             </tr>
@@ -160,7 +153,6 @@
                     }
                 });
 
-                // Update Top Cards & My Performance
                 const cr = totalClicks > 0 ? ((approvedCount / totalClicks) * 100).toFixed(1) : 0;
                 safeSetText('totalClicksDisplay', totalClicks);
                 safeSetText('perfClicks', totalClicks);
@@ -169,19 +161,16 @@
                 safeSetText('crDisplay', `${cr}%`);
                 safeSetText('perfCr', `${cr}%`);
 
-                // Render Clicks Table
                 const clicksBody = document.getElementById('clicksTableBody');
                 if (clicksBody) {
                     clicksBody.innerHTML = clicksListHtml.join('') || `<tr><td colspan="5" class="p-6 text-center text-slate-400">Abhi tak koi click record nahi hua hai.</td></tr>`;
                 }
 
-                // Render Conversions Table
                 const convBody = document.getElementById('convTableBody');
                 if (convBody) {
                     convBody.innerHTML = convListHtml.join('') || `<tr><td colspan="5" class="p-6 text-center text-slate-400">Abhi tak koi approved lead nahi hai.</td></tr>`;
                 }
 
-                // Render Offer Performance Table
                 const offerPerfBody = document.getElementById('offerPerfTableBody');
                 if (offerPerfBody) {
                     const rows = Object.keys(offerStats).map(oid => {
@@ -198,7 +187,6 @@
                     offerPerfBody.innerHTML = rows.join('') || `<tr><td colspan="5" class="p-6 text-center text-slate-400">No offer performance data yet.</td></tr>`;
                 }
 
-                // Render Marker Report Table
                 const markerBody = document.getElementById('markerTableBody');
                 if (markerBody) {
                     const mRows = Object.keys(markerStats).map(tag => {
@@ -232,9 +220,9 @@
                 }
                 snap.forEach(docSnap => {
                     const o = docSnap.data();
-                    const trackingUrl = `https://affiliatewealthhub.online/go?oid=${docSnap.id}&pid=${pubId}`;
+                    const baseTrackingUrl = `https://affiliatewealthhub.online/go?oid=${docSnap.id}&pid=${pubId}`;
                     container.innerHTML += `
-                        <div class="p-4 bg-white border-b flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition">
+                        <div class="p-4 bg-white border-b flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-slate-50 transition">
                             <div class="flex items-center space-x-3">
                                 <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white text-base shrink-0">
                                     ${o.name ? o.name[0].toUpperCase() : 'O'}
@@ -245,8 +233,9 @@
                                     <p class="text-[11px] text-slate-400 mt-0.5">${o.description || 'Complete KYC / Account Opening to earn payout.'}</p>
                                 </div>
                             </div>
-                            <div class="flex items-center space-x-2">
-                                <button onclick="copyTrackingLink('${trackingUrl}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-sm transition cursor-pointer">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <input type="text" id="subInput_${docSnap.id}" placeholder="Sub-ID (e.g. arun, atul)" class="border border-slate-300 rounded-lg px-3 py-2 text-xs w-40 focus:ring-2 focus:ring-blue-500 outline-none">
+                                <button type="button" onclick="generateAndCopyLink('${baseTrackingUrl}', 'subInput_${docSnap.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-sm transition cursor-pointer">
                                     Copy Link
                                 </button>
                             </div>
@@ -258,11 +247,15 @@
             }
         }
 
-        window.copyTrackingLink = (url) => {
-            navigator.clipboard.writeText(url).then(() => {
-                alert("Tracking Link Copied!\n\n" + url);
+        window.generateAndCopyLink = (baseUrl, inputId) => {
+            const subInput = document.getElementById(inputId);
+            const subVal = subInput ? subInput.value.trim() : "";
+            const finalUrl = subVal ? `${baseUrl}&sub1=${encodeURIComponent(subVal)}` : baseUrl;
+
+            navigator.clipboard.writeText(finalUrl).then(() => {
+                alert("Tracking Link Copied!\n\n" + finalUrl);
             }).catch(() => {
-                prompt("Copy your tracking link:", url);
+                prompt("Copy your tracking link:", finalUrl);
             });
         };
 
@@ -388,7 +381,3 @@
                     <button type="button" onclick="switchTab('tab-dashboard', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 bg-blue-600 text-white rounded-lg transition text-left shadow-sm cursor-pointer">
                         <span>Dashboard</span>
                     </button>
-                </div>
-
-                <div>
-                    <div class="px-3 py-1 text-slate-500 uppe
