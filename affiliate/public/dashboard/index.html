@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Affilentra Style Dashboard - AffiliateWealthHub</title>
+    <title>AffiliateWealthHub - Partner Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, collection, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, collection, getDocs, query, where, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
+            apiKey: "AIzaSyDO06SrF0Y15lFcFhXwJIyDbGFsTuxoswY",
             authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
             projectId: "affiliatewealthhub-542e0",
             storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
@@ -27,125 +27,193 @@
 
         let currentUser = JSON.parse(localStorage.getItem("awh_user") || "null");
 
+        function setText(id, text) {
+            const el = document.getElementById(id);
+            if (el) el.innerText = text;
+        }
+
         async function initDashboard() {
-            if(!currentUser) {
+            if (!currentUser) {
                 window.location.replace("/affiliate/public/login/index.html");
                 return;
             }
             updateUI();
+            loadPublisherData();
             loadOffers();
-            initChart();
         }
 
         function updateUI() {
-            document.querySelectorAll('.pubNameDisplay').forEach(el => el.innerText = currentUser.name || "Arun Rathore");
-            document.getElementById('pubIdDisplay').innerText = currentUser.publisherId || "955";
-            document.getElementById('pubEmailDisplay').innerText = currentUser.email || "arunrathor701@gmail.com";
-            
-            // Profile Form Fill
-            if(document.getElementById('profileName')) {
-                document.getElementById('profileName').value = currentUser.name || "";
-                document.getElementById('profileEmail').value = currentUser.email || "";
-            }
+            const name = currentUser.name || "Arun Rathore";
+            const pubId = currentUser.publisherId || "662";
+            const email = currentUser.email || "";
 
-            fetchBalance();
+            document.querySelectorAll('.pubNameDisplay').forEach(el => el.innerText = name);
+            setText('pubIdDisplay', pubId);
+            setText('pubEmailDisplay', email);
+
+            const profName = document.getElementById('profileName');
+            const profEmail = document.getElementById('profileEmail');
+            if (profName) profName.value = name;
+            if (profEmail) profEmail.value = email;
         }
 
-        async function fetchBalance() {
+        async function loadPublisherData() {
+            const pubId = String(currentUser.publisherId || "662");
             try {
-                const userDoc = await getDoc(doc(db, "users", currentUser.uid || "dummy"));
-                if(userDoc.exists()) {
-                    const d = userDoc.data();
-                    document.getElementById('walletBalance').innerText = `₹${d.balance || 0}`;
-                    document.getElementById('totalEarnings').innerText = `₹${d.balance || 0}`;
+                let balance = 0;
+                if (currentUser.uid) {
+                    const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+                    if (userDoc.exists()) {
+                        balance = userDoc.data().balance || 0;
+                    }
                 }
-            } catch(e) {
-                console.error(e);
+                setText('walletBalance', `₹${balance}`);
+                setText('totalEarnings', `₹${balance}`);
+                setText('perfEarnings', `₹${balance}`);
+
+                const q = query(collection(db, "clicks"), where("publisherId", "==", pubId));
+                const querySnapshot = await getDocs(q);
+
+                let totalClicks = 0;
+                let approvedCount = 0;
+                const clicksListHtml = [];
+                const convListHtml = [];
+
+                querySnapshot.forEach((docSnap) => {
+                    totalClicks++;
+                    const data = docSnap.data();
+                    const isApproved = (data.status || "").toLowerCase() === "approved";
+                    if (isApproved) approvedCount++;
+
+                    const dateStr = data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'N/A';
+                    clicksListHtml.push(`
+                        <tr class="border-b hover:bg-slate-50">
+                            <td class="p-3">${dateStr}</td>
+                            <td class="p-3 font-semibold">Offer #${data.offerId || '1'}</td>
+                            <td class="p-3 font-mono text-slate-500">${data.sub1 || '-'}</td>
+                            <td class="p-3"><span class="px-2 py-1 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold uppercase">${data.status || 'Recorded'}</span></td>
+                        </tr>
+                    `);
+
+                    if (isApproved) {
+                        convListHtml.push(`
+                            <tr class="border-b hover:bg-slate-50">
+                                <td class="p-3">${dateStr}</td>
+                                <td class="p-3 font-semibold">Offer #${data.offerId || '1'}</td>
+                                <td class="p-3 font-bold text-emerald-600">₹${data.payoutCredited || 0}</td>
+                                <td class="p-3"><span class="px-2 py-1 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold uppercase">Approved</span></td>
+                            </tr>
+                        `);
+                    }
+                });
+
+                const cr = totalClicks > 0 ? ((approvedCount / totalClicks) * 100).toFixed(1) : 0;
+                setText('totalClicksDisplay', totalClicks);
+                setText('perfClicks', totalClicks);
+                setText('totalConvDisplay', approvedCount);
+                setText('crDisplay', `${cr}%`);
+
+                const clicksBody = document.getElementById('clicksTableBody');
+                if (clicksBody) {
+                    clicksBody.innerHTML = clicksListHtml.join('') || `<tr><td colspan="4" class="p-4 text-center text-slate-400">No click records found.</td></tr>`;
+                }
+
+                const convBody = document.getElementById('convTableBody');
+                if (convBody) {
+                    convBody.innerHTML = convListHtml.join('') || `<tr><td colspan="4" class="p-4 text-center text-slate-400">No conversions recorded yet.</td></tr>`;
+                }
+
+                initChart(totalClicks, approvedCount);
+            } catch (e) {
+                console.error("Error loading publisher data:", e);
             }
         }
 
         async function loadOffers() {
             const container = document.getElementById('offersList');
-            if(!container) return;
+            if (!container) return;
+            const pubId = currentUser.publisherId || "662";
             try {
                 const snap = await getDocs(collection(db, "offers"));
                 container.innerHTML = "";
+                if (snap.empty) {
+                    container.innerHTML = `<div class="p-6 text-center text-slate-400 text-xs">No active offers available right now.</div>`;
+                    return;
+                }
                 snap.forEach(docSnap => {
                     const o = docSnap.data();
+                    const trackingUrl = `https://affiliatewealthhub.online/go?oid=${docSnap.id}&pid=${pubId}`;
                     container.innerHTML += `
                         <div class="p-4 bg-white border-b flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50 transition">
                             <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center font-bold text-blue-600 text-sm">
-                                    ${o.name ? o.name[0] : 'O'}
+                                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-white text-sm">
+                                    ${o.name ? o.name[0].toUpperCase() : 'O'}
                                 </div>
                                 <div>
-                                    <h4 class="font-bold text-slate-800 text-sm">${o.name || 'Campaign'}</h4>
-                                    <span class="text-xs text-slate-400">Category: ${o.category || 'Financial'} • Payout: ₹${o.payout || 0}</span>
+                                    <h4 class="font-bold text-slate-900 text-sm">${o.name || 'Campaign'}</h4>
+                                    <span class="text-xs text-blue-600 font-semibold">Category: ${o.category || 'Financial'} • Payout: ₹${o.payout || 0}</span>
                                 </div>
                             </div>
-                            <button onclick="alert('Tracking Link: https://affiliatewealthhub.online/go?oid=${docSnap.id}&pid=${currentUser.publisherId || 955}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-sm transition self-start md:self-auto">
+                            <button onclick="prompt('Copy your tracking link:', '${trackingUrl}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold text-xs shadow-md transition self-start md:self-auto">
                                 Get Link
                             </button>
                         </div>
                     `;
                 });
-            } catch(e) {
+            } catch (e) {
                 container.innerHTML = `<div class="p-6 text-center text-red-500 text-xs">Error loading campaigns.</div>`;
             }
         }
 
-        function initChart() {
+        function initChart(clicksCount, convCount) {
             const canvas = document.getElementById('analyticsChart');
-            if(!canvas) return;
+            if (!canvas) return;
             const ctx = canvas.getContext('2d');
-            new Chart(ctx, {
-                type: 'line',
+            if (window.myChart instanceof Chart) {
+                window.myChart.destroy();
+            }
+            window.myChart = new Chart(ctx, {
+                type: 'bar',
                 data: {
-                    labels: ['Nov 10', 'Nov 11', 'Nov 12', 'Nov 13', 'Nov 14', 'Nov 15', 'Nov 16'],
+                    labels: ['Total Clicks', 'Approved Conversions'],
                     datasets: [{
-                        label: 'Clicks',
-                        data: [0, 0, 1, 0, 2, 0, 4],
-                        borderColor: '#2563eb',
-                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                        fill: true,
-                        tension: 0.3
-                    }, {
-                        label: 'Conversions',
-                        data: [0, 0, 0, 0, 0, 0, 0],
-                        borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        fill: true,
-                        tension: 0.3
+                        label: 'Count',
+                        data: [clicksCount, convCount],
+                        backgroundColor: ['#2563eb', '#10b981'],
+                        borderRadius: 8
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } } }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
         }
 
-        window.switchTab = (tabId) => {
+        window.switchTab = (tabId, btnEl) => {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
             const activeTab = document.getElementById(tabId);
-            if(activeTab) activeTab.classList.remove('hidden');
+            if (activeTab) activeTab.classList.remove('hidden');
 
             document.querySelectorAll('.nav-link').forEach(el => {
                 el.classList.remove('bg-blue-600', 'text-white');
                 el.classList.add('text-slate-300', 'hover:bg-slate-800');
             });
-            event.currentTarget.classList.remove('text-slate-300', 'hover:bg-slate-800');
-            event.currentTarget.classList.add('bg-blue-600', 'text-white');
+            if (btnEl) {
+                btnEl.classList.remove('text-slate-300', 'hover:bg-slate-800');
+                btnEl.classList.add('bg-blue-600', 'text-white');
+            }
         };
 
         window.saveProfile = async (e) => {
             e.preventDefault();
-            const newName = document.getElementById('profileName').value;
+            const newName = document.getElementById('profileName').value.trim();
+            if (!newName || !currentUser.uid) return;
             try {
                 await updateDoc(doc(db, "users", currentUser.uid), { name: newName });
                 currentUser.name = newName;
                 localStorage.setItem("awh_user", JSON.stringify(currentUser));
                 updateUI();
                 alert("Profile updated successfully!");
-            } catch(err) {
-                alert("Error updating profile.");
+            } catch (err) {
+                alert("Error updating profile: " + err.message);
             }
         };
 
@@ -162,52 +230,50 @@
         <!-- Sidebar -->
         <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shrink-0">
             <div class="p-5 border-b border-slate-800 flex items-center space-x-3">
-                <div class="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center font-black text-white text-base">A</div>
+                <div class="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center font-black text-white text-xs">AWH</div>
                 <div>
-                    <h2 class="font-extrabold text-white text-sm tracking-tight">Affilentra</h2>
-                    <span class="text-[10px] text-slate-400 block">Affiliate Portal</span>
+                    <h2 class="font-extrabold text-white text-sm tracking-tight">AffiliateWealthHub</h2>
+                    <span class="text-[10px] text-blue-400 block font-bold">Partner Portal</span>
                 </div>
             </div>
             
-            <div class="flex-1 overflow-y-auto py-4 px-3 space-y-6 text-xs font-semibold">
+            <div class="flex-1 overflow-y-auto py-4 px-3 space-y-5 text-xs font-semibold">
                 <div>
-                    <button onclick="switchTab('tab-dashboard')" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 bg-blue-600 text-white rounded-lg transition text-left">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                    <button onclick="switchTab('tab-dashboard', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 bg-blue-600 text-white rounded-lg transition text-left">
                         <span>Dashboard</span>
                     </button>
                 </div>
 
                 <div>
                     <div class="px-3 py-1 text-slate-500 uppercase tracking-wider text-[10px]">AFFILIATE</div>
-                    <button onclick="switchTab('tab-offers')" class="nav-link w-full flex items-center space-x-3 px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left mt-1">Offers</button>
+                    <button onclick="switchTab('tab-offers', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left mt-1">Offers</button>
                 </div>
 
                 <div>
                     <div class="px-3 py-1 text-slate-500 uppercase tracking-wider text-[10px]">REPORTS & FINANCE</div>
                     <div class="space-y-1 mt-1">
-                        <button onclick="switchTab('tab-clicks')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Clicks Report</button>
-                        <button onclick="switchTab('tab-conversions')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Conversion Report</button>
-                        <button onclick="switchTab('tab-offer-perf')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Offer Performance</button>
-                        <button onclick="switchTab('tab-marker')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Marker Report</button>
-                        <button onclick="switchTab('tab-my-perf')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">My Performance</button>
-                        <button onclick="switchTab('tab-earnings')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">My Earnings</button>
-                        <button onclick="switchTab('tab-payouts')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Payouts</button>
+                        <button onclick="switchTab('tab-clicks', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Clicks Report</button>
+                        <button onclick="switchTab('tab-conversions', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Conversion Report</button>
+                        <button onclick="switchTab('tab-offer-perf', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Offer Performance</button>
+                        <button onclick="switchTab('tab-marker', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Marker Report</button>
+                        <button onclick="switchTab('tab-my-perf', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">My Performance</button>
+                        <button onclick="switchTab('tab-earnings', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">My Earnings</button>
+                        <button onclick="switchTab('tab-payouts', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Payouts</button>
                     </div>
                 </div>
 
                 <div>
                     <div class="px-3 py-1 text-slate-500 uppercase tracking-wider text-[10px]">SETTINGS</div>
                     <div class="space-y-1 mt-1">
-                        <button onclick="switchTab('tab-notifications')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Notifications</button>
-                        <button onclick="switchTab('tab-profile')" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Profile</button>
+                        <button onclick="switchTab('tab-notifications', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Notifications</button>
+                        <button onclick="switchTab('tab-profile', this)" class="nav-link w-full px-3 py-2 text-slate-300 hover:bg-slate-800 rounded-lg transition text-left">Profile & Manager</button>
                     </div>
                 </div>
             </div>
 
             <div class="p-3 border-t border-slate-800">
-                <button onclick="logout()" class="w-full flex items-center space-x-3 px-3 py-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition text-xs font-semibold">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                    <span>Logout</span>
+                <button onclick="logout()" class="w-full px-3 py-2 text-red-400 hover:bg-slate-800 rounded-lg transition text-xs font-semibold text-left">
+                    Logout
                 </button>
             </div>
         </aside>
@@ -215,19 +281,19 @@
         <!-- Main Content Area -->
         <div class="flex-1 flex flex-col overflow-y-auto">
             <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-                <div class="flex items-center space-x-4">
-                    <div class="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-xs pubNameDisplay">AR</div>
+                <div class="flex items-center space-x-3">
+                    <div class="h-9 w-9 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-xs">AWH</div>
                     <div>
-                        <h1 class="text-base font-extrabold text-slate-900">Affiliate Portal</h1>
-                        <p class="text-[11px] text-slate-500">Welcome back, <span class="pubNameDisplay font-bold text-slate-800">Arun Rathore</span></p>
+                        <h1 class="text-base font-extrabold text-slate-900">AffiliateWealthHub</h1>
+                        <p class="text-[11px] text-slate-500">Welcome back, <span class="pubNameDisplay font-bold text-slate-800">Publisher</span></p>
                     </div>
                 </div>
-                <div class="text-right flex items-center space-x-4">
-                    <div class="text-left text-xs">
+                <div class="flex items-center space-x-4">
+                    <div class="text-right text-xs">
                         <span class="block text-slate-400 font-medium text-[10px]">PUBLISHER ID</span>
-                        <span id="pubIdDisplay" class="font-bold text-slate-800 font-mono">955</span>
+                        <span id="pubIdDisplay" class="font-bold text-slate-800 font-mono">662</span>
                     </div>
-                    <span class="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold uppercase">Approved</span>
+                    <span class="inline-block px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded text-[10px] font-bold uppercase">Approved</span>
                 </div>
             </header>
 
@@ -236,95 +302,57 @@
                 <!-- 1. DASHBOARD TAB -->
                 <div id="tab-dashboard" class="tab-content space-y-6">
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div class="bg-white p-5 rounded-xl border border-slate-200/60 shadow-xs">
-                            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">TOTAL CLICKS</span>
-                            <div class="text-2xl font-black text-slate-900 mt-1">4</div>
+                        <div class="bg-white p-5 rounded-xl border border-slate-200">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase block">TOTAL CLICKS</span>
+                            <div id="totalClicksDisplay" class="text-2xl font-black text-blue-600 mt-1">0</div>
                         </div>
-                        <div class="bg-white p-5 rounded-xl border border-slate-200/60 shadow-xs">
-                            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CONVERSION RATE</span>
-                            <div class="text-2xl font-black text-slate-900 mt-1">0%</div>
+                        <div class="bg-white p-5 rounded-xl border border-slate-200">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase block">CONVERSION RATE</span>
+                            <div id="crDisplay" class="text-2xl font-black text-slate-900 mt-1">0%</div>
                         </div>
-                        <div class="bg-white p-5 rounded-xl border border-slate-200/60 shadow-xs">
-                            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">CONVERSIONS</span>
-                            <div class="text-2xl font-black text-slate-900 mt-1">0</div>
+                        <div class="bg-white p-5 rounded-xl border border-slate-200">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase block">APPROVED LEADS</span>
+                            <div id="totalConvDisplay" class="text-2xl font-black text-slate-900 mt-1">0</div>
                         </div>
-                        <div class="bg-white p-5 rounded-xl border border-slate-200/60 shadow-xs bg-gradient-to-br from-blue-600 to-indigo-700 text-white">
-                            <span class="text-[11px] font-bold text-blue-200 uppercase tracking-wider block">WALLET BALANCE</span>
+                        <div class="bg-gradient-to-br from-blue-600 to-indigo-800 text-white p-5 rounded-xl">
+                            <span class="text-[11px] font-bold text-blue-200 uppercase block">WALLET BALANCE</span>
                             <div id="walletBalance" class="text-2xl font-black mt-1">₹0</div>
                         </div>
                     </div>
-                    <div class="bg-white p-6 rounded-xl border border-slate-200/60 shadow-xs">
-                        <h3 class="font-black text-slate-900 text-sm mb-4">Traffic & Performance</h3>
-                        <div class="h-72 w-full"><canvas id="analyticsChart"></canvas></div>
+                    <div class="bg-white p-6 rounded-xl border border-slate-200">
+                        <h3 class="font-black text-slate-900 text-sm mb-4">Traffic & Conversion Overview</h3>
+                        <div class="h-64 w-full"><canvas id="analyticsChart"></canvas></div>
                     </div>
                 </div>
 
                 <!-- 2. OFFERS TAB -->
-                <div id="tab-offers" class="tab-content space-y-4 hidden bg-white rounded-xl border border-slate-200 shadow-xs">
-                    <div class="p-4 border-b bg-slate-50 font-bold text-sm">Available Offers</div>
+                <div id="tab-offers" class="tab-content hidden bg-white rounded-xl border border-slate-200 overflow-hidden">
+                    <div class="p-4 border-b bg-slate-50 flex justify-between items-center">
+                        <span class="font-bold text-sm">Available Offers</span>
+                        <button onclick="loadOffers()" class="text-xs text-blue-600 font-bold">Refresh</button>
+                    </div>
                     <div id="offersList" class="divide-y"></div>
                 </div>
 
                 <!-- 3. CLICKS REPORT TAB -->
-                <div id="tab-clicks" class="tab-content space-y-4 hidden bg-white p-6 rounded-xl border">
-                    <h2 class="font-bold text-lg">Clicks Report</h2>
+                <div id="tab-clicks" class="tab-content hidden bg-white p-6 rounded-xl border border-slate-200">
+                    <h2 class="font-bold text-base mb-4">Clicks Report</h2>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs">
-                            <tr class="border-b bg-slate-50 text-slate-500 font-bold"><th class="p-2">Date</th><th class="p-2">Offer</th><th class="p-2">IP</th><th class="p-2">Status</th></tr>
-                            <tr class="border-b"><td class="p-2">15 Nov 2026</td><td class="p-2">Lemon</td><td class="p-2">1.187.220.48</td><td class="p-2 text-emerald-600">Clean</td></tr>
+                            <thead>
+                                <tr class="border-b bg-slate-100 text-slate-600 font-bold">
+                                    <th class="p-3">Date</th>
+                                    <th class="p-3">Offer</th>
+                                    <th class="p-3">Sub ID</th>
+                                    <th class="p-3">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clicksTableBody"></tbody>
                         </table>
                     </div>
                 </div>
 
                 <!-- 4. CONVERSION REPORT TAB -->
-                <div id="tab-conversions" class="tab-content space-y-4 hidden bg-white p-6 rounded-xl border">
-                    <h2 class="font-bold text-lg">Converted Leads</h2>
-                    <p class="text-xs text-slate-400">No conversions recorded yet.</p>
-                </div>
-
-                <!-- 5. OFFER PERFORMANCE TAB -->
-                <div id="tab-offer-perf" class="tab-content space-y-4 hidden bg-white p-6 rounded-xl border">
-                    <h2 class="font-bold text-lg">Offer Performance</h2>
-                    <div class="text-xs text-slate-400">Campaign statistics breakdown.</div>
-                </div>
-
-                <!-- 6. MARKER REPORT TAB -->
-                <div id="tab-marker" class="tab-content space-y-4 hidden bg-white p-6 rounded-xl border">
-                    <h2 class="font-bold text-lg">Marker Report</h2>
-                    <p class="text-xs text-slate-400">No marker data found.</p>
-                </div>
-
-                <!-- 7. MY PERFORMANCE TAB -->
-                <div id="tab-my-perf" class="tab-content space-y-4 hidden bg-white p-6 rounded-xl border">
-                    <h2 class="font-bold text-lg">My Performance Overview</h2>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="p-4 bg-blue-50 rounded-lg"><span class="text-xs text-slate-500 block">Total Clicks</span><span class="text-xl font-bold">4</span></div>
-                        <div class="p-4 bg-emerald-50 rounded-lg"><span class="text-xs text-slate-500 block">Total Earnings</span><span id="totalEarnings" class="text-xl font-bold">₹0</span></div>
-                    </div>
-                </div>
-
-                <!-- 8. MY EARNINGS TAB -->
-                <div id="tab-earnings" class="tab-content space-y-4 hidden bg-white p-6 rounded-xl border">
-                    <h2 class="font-bold text-lg">My Earnings</h2>
-                    <div class="p-4 border rounded-lg flex justify-between items-center bg-slate-50">
-                        <div><span class="text-xs text-slate-400 block">Available Balance</span><span id="walletBalance" class="text-lg font-bold">₹0</span></div>
-                        <button onclick="alert('Minimum withdrawal threshold not met.')" class="bg-blue-600 text-white px-4 py-2 rounded text-xs font-bold">Request Withdrawal</button>
-                    </div>
-                </div>
-
-                <!-- 9. PAYOUTS TAB -->
-                <div id="tab-payouts" class="tab-content space-y-4 hidden bg-white p-6 rounded-xl border">
-                    <h2 class="font-bold text-lg">Payment History</h2>
-                    <p class="text-xs text-slate-400">No payout requests.</p>
-                </div>
-
-                <!-- 10. NOTIFICATIONS TAB -->
-                <div id="tab-notifications" class="tab-content space-y-4 hidden bg-white p-6 rounded-xl border">
-                    <h2 class="font-bold text-lg">Notifications</h2>
-                    <p class="text-xs text-slate-400">No new notifications.</p>
-                </div>
-
-                <!-- 11. PROFILE & ACCOUNT MANAGER TAB -->
-                <div id="tab-profile" class="tab-content space-y-6 hidden max-w-2xl">
-                    <div class="bg-white p-6 rounded-xl border">
-                        <h2 class="font-bold text-lg
+                <div id="tab-conversions" class="tab-content hidden bg-white p-6 rounded-xl border border-slate-200">
+                    <h2 class="font-bold text-base mb-4">Conversion Report</h2>
+                    <div class="overflow-
