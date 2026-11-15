@@ -24,19 +24,32 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Security Check: Sirf Admin hi ye page khol sake
-        onAuthStateChanged(auth, async (user) => {
-            if (!user) {
-                window.location.href = "/affiliate/public/login/index.html";
-                return;
-            }
-            const userSnap = await getDoc(doc(db, "users", user.uid));
-            if (!userSnap.exists() || (userSnap.data().role !== "admin" && user.email !== "arunrathor701@gmail.com")) {
-                alert("Access Denied! Admin only.");
-                window.location.href = "/affiliate/public/dashboard/index.html";
-                return;
-            }
-            loadAllData();
+     // Security Check with Auth Persistence
+        import { browserLocalPersistence, setPersistence } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+        setPersistence(auth, browserLocalPersistence).then(() => {
+            onAuthStateChanged(auth, async (user) => {
+                if (!user) {
+                    // 1 second wait karein taaki session properly check ho sake
+                    setTimeout(() => {
+                        if (!auth.currentUser) {
+                            window.location.href = "/affiliate/public/login/index.html?redirect=admin";
+                        }
+                    }, 1000);
+                    return;
+                }
+                if (user.email === "arunrathor701@gmail.com") {
+                    loadAllData();
+                    return;
+                }
+                const userSnap = await getDoc(doc(db, "users", user.uid));
+                if (!userSnap.exists() || userSnap.data().role !== "admin") {
+                    alert("Access Denied! Admin only.");
+                    window.location.href = "/affiliate/public/dashboard/index.html";
+                    return;
+                }
+                loadAllData();
+            });
         });
 
         async function loadAllData() {
