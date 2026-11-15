@@ -103,7 +103,12 @@
                 msg.innerText = "Registration Successful! Redirecting...";
                 msg.className = "text-green-600 text-sm mt-2 font-medium";
                 setTimeout(() => {
-                    window.location.href = "/affiliate/public/dashboard/index.html";
+                  const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.get('redirect') === 'admin' || email === "arunrathor701@gmail.com") {
+    window.location.href = "/affiliate/public/admin/index.html";
+} else {
+    window.location.href = "/affiliate/public/dashboard/index.html";
+}
                 }, 1000);
             } catch (error) {
                 msg.innerText = error.message;
