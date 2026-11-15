@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Redirecting... | AffiliateWealthHub</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Redirecting - AffiliateWealthHub</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyD0O6SrF0Y15lFcFhXwJIyDbGFsTuxosw",
+            apiKey:"AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
             authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
             projectId: "affiliatewealthhub-542e0",
             storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
@@ -22,64 +21,61 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        async function trackAndRedirect() {
+        async function processRedirect() {
             const params = new URLSearchParams(window.location.search);
-            const oid = params.get('oid');
-            const pid = params.get('pid');
+            const offerId = params.get("oid");
+            const publisherId = params.get("pid") || "direct";
+            const sub1 = params.get("sub1") || "";
 
-            if (!oid || !pid) {
-                document.getElementById('statusText').innerText = "Invalid Tracking Link!";
+            if (!offerId) {
+                document.getElementById("statusText").innerText = "Invalid tracking link (Missing Offer ID).";
                 return;
             }
 
-            // Unique Click ID generate karein
-            const clickId = "AWH_" + Date.now() + "_" + Math.floor(1000 + Math.random() * 9000);
-
             try {
-                // 1. Firestore mein Click record karein
+                const offerSnap = await getDoc(doc(db, "offers", String(offerId)));
+                if (!offerSnap.exists()) {
+                    document.getElementById("statusText").innerText = "Campaign not found or expired.";
+                    return;
+                }
+
+                const offer = offerSnap.data();
+                if (offer.status && offer.status !== "active") {
+                    document.getElementById("statusText").innerText = "This campaign is currently paused.";
+                    return;
+                }
+
+                // Unique Click ID generate aur Firestore mein save karein
+                const clickId = "CLK_" + Date.now() + "_" + Math.floor(100 + Math.random() * 900);
                 await setDoc(doc(db, "clicks", clickId), {
                     clickId: clickId,
-                    offerId: oid,
-                    publisherId: pid,
+                    offerId: String(offerId),
+                    publisherId: String(publisherId),
+                    sub1: sub1,
                     status: "pending",
-                    userAgent: navigator.userAgent,
                     createdAt: new Date().toISOString()
                 });
 
-                // 2. Offer ka destination URL Firestore se fetch karein
-                const offerSnap = await getDoc(doc(db, "offers", oid));
-                let targetUrl = "";
-
-                if (offerSnap.exists() && offerSnap.data().targetUrl) {
-                    targetUrl = offerSnap.data().targetUrl;
-                } else {
-                    // Fallback URLs (jab tak aap Admin Panel se naye offers add nahi karte)
-                    const fallbackOffers = {
-                        "57": "https://upstox.com/open-demat-account/",
-                        "58": "https://www.angelone.in/open-demat-account"
-                    };
-                    targetUrl = fallbackOffers[oid] || "https://affiliatewealthhub.online";
+                // Destination URL mein clickId aur sub1 parameters pass karein
+                let destUrl = offer.targetUrl;
+                const separator = destUrl.includes("?") ? "&" : "?";
+                destUrl += `${separator}click_id=${encodeURIComponent(clickId)}&aff_sub=${encodeURIComponent(publisherId)}`;
+                if (sub1) {
+                    destUrl += `&sub1=${encodeURIComponent(sub1)}`;
                 }
 
-                // 3. Target URL mein clickId ko sub1 parameter ke roop mein jodein
-                const separator = targetUrl.includes('?') ? '&' : '?';
-                const finalUrl = `${targetUrl}${separator}sub1=${clickId}&aff_sub=${pid}`;
-
-                // Redirect user
-                window.location.replace(finalUrl);
-            } catch (error) {
-                console.error("Tracking Error:", error);
-                document.getElementById('statusText').innerText = "Redirecting error. Please try again.";
+                window.location.replace(destUrl);
+            } catch (err) {
+                document.getElementById("statusText").innerText = "Redirect error: " + err.message;
             }
         }
 
-        trackAndRedirect();
+        processRedirect();
     </script>
 </head>
-<body class="bg-slate-900 text-white min-h-screen flex items-center justify-center">
-    <div class="text-center space-y-3">
-        <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-        <p id="statusText" class="text-sm text-slate-300 font-medium">Verifying & Redirecting securely...</p>
+<body style="font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; background: #f8fafc; color: #334155;">
+    <div style="text-align: center;">
+        <h3 id="statusText">Redirecting to partner offer, please wait...</h3>
     </div>
 </body>
 </html>
