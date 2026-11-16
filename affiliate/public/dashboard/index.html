@@ -427,7 +427,13 @@ document.addEventListener('DOMContentLoaded', initDashboard);
 </div>																									
 </header>																									
 																									
-<main class="p-8 space-y-6 max-w-7xl mx-auto w-full">																									
+<main class="p-8 space-y-6 max-w-7xl mx-auto w-full">
+	<div class="md:hidden flex items-center justify-between bg-white p-4 shadow-sm mb-4">
+  <span class="font-bold text-lg">AffiliateWealthHub</span>
+  <button onclick="document.getElementById('sidebar').classList.toggle('-translate-x-full')" class="px-3 py-1.5 rounded bg-blue-600 text-white">
+    ☰ Menu
+  </button>
+</div>
 <!-- 1. DASHBOARD -->																									
 <div id="tab-dashboard" class="tab-content space-y-6">																									
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">																									
