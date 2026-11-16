@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify Details & Proceed</title>
+    <title>Verify Details & Proceed - AffiliateWealthHub</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
@@ -24,10 +24,14 @@
         const offerId = params.get('offerId') || '1';
         const publisherId = params.get('publisherId') || '';
         const sub1 = params.get('sub1') || 'Direct';
-        const targetUrl = params.get('url') || 'https://www.google.com';
+        const targetUrl = params.get('url') || 'https://affiliatewealthhub.online';
 
         document.getElementById('leadForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.innerText = "Verifying & Redirecting...";
+
             const customerName = document.getElementById('name').value.trim();
             const customerPhone = document.getElementById('phone').value.trim();
             const customerPan = document.getElementById('pan').value.trim().toUpperCase();
@@ -48,27 +52,32 @@
                 window.location.href = targetUrl;
             } catch (err) {
                 alert("Error saving details: " + err.message);
+                btn.disabled = false;
+                btn.innerText = "Proceed to Offer";
             }
         });
     </script>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
     <div class="bg-white p-6 rounded-2xl shadow-md w-full max-w-md">
-        <h2 class="text-xl font-bold mb-4 text-center">Complete Your Verification</h2>
+        <div class="text-center mb-5">
+            <h2 class="text-xl font-bold text-gray-800">Complete Your Verification</h2>
+            <p class="text-xs text-gray-500 mt-1">Enter your details below to continue to the offer</p>
+        </div>
         <form id="leadForm" class="space-y-4">
             <div>
-                <label class="block text-sm font-medium text-gray-700">Full Name</label>
-                <input type="text" id="name" required class="w-full mt-1 p-2 border rounded-md">
+                <label class="block text-sm font-medium text-gray-700">Full Name (As per PAN)</label>
+                <input type="text" id="name" placeholder="Enter your full name" required class="w-full mt-1 p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700">Mobile Number</label>
-                <input type="tel" id="phone" required class="w-full mt-1 p-2 border rounded-md">
+                <input type="tel" id="phone" placeholder="10-digit mobile number" pattern="[0-9]{10}" maxlength="10" required class="w-full mt-1 p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700">PAN Card Number</label>
-                <input type="text" id="pan" required class="w-full mt-1 p-2 border rounded-md uppercase">
+                <input type="text" id="pan" placeholder="ABCDE1234F" pattern="[A-Za-z]{5}[0-9]{4}[A-Za-z]{1}" maxlength="10" required class="w-full mt-1 p-2.5 border rounded-lg uppercase focus:ring-2 focus:ring-blue-500 outline-none">
             </div>
-            <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded-md font-bold hover:bg-blue-700">Proceed to Offer</button>
+            <button type="submit" id="submitBtn" class="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 transition">Proceed to Offer</button>
         </form>
     </div>
 </body>
