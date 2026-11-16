@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Details & Proceed</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
+            authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
+            projectId: "affiliatewealthhub-542e0",
+            storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
+            messagingSenderId: "1088047960863",
+            appId: "1:1088047960863:web:bd7fe0e8e0404fdf9bb562a"
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const params = new URLSearchParams(window.location.search);
+        const offerId = params.get('offerId') || '1';
+        const publisherId = params.get('publisherId') || '';
+        const sub1 = params.get('sub1') || 'Direct';
+        const targetUrl = params.get('url') || 'https://www.google.com';
+
+        document.getElementById('leadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const customerName = document.getElementById('name').value.trim();
+            const customerPhone = document.getElementById('phone').value.trim();
+            const customerPan = document.getElementById('pan').value.trim().toUpperCase();
+
+            try {
+                const clickRef = doc(collection(db, "clicks"));
+                await setDoc(clickRef, {
+                    clickId: clickRef.id,
+                    offerId,
+                    publisherId,
+                    sub1,
+                    customerName,
+                    customerPhone,
+                    customerPan,
+                    status: 'recorded',
+                    createdAt: new Date().toISOString()
+                });
+                window.location.href = targetUrl;
+            } catch (err) {
+                alert("Error saving details: " + err.message);
+            }
+        });
+    </script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+    <div class="bg-white p-6 rounded-2xl shadow-md w-full max-w-md">
+        <h2 class="text-xl font-bold mb-4 text-center">Complete Your Verification</h2>
+        <form id="leadForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Full Name</label>
+                <input type="text" id="name" required class="w-full mt-1 p-2 border rounded-md">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Mobile Number</label>
+                <input type="tel" id="phone" required class="w-full mt-1 p-2 border rounded-md">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">PAN Card Number</label>
+                <input type="text" id="pan" required class="w-full mt-1 p-2 border rounded-md uppercase">
+            </div>
+            <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded-md font-bold hover:bg-blue-700">Proceed to Offer</button>
+        </form>
+    </div>
+</body>
+</html>
