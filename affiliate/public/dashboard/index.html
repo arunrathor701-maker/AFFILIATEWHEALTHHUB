@@ -318,12 +318,12 @@ async function loadOffers() {
 
             tbody.innerHTML += `
                 <tr class="border-b hover:bg-blue-50/40 transition offer-row" data-name="${(o.name || '').toLowerCase()}" data-visibility="${offerType}">
-                    <td class="p-4 font-mono text-xs font-bold text-gray-600">#${oid}</td>
-                    <td class="p-4">
-                        <div class="font-bold text-gray-900 text-xs sm:text-sm">${o.name || 'Campaign'}</div>
-                        <div class="text-[11px] text-gray-400 mt-0.5">${o.category || 'Financial / CPA'}</div>
-                    </td>
-                    <td class="p-4">${logoHtml}</td>
+                 <td class="p-4 font-mono text-xs font-bold text-gray-600">#${oid}</td>
+<td class="p-4">${logoHtml}</td>
+<td class="p-4">
+    <div class="font-bold text-gray-900 text-xs sm:text-sm">${o.name || 'Campaign'}</div>
+    <div class="text-[11px] text-gray-400 mt-0.5">${o.category || 'Financial / CPA'}</div>
+</td>
                     <td class="p-4 text-xs text-gray-600 capitalize font-medium">${offerType}</td>
                     <td class="p-4 font-extrabold text-xs text-emerald-700">₹${o.payout || 0}</td>
                     <td class="p-4">
