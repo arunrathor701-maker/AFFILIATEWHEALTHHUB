@@ -19,7 +19,8 @@
             appId: "1:1088047960863:web:bd7fe0e8e0404fdf9bb562a",
             measurementId: "G-PX59VJN9TK"
         };
-
+const initialRef = new URLSearchParams(window.location.search).get('ref');
+if (initialRef) localStorage.setItem('awh_ref', initialRef);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
