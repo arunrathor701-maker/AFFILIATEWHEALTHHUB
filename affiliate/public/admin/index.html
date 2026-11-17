@@ -52,7 +52,8 @@ function showToast(msg, isError = false) {
 }
 
 window.switchTab = function(tabName) {
-    ['overview', 'offers', 'payouts', 'leads', 'publishers'].forEach(t => {
+    const allTabs = ['offers', 'payouts', 'leads', 'publishers', 'referrals'];
+    ['overview', ...allTabs].forEach(t => {
         const sec = document.getElementById('sec-' + t);
         const btn = document.getElementById('nav-' + t);
         if (sec) sec.classList.toggle('hidden', tabName !== 'overview' && tabName !== t);
@@ -62,7 +63,7 @@ window.switchTab = function(tabName) {
         }
     });
     if (tabName === 'overview') {
-        ['offers', 'payouts', 'leads', 'publishers'].forEach(t => {
+        allTabs.forEach(t => {
             const sec = document.getElementById('sec-' + t);
             if (sec) sec.classList.remove('hidden');
         });
@@ -368,7 +369,6 @@ window.approveClick = async (clickDocId, offerId, publisherId) => {
         let toastMsg = `Lead Approved! ₹${payout} credited to #${publisherId}`;
 
         if (publisherId) {
-            // 1. Main Publisher ko payout credit karein
             let uQuery = query(collection(db, "users"), where("publisherId", "==", Number(publisherId)));
             let uSnap = await getDocs(uQuery);
             if (uSnap.empty) {
@@ -381,7 +381,7 @@ window.approveClick = async (clickDocId, offerId, publisherId) => {
                 const pubData = pubDoc.data();
                 await updateDoc(doc(db, "users", pubDoc.id), { balance: increment(payout) });
 
-                // 2. Check karein ki kya is publisher ko kisi ne Refer kiya tha (10% Commission)
+                // Auto 10% Referral Bonus to Upline
                 const uplinePubId = pubData.referredBy;
                 if (uplinePubId) {
                     const refCommission = Math.round(payout * 0.10);
@@ -412,16 +412,26 @@ window.approveClick = async (clickDocId, offerId, publisherId) => {
     }
 };
 
-// 4. Publishers & CSV Export (With Referral Info)
+// 4. Publishers & Referral Network Section
 async function loadPublishers() {
     const tbody = document.getElementById('pubsTable');
+    const refTbody = document.getElementById('adminReferralsTable');
     const snap = await getDocs(collection(db, "users"));
     document.getElementById('statPubs').innerText = snap.size;
     allUsersMap = {};
     tbody.innerHTML = "";
+    if (refTbody) refTbody.innerHTML = "";
+
+    const allUsersList = [];
     snap.forEach((docSnap) => {
-        const u = docSnap.data();
+        const u = { id: docSnap.id, ...docSnap.data() };
+        allUsersList.push(u);
         if (u.publisherId) allUsersMap[String(u.publisherId)] = u;
+    });
+
+    let refCount = 0;
+
+    allUsersList.forEach((u) => {
         const refByBadge = u.referredBy 
             ? `<span class="font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">#${u.referredBy}</span>` 
             : `<span class="text-slate-400">Direct</span>`;
@@ -434,13 +444,56 @@ async function loadPublishers() {
                 <td class="p-4 whitespace-nowrap">${refByBadge}</td>
                 <td class="p-4 font-bold text-indigo-600 whitespace-nowrap">₹${u.referralEarnings || 0}</td>
                 <td class="p-4 font-extrabold text-emerald-600 whitespace-nowrap text-sm">₹${u.balance || 0}</td>
-                <td class="p-4 whitespace-nowrap">
-                    <button type="button" onclick="adjustWallet('${docSnap.id}', '${u.name || 'Publisher'}')" class="bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer">+/- Wallet</button>
+                <td class="p-4 whitespace-nowrap space-x-1.5">
+                    <button type="button" onclick="adjustWallet('${u.id}', '${(u.name || 'Publisher').replace(/'/g, "\\'")}')" class="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm transition cursor-pointer">+/- Wallet</button>
+                    <button type="button" onclick="changeUpline('${u.id}', '${(u.name || 'Publisher').replace(/'/g, "\\'")}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer">Set Ref</button>
                 </td>
             </tr>
         `;
+
+        // Populate Referral Network Section
+        if (u.referredBy && refTbody) {
+            refCount++;
+            const upline = allUsersMap[String(u.referredBy)] || {};
+            const jDate = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+            refTbody.innerHTML += `
+                <tr class="border-b border-slate-100 text-xs hover:bg-slate-50/80 transition">
+                    <td class="p-4 text-slate-500 whitespace-nowrap">${jDate}</td>
+                    <td class="p-4 font-bold text-slate-900 whitespace-nowrap">
+                        <span class="font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded mr-1">#${u.publisherId || '-'}</span>
+                        ${u.name || 'User'}
+                    </td>
+                    <td class="p-4 font-bold text-indigo-700 whitespace-nowrap">
+                        <span class="font-mono bg-indigo-50 px-2 py-0.5 rounded mr-1">#${u.referredBy}</span>
+                        ${upline.name || 'Upline Partner'}
+                    </td>
+                    <td class="p-4 font-extrabold text-emerald-600 whitespace-nowrap">₹${u.balance || 0}</td>
+                    <td class="p-4 whitespace-nowrap">
+                        <button type="button" onclick="changeUpline('${u.id}', '${(u.name || 'User').replace(/'/g, "\\'")}')" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3 py-1.5 rounded-lg font-bold transition cursor-pointer">Edit Upline</button>
+                    </td>
+                </tr>
+            `;
+        }
     });
+
+    const badge = document.getElementById('totalRefMembersBadge');
+    if (badge) badge.innerText = `${refCount} Referred Users`;
+    if (refTbody && refCount === 0) {
+        refTbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400 text-xs">No referral signups recorded yet. Publishers can share their invite link from their dashboard, or you can assign a referrer using "Set Ref" in the Publishers table below.</td></tr>`;
+    }
 }
+
+window.changeUpline = async (uid, name) => {
+    const newRef = prompt(`Enter Upline Publisher ID for ${name} (e.g. 662, or leave blank to clear):`);
+    if (newRef === null) return;
+    try {
+        await updateDoc(doc(db, "users", uid), { referredBy: newRef.trim() });
+        showToast(`Referral Upline updated for ${name}`);
+        loadPublishers();
+    } catch (err) {
+        showToast("Error: " + err.message, true);
+    }
+};
 
 window.adjustWallet = async (uid, name) => {
     const amtStr = prompt(`Enter amount to add or deduct for ${name} (e.g. 200 to add, -100 to deduct):`);
@@ -530,6 +583,9 @@ window.logout = () => {
 <button type="button" id="nav-payouts" onclick="switchTab('payouts')" class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-left hover:bg-slate-900 hover:text-white transition cursor-pointer">
 <span>💸</span> <span>Payout Requests</span>
 </button>
+<button type="button" id="nav-referrals" onclick="switchTab('referrals')" class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-left hover:bg-slate-900 hover:text-white transition cursor-pointer">
+<span>🤝</span> <span>Referral Network (10%)</span>
+</button>
 <button type="button" id="nav-publishers" onclick="switchTab('publishers')" class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-left hover:bg-slate-900 hover:text-white transition cursor-pointer">
 <span>👥</span> <span>Publishers & Wallets</span>
 </button>
@@ -566,6 +622,7 @@ window.logout = () => {
 <button type="button" onclick="switchTab('offers')" class="block w-full text-left py-2 px-3 rounded-lg hover:bg-slate-800">🎯 Manage Campaigns</button>
 <button type="button" onclick="switchTab('leads')" class="block w-full text-left py-2 px-3 rounded-lg hover:bg-slate-800">⚡ Leads & Conversions</button>
 <button type="button" onclick="switchTab('payouts')" class="block w-full text-left py-2 px-3 rounded-lg hover:bg-slate-800">💸 Payout Requests</button>
+<button type="button" onclick="switchTab('referrals')" class="block w-full text-left py-2 px-3 rounded-lg hover:bg-slate-800">🤝 Referral Network (10%)</button>
 <button type="button" onclick="switchTab('publishers')" class="block w-full text-left py-2 px-3 rounded-lg hover:bg-slate-800">👥 Publishers & Wallets</button>
 <button type="button" onclick="logout()" class="block w-full text-left py-2 px-3 rounded-lg text-red-400">🚪 Logout</button>
 </div>
@@ -754,11 +811,36 @@ window.logout = () => {
 </div>
 </section>
 
-<!-- Section 4: Registered Publishers -->
+<!-- Section 4: Referral Network & 10% Commission Overview -->
+<section id="sec-referrals" class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-100 flex flex-wrap justify-between items-center gap-3 bg-slate-50/50">
+<div>
+<h2 class="text-sm font-extrabold text-slate-900">🤝 Referral Network & 10% Commission Overview</h2>
+<p class="text-xs text-slate-500">Track upline-downline teams and manage referral connections</p>
+</div>
+<span id="totalRefMembersBadge" class="bg-indigo-100 text-indigo-800 text-xs font-extrabold px-3 py-1 rounded-full">0 Referred Users</span>
+</div>
+<div class="overflow-x-auto max-h-96">
+<table class="w-full text-left border-collapse">
+<thead class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200/80 sticky top-0">
+<tr>
+<th class="p-4">Joined Date</th>
+<th class="p-4">Member (Downline)</th>
+<th class="p-4">Referred By (Upline)</th>
+<th class="p-4">Member Balance</th>
+<th class="p-4">Action</th>
+</tr>
+</thead>
+<tbody id="adminReferralsTable"></tbody>
+</table>
+</div>
+</section>
+
+<!-- Section 5: Registered Publishers -->
 <section id="sec-publishers" class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
 <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
 <h2 class="text-sm font-extrabold text-slate-900">Registered Publishers, Referrals & Wallet Balances</h2>
-<p class="text-xs text-slate-500">Manage partner accounts, team referrals, and manual wallet adjustments</p>
+<p class="text-xs text-slate-500">Manage partner accounts, assign referrers, and adjust wallet balances</p>
 </div>
 <div class="overflow-x-auto max-h-96">
 <table class="w-full text-left border-collapse">
