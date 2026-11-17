@@ -76,6 +76,18 @@
                         balance: 0,
                         createdAt: new Date().toISOString()
                     };
+                    // --- 10% Referral System Code Start ---
+const urlParams = new URLSearchParams(window.location.search);
+const refBy = urlParams.get('ref') || localStorage.getItem('awh_ref') || "";
+if (refBy) {
+    userData.referredBy = String(refBy);
+    userData.referralEarnings = 0;
+}
+// --- 10% Referral System Code End ---
+
+await setDoc(doc(db, "users", cred.user.uid), userData);
+localStorage.setItem("awh_user", JSON.stringify(userData));
+window.location.replace("/affiliate/public/dashboard/index.html");
                     await setDoc(doc(db, "users", cred.user.uid), userData);
                     localStorage.setItem("awh_user", JSON.stringify(userData));
                     window.location.replace("/affiliate/public/dashboard/index.html");
