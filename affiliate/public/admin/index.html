@@ -294,7 +294,7 @@ window.approvePayout = async (payoutDocId, uid, pubId, amount) => {
     }
 };
 
-// 3. Clicks & Leads (With Sub1, Sub2, Sub3, Custom Click ID & Auto 10% Referral Bonus)
+// 3. Clicks & Leads (With Approve, Reject + Remark, Sub1, Sub2, Sub3, Custom Click ID & Auto 10% Referral Bonus)
 async function loadClicks() {
     const tbody = document.getElementById('clicksTable');
     tbody.innerHTML = `<tr><td colspan="11" class="p-8 text-center text-slate-400 text-xs">Loading tracking logs...</td></tr>`;
@@ -307,8 +307,10 @@ async function loadClicks() {
     snap.forEach((docSnap) => {
         const c = docSnap.data();
         loadedClicksList.push({ id: docSnap.id, ...c });
-        const isApproved = c.status === "approved";
-        if (!isApproved) pendingLeads++;
+        const statusLower = (c.status || 'recorded').toLowerCase();
+        const isApproved = statusLower === "approved";
+        const isRejected = statusLower === "rejected";
+        if (!isApproved && !isRejected) pendingLeads++;
 
         const custInfo = (c.customerName || c.customerPhone || c.customerPan)
             ? `<div class="font-bold text-slate-800">${c.customerName || '-'}</div>
@@ -326,6 +328,24 @@ async function loadClicks() {
         const sysClickId = c.clickId || docSnap.id;
         const custClickId = c.customClickId || c.click_id || '-';
 
+        let badgeClass = 'bg-amber-500 text-white';
+        if (isApproved) badgeClass = 'bg-emerald-500 text-white';
+        if (isRejected) badgeClass = 'bg-red-500 text-white';
+
+        let actionHtml = '';
+        if (isApproved) {
+            actionHtml = `<span class="text-emerald-600 text-xs font-bold">✓ Approved</span>`;
+        } else if (isRejected) {
+            actionHtml = `<div><span class="text-red-600 text-xs font-bold">✕ Rejected</span>${c.remark ? `<div class="text-[10px] text-slate-500 max-w-[140px] truncate" title="${c.remark}">Note: ${c.remark}</div>` : ''}</div>`;
+        } else {
+            actionHtml = `
+                <div class="flex items-center gap-1.5">
+                    <button type="button" onclick="approveClick('${docSnap.id}', '${c.offerId || '1'}', '${c.publisherId || ''}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer">Approve</button>
+                    <button type="button" onclick="rejectClick('${docSnap.id}', '${c.publisherId || ''}')" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer">Reject</button>
+                </div>
+            `;
+        }
+
         tbody.innerHTML += `
             <tr class="border-b border-slate-100 hover:bg-slate-50/80 transition text-sm lead-row whitespace-nowrap">
                 <td class="p-4 text-xs text-slate-600">${dateStr}</td>
@@ -338,13 +358,11 @@ async function loadClicks() {
                 <td class="p-4 font-mono text-xs text-slate-600">${c.sub3 || '-'}</td>
                 <td class="p-4">${custInfo}</td>
                 <td class="p-4">
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${isApproved ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'} uppercase">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${badgeClass} uppercase">
                         ${(c.status || 'recorded').toUpperCase()}
                     </span>
                 </td>
-                <td class="p-4">
-                    ${!isApproved ? `<button type="button" onclick="approveClick('${docSnap.id}', '${c.offerId || '1'}', '${c.publisherId || ''}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer">Approve</button>` : `<span class="text-emerald-600 text-xs font-bold">✓ Approved</span>`}
-                </td>
+                <td class="p-4">${actionHtml}</td>
             </tr>
         `;
     });
@@ -411,6 +429,24 @@ window.approveClick = async (clickDocId, offerId, publisherId) => {
         }
 
         showToast(toastMsg);
+        window.loadAllData();
+    } catch (err) {
+        showToast("Error: " + err.message, true);
+    }
+};
+
+window.rejectClick = async (clickDocId, publisherId) => {
+    const remark = prompt(`Reject lead ${clickDocId} for Publisher #${publisherId}?\nEnter Rejection Remark / Reason (Optional):`);
+    if (remark === null) return; // User clicked Cancel
+
+    try {
+        await updateDoc(doc(db, "clicks", clickDocId), {
+            status: "rejected",
+            remark: remark.trim() || "Rejected by Admin",
+            rejectedAt: new Date().toISOString()
+        });
+
+        showToast(`Lead ${clickDocId} marked as Rejected`, true);
         window.loadAllData();
     } catch (err) {
         showToast("Error: " + err.message, true);
@@ -533,12 +569,12 @@ function escapeCSV(val) {
 
 window.exportLeadsCSV = () => {
     if (!loadedClicksList.length) { showToast("No leads data to export!", true); return; }
-    const headers = ["Date", "System Click ID", "Custom Click ID", "Offer ID", "Campaign Name", "Publisher ID", "Publisher Name", "Sub 1", "Sub 2", "Sub 3", "Customer Name", "Customer Mobile", "PAN", "Status", "Payout (INR)"];
+    const headers = ["Date", "System Click ID", "Custom Click ID", "Offer ID", "Campaign Name", "Publisher ID", "Publisher Name", "Sub 1", "Sub 2", "Sub 3", "Customer Name", "Customer Mobile", "PAN", "Status", "Remark", "Payout (INR)"];
     const rows = loadedClicksList.map(c => {
         const dateStr = c.createdAt ? new Date(c.createdAt.seconds ? c.createdAt.seconds * 1000 : c.createdAt).toLocaleString('en-IN') : '-';
         const offer = allOffersMap[String(c.offerId)] || {};
         const pub = allUsersMap[String(c.publisherId)] || {};
-        const payout = c.payoutCredited || offer.payout || 0;
+        const payout = c.payoutCredited || (c.status === 'approved' ? (offer.payout || 0) : 0);
         return [
             escapeCSV(dateStr),
             escapeCSV(c.clickId || c.id),
@@ -554,6 +590,7 @@ window.exportLeadsCSV = () => {
             escapeCSV(c.customerPhone || '-'),
             escapeCSV(c.customerPan || '-'),
             escapeCSV((c.status || 'recorded').toUpperCase()),
+            escapeCSV(c.remark || '-'),
             escapeCSV(payout)
         ].join(",");
     });
