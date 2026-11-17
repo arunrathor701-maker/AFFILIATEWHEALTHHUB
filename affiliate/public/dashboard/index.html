@@ -55,7 +55,6 @@ window.switchTab = function(tabId, btnEl) {
     const activeTab = document.getElementById(tabId);
     if (activeTab) activeTab.classList.remove('hidden');
 
-    // Reset offer detail view when switching tabs
     if (tabId === 'tab-offers') {
         closeOfferDetails();
     }
@@ -68,6 +67,12 @@ window.switchTab = function(tabId, btnEl) {
         btnEl.classList.remove('text-gray-600', 'hover:bg-gray-100');
         btnEl.classList.add('bg-blue-600', 'text-white', 'shadow-sm');
     }
+
+    // Mobile par tab click karne ke baad sidebar band karein
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar && window.innerWidth < 768) {
+        sidebar.classList.add('-translate-x-full');
+    }
 };
 
 async function initDashboard() {
@@ -78,6 +83,7 @@ async function initDashboard() {
     updateUI();
     setupRealtimeListeners();
     loadOffers();
+    loadMyReferrals();
 }
 
 function updateUI() {
@@ -104,9 +110,11 @@ function setupRealtimeListeners() {
         if (docSnap.exists()) {
             const data = docSnap.data();
             currentBalance = Number(data.balance || 0);
+            const refEarned = Number(data.referralEarnings || 0);
             safeSetText('walletBalance', `₹${currentBalance}`);
             safeSetText('totalEarnings', `₹${currentBalance}`);
             safeSetText('modalAvailBal', `₹${currentBalance}`);
+            safeSetText('refTotalEarnings', `₹${refEarned}`);
         }
     });
 
@@ -194,6 +202,49 @@ function setupRealtimeListeners() {
         if (tbody) tbody.innerHTML = rows.join('') || `<tr><td colspan="4" class="p-4 text-center text-gray-400">No payout history.</td></tr>`;
     });
 }
+
+// 10% REFERRAL & TEAM SYSTEM
+function loadMyReferrals() {
+    const pubId = String(currentUser.publisherId || "662");
+    const refInput = document.getElementById('myReferralLink');
+    if (refInput) {
+        refInput.value = `https://affiliatewealthhub.online/affiliate/public/login/index.html?ref=${pubId}`;
+    }
+
+    const teamQuery = query(collection(db, "users"), where("referredBy", "==", pubId));
+    onSnapshot(teamQuery, (snapshot) => {
+        safeSetText('teamCountDisplay', snapshot.size);
+        const rows = [];
+        snapshot.forEach((docSnap) => {
+            const m = docSnap.data();
+            const jDate = m.createdAt ? new Date(m.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Active';
+            rows.push(`
+                <tr class="hover:bg-gray-50">
+                    <td class="p-3.5 text-xs text-gray-500 whitespace-nowrap">${jDate}</td>
+                    <td class="p-3.5 text-xs font-mono font-bold text-indigo-600">#${m.publisherId || '-'}</td>
+                    <td class="p-3.5 text-xs font-bold text-gray-900">${m.name || 'Partner'}</td>
+                    <td class="p-3.5 text-xs"><span class="px-2.5 py-0.5 bg-green-100 text-green-700 rounded-full font-bold uppercase text-[10px]">Active • 10% Bonus</span></td>
+                </tr>
+            `);
+        });
+        const tbody = document.getElementById('myTeamTableBody');
+        if (tbody) {
+            tbody.innerHTML = rows.join('') || `<tr><td colspan="4" class="p-8 text-center text-gray-400 text-xs">Abhi tak aapki team me koi join nahi hua hai. Upar diya gaya invite link share karein!</td></tr>`;
+        }
+    });
+}
+
+window.copyReferralLink = () => {
+    const inp = document.getElementById('myReferralLink');
+    if (!inp) return;
+    navigator.clipboard.writeText(inp.value).then(() => {
+        showToast("✓ Referral Invite Link Copied!");
+    }).catch(() => {
+        inp.select();
+        document.execCommand("copy");
+        showToast("✓ Referral Invite Link Copied!");
+    });
+};
 
 // NEXAOFFERS STYLE OFFERS TABLE & DETAIL VIEW
 async function loadOffers() {
@@ -286,7 +337,6 @@ window.openOfferDetails = function(oid) {
             : `<div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-base uppercase">${(o.name || 'OF').substring(0, 2)}</div>`;
     }
 
-    // Reset sub-id inputs & update tracking link
     document.querySelectorAll('.sub-param-input').forEach(inp => inp.value = '');
     updateGeneratedTrackingLink();
 };
@@ -473,7 +523,7 @@ document.addEventListener('DOMContentLoaded', initDashboard);
 
 <div class="flex h-screen overflow-hidden">
 <!-- Sidebar -->
-<aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform -translate-x-full md:translate-x-0 md:static transition-transform duration-300 ease-in-out flex flex-col justify-between">
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform -translate-x-full md:translate-x-0 md:static transition-transform duration-300 ease-in-out flex flex-col justify-between overflow-y-auto">
 <div>
 <div class="p-5 border-b flex items-center space-x-3">
 <div class="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center font-bold text-white text-sm overflow-hidden"><img src="logo.jpg" alt="Logo" class="w-full h-full object-cover"></div>
@@ -498,6 +548,9 @@ document.addEventListener('DOMContentLoaded', initDashboard);
 </button>
 <button type="button" onclick="switchTab('tab-payouts', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
 <span>💳 My Payouts</span>
+</button>
+<button type="button" onclick="switchTab('tab-referrals', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
+<span>🤝 Refer & Earn (10%)</span>
 </button>
 <button type="button" onclick="switchTab('tab-profile', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
 <span>⚙️ Profile</span>
@@ -619,7 +672,7 @@ document.addEventListener('DOMContentLoaded', initDashboard);
         </div>
     </div>
 
-    <!-- B. SINGLE OFFER DETAILS VIEW (ON CLICKING "VIEW") -->
+    <!-- B. SINGLE OFFER DETAILS VIEW -->
     <div id="offerDetailView" class="hidden space-y-5">
         <div class="flex items-center justify-between">
             <div>
@@ -633,7 +686,6 @@ document.addEventListener('DOMContentLoaded', initDashboard);
 
         <!-- Main Detail Card -->
         <div class="bg-white rounded-xl border shadow-sm p-6 space-y-6">
-            <!-- Header -->
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5">
                 <div class="flex items-center gap-4">
                     <div id="detOfferLogo"></div>
@@ -651,7 +703,6 @@ document.addEventListener('DOMContentLoaded', initDashboard);
                 </div>
             </div>
 
-            <!-- 3 Summary Boxes (NexaOffers Style) -->
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div class="border rounded-xl p-4 bg-gray-50/60">
                     <span class="text-[11px] font-bold text-gray-400 uppercase block">Offer ID</span>
@@ -667,7 +718,6 @@ document.addEventListener('DOMContentLoaded', initDashboard);
                 </div>
             </div>
 
-            <!-- Tracking URL & Sub-ID Builder -->
             <div class="space-y-3 border-t pt-5">
                 <label class="block text-xs font-extrabold text-gray-700 uppercase">Tracking URL</label>
                 <div class="flex flex-col sm:flex-row gap-2">
@@ -677,7 +727,6 @@ document.addEventListener('DOMContentLoaded', initDashboard);
                     </button>
                 </div>
 
-                <!-- Optional Sub-ID Parameters -->
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sub-Affiliate 1 (sub1)</label>
@@ -698,7 +747,6 @@ document.addEventListener('DOMContentLoaded', initDashboard);
                 </div>
             </div>
 
-            <!-- Geo & Description / KPI Rules -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-5 text-xs">
                 <div>
                     <h4 class="font-extrabold text-gray-900 uppercase mb-1">Available For States / Geo</h4>
@@ -711,7 +759,6 @@ document.addEventListener('DOMContentLoaded', initDashboard);
             </div>
         </div>
 
-        <!-- Events Table (NexaOffers Bottom Card) -->
         <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
             <div class="p-4 border-b bg-gray-50">
                 <h4 class="font-extrabold text-sm text-gray-900">Events & Payout Structure</h4>
@@ -770,68 +817,4 @@ document.addEventListener('DOMContentLoaded', initDashboard);
 
 <!-- 4. MY EARNINGS -->
 <div id="tab-earnings" class="tab-content hidden space-y-4">
-<div class="bg-white p-6 rounded-xl border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-<div>
-<span class="text-xs font-semibold text-gray-400 block uppercase">Available Balance</span>
-<div id="totalEarnings" class="text-4xl font-black text-green-600 mt-1">₹0</div>
-</div>
-<button type="button" onclick="openPayoutModal()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow transition cursor-pointer">
-Request Payout
-</button>
-</div>
-</div>
-
-<!-- 5. MY PAYOUTS -->
-<div id="tab-payouts" class="tab-content hidden space-y-4">
-<div class="flex items-center justify-between">
-<h2 class="font-bold text-base text-gray-900">Payout History</h2>
-<div class="flex gap-2">
-<button type="button" onclick="openPayoutModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer">
-+ Request Payout
-</button>
-<button type="button" onclick="exportCSV('payouts_report.csv', cachedPayouts)" class="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer">
-📥 Export CSV
-</button>
-</div>
-</div>
-<div class="bg-white rounded-xl border overflow-hidden">
-<table class="w-full text-left text-xs">
-<thead>
-<tr class="border-b bg-gray-50 text-gray-600 font-bold">
-<th class="p-3">Date</th>
-<th class="p-3">Amount</th>
-<th class="p-3">Method</th>
-<th class="p-3">Status</th>
-</tr>
-</thead>
-<tbody id="payoutsTableBody"></tbody>
-</table>
-</div>
-</div>
-
-<!-- 6. PROFILE -->
-<div id="tab-profile" class="tab-content hidden max-w-xl">
-<div class="bg-white p-6 rounded-xl border space-y-4">
-<h2 class="font-bold text-base border-b pb-3 text-gray-900">Publisher Profile Details</h2>
-<form onsubmit="saveProfile(event)" class="space-y-4 text-xs">
-<div>
-<label class="block font-bold text-gray-500 mb-1 uppercase">Publisher ID</label>
-<input type="text" id="profilePubId" class="w-full border p-3 rounded-lg bg-gray-100 font-mono font-bold text-gray-600 cursor-not-allowed" readonly>
-</div>
-<div>
-<label class="block font-bold text-gray-500 mb-1 uppercase">Full Name</label>
-<input type="text" id="profileName" class="w-full border p-3 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-semibold" required>
-</div>
-<div>
-<label class="block font-bold text-gray-500 mb-1 uppercase">Email Address</label>
-<input type="email" id="profileEmail" class="w-full border p-3 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed" readonly>
-</div>
-<button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-full font-bold transition cursor-pointer">Update Name</button>
-</form>
-</div>
-</div>
-</main>
-</div>
-</div>
-</body>
-</html>
+<div class="bg-
