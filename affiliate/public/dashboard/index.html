@@ -41,107 +41,12 @@ function showToast(message, isError = false) {
     const toast = document.getElementById('fixedToast');
     if (!toast) return;
     toast.innerText = message;
-    toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-full shadow-2xl text-xs font-bold transition-all duration-300 z-50 text-white pointer-events-none ${isError ? 'bg-red-600' : 'bg-gray-900'}`;
-    toast.style.opacity = '1';
-    toast.style.transform = 'translateY(0)';
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateY(20px)';
-    }, 3000);
-}
-
-window.switchTab = function(tabId, btnEl) {
-    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-    const activeTab = document.getElementById(tabId);
-    if (activeTab) activeTab.classList.remove('hidden');
-
-    if (tabId === 'tab-offers') {
-        closeOfferDetails();
-    }
-
-    document.querySelectorAll('.nav-link').forEach(el => {
-        el.classList.remove('bg-blue-600', 'text-white', 'shadow-sm');
-        el.classList.add('text-gray-600', 'hover:bg-gray-100');
-    });
-    if (btnEl) {
-        btnEl.classList.remove('text-gray-600', 'hover:bg-gray-100');
-        btnEl.classList.add('bg-blue-600', 'text-white', 'shadow-sm');
-    }
-
-    // Mobile par tab click karne ke baad sidebar band karein
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar && window.innerWidth < 768) {
-        sidebar.classList.add('-translate-x-full');
-    }
-};
-
-async function initDashboard() {
-    if (!currentUser || !currentUser.uid) {
-        window.location.replace("/affiliate/public/login/index.html");
-        return;
-    }
-    updateUI();
-    setupRealtimeListeners();
-    loadOffers();
-    loadMyReferrals();
-}
-
-function updateUI() {
-    const name = currentUser.name || "Arun Rathore";
-    const pubId = currentUser.publisherId || "662";
-    const email = currentUser.email || "arunrathor701@gmail.com";
-
-    document.querySelectorAll('.pubNameDisplay').forEach(el => el.innerText = name);
-    safeSetText('pubIdDisplay', pubId);
-
-    const profPubId = document.getElementById('profilePubId');
-    const profName = document.getElementById('profileName');
-    const profEmail = document.getElementById('profileEmail');
-    if (profPubId) profPubId.value = pubId;
-    if (profName) profName.value = name;
-    if (profEmail) profEmail.value = email;
-}
-
-function setupRealtimeListeners() {
-    const pubId = String(currentUser.publisherId || "662");
-    const userRef = doc(db, "users", currentUser.uid);
-
-    onSnapshot(userRef, (docSnap) => {
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            currentBalance = Number(data.balance || 0);
-            const refEarned = Number(data.referralEarnings || 0);
-            safeSetText('walletBalance', `₹${currentBalance}`);
-            safeSetText('totalEarnings', `₹${currentBalance}`);
-            safeSetText('modalAvailBal', `₹${currentBalance}`);
-            safeSetText('refTotalEarnings', `₹${refEarned}`);
-        }
-    });
-
-    const clicksQuery = query(collection(db, "clicks"), where("publisherId", "==", pubId));
-    onSnapshot(clicksQuery, (snapshot) => {
-        let totalClicks = 0;
-        let approvedCount = 0;
-        const clicksListHtml = [];
-        cachedClicks = [];
-
-        snapshot.forEach((docSnap) => {
-            totalClicks++;
-            const data = docSnap.data();
-            const status = (data.status || "recorded").toLowerCase();
-            const isApproved = status === "approved";
-            if (isApproved) approvedCount++;
-
-            const dateStr = data.createdAt 
-                ? new Date(data.createdAt.seconds ? data.createdAt.seconds * 1000 : data.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) 
-                : 'N/A';
-            const badgeClass = isApproved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
-
-            cachedClicks.push({
-                Date: dateStr,
-                ClickID: data.clickId || docSnap.id,
-                Offer: `Offer #${data.offerId || '1'}`,
-                SubID: data.sub1 || 'Direct',
+    toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-full shadow-2xl text-xs font-bold transition-all duration-300 z-50 text-white pointer-events-none ${isError ? 'bg-red-600' : 'bg-gray-900'}`; toast.style.opacity = '1'; toast.style.transform = 'translateY(0)'; setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateY(20px)'; }, 3000); }  window.switchTab = function(tabId, btnEl) { document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden')); const activeTab = document.getElementById(tabId); if (activeTab) activeTab.classList.remove('hidden');  if (tabId === 'tab-offers') { closeOfferDetails(); }  document.querySelectorAll('.nav-link').forEach(el => { el.classList.remove('bg-blue-600', 'text-white', 'shadow-sm'); el.classList.add('text-gray-600', 'hover:bg-gray-100'); }); if (btnEl) { btnEl.classList.remove('text-gray-600', 'hover:bg-gray-100'); btnEl.classList.add('bg-blue-600', 'text-white', 'shadow-sm'); }  const sidebar = document.getElementById('sidebar'); if (sidebar && window.innerWidth < 768) { sidebar.classList.add('-translate-x-full'); } };  async function initDashboard() { if (!currentUser \vert{}\vert{} !currentUser.uid) { window.location.replace("/affiliate/public/login/index.html"); return; } updateUI(); setupRealtimeListeners(); loadOffers(); loadMyReferrals(); }  function updateUI() { const name = currentUser.name \vert{}\vert{} "Arun Rathore"; const pubId = currentUser.publisherId \vert{}\vert{} "662"; const email = currentUser.email \vert{}\vert{} "arunrathor701@gmail.com";  document.querySelectorAll('.pubNameDisplay').forEach(el => el.innerText = name); safeSetText('pubIdDisplay', pubId);  const profPubId = document.getElementById('profilePubId'); const profName = document.getElementById('profileName'); const profEmail = document.getElementById('profileEmail'); if (profPubId) profPubId.value = pubId; if (profName) profName.value = name; if (profEmail) profEmail.value = email; }  function setupRealtimeListeners() { const pubId = String(currentUser.publisherId \vert{}\vert{} "662"); const userRef = doc(db, "users", currentUser.uid);  onSnapshot(userRef, (docSnap) => { if (docSnap.exists()) { const data = docSnap.data(); currentBalance = Number(data.balance \vert{}\vert{} 0); const refEarned = Number(data.referralEarnings \vert{}\vert{} 0); safeSetText('walletBalance', `₹${currentBalance}`);
+            safeSetText('totalEarnings', `₹${currentBalance}`); safeSetText('modalAvailBal', `₹${currentBalance}`);
+            safeSetText('refTotalEarnings', `₹${refEarned}`); } });  const clicksQuery = query(collection(db, "clicks"), where("publisherId", "==", pubId)); onSnapshot(clicksQuery, (snapshot) => { let totalClicks = 0; let approvedCount = 0; const clicksListHtml = []; cachedClicks = [];  snapshot.forEach((docSnap) => { totalClicks++; const data = docSnap.data(); const status = (data.status \vert{}\vert{} "recorded").toLowerCase(); const isApproved = status === "approved"; if (isApproved) approvedCount++;  const dateStr = data.createdAt ? new Date(data.createdAt.seconds ? data.createdAt.seconds * 1000 : data.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'N/A'; const badgeClass = isApproved ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';  const sysClickId = data.clickId \vert{}\vert{} docSnap.id; const custClickId = data.customClickId \vert{}\vert{} data.click_id \vert{}\vert{} '-'; const s1 = data.sub1 \vert{}\vert{} 'Direct'; const s2 = data.sub2 \vert{}\vert{} '-'; const s3 = data.sub3 \vert{}\vert{} '-';  cachedClicks.push({ Date: dateStr, SystemClickID: sysClickId, CustomClickID: custClickId, Offer: `Offer #${data.offerId || '1'}`,
+                Sub1: s1,
+                Sub2: s2,
+                Sub3: s3,
                 CustomerName: data.customerName || '-',
                 Mobile: data.customerPhone || '-',
                 PAN: data.customerPan || '-',
@@ -149,11 +54,14 @@ function setupRealtimeListeners() {
             });
 
             clicksListHtml.push(`
-                <tr class="border-b hover:bg-gray-50">
-                    <td class="p-3 text-xs whitespace-nowrap">${dateStr}</td>
-                    <td class="p-3 text-xs font-mono text-gray-500">${data.clickId || docSnap.id}</td>
-                    <td class="p-3 text-xs font-semibold whitespace-nowrap">Offer #${data.offerId || '1'}</td>
-                    <td class="p-3 text-xs font-mono font-bold text-blue-600">${data.sub1 || 'Direct'}</td>
+                <tr class="border-b hover:bg-gray-50 whitespace-nowrap report-row">
+                    <td class="p-3 text-xs">${dateStr}</td>
+                    <td class="p-3 text-xs font-mono text-gray-500">${sysClickId}</td>
+                    <td class="p-3 text-xs font-mono text-purple-600 font-semibold">${custClickId}</td>
+                    <td class="p-3 text-xs font-semibold">Offer #${data.offerId || '1'}</td>
+                    <td class="p-3 text-xs font-mono font-bold text-blue-600">${s1}</td>
+                    <td class="p-3 text-xs font-mono text-gray-700">${s2}</td>
+                    <td class="p-3 text-xs font-mono text-gray-700">${s3}</td>
                     <td class="p-3 text-xs font-semibold text-gray-800">${data.customerName || '-'}</td>
                     <td class="p-3 text-xs font-mono text-gray-600">${data.customerPhone || '-'}</td>
                     <td class="p-3 text-xs font-mono uppercase text-indigo-600">${data.customerPan || '-'}</td>
@@ -167,7 +75,7 @@ function setupRealtimeListeners() {
 
         const clicksBody = document.getElementById('clicksTableBody');
         if (clicksBody) {
-            clicksBody.innerHTML = clicksListHtml.join('') || `<tr><td colspan="8" class="p-4 text-center text-gray-400">No clicks recorded yet.</td></tr>`;
+            clicksBody.innerHTML = clicksListHtml.join('') || `<tr><td colspan="11" class="p-4 text-center text-gray-400">No clicks recorded yet.</td></tr>`;
         }
 
         updateChart(totalClicks, approvedCount);
@@ -202,6 +110,13 @@ function setupRealtimeListeners() {
         if (tbody) tbody.innerHTML = rows.join('') || `<tr><td colspan="4" class="p-4 text-center text-gray-400">No payout history.</td></tr>`;
     });
 }
+
+window.filterPartnerReports = function(term) {
+    const q = term.toLowerCase();
+    document.querySelectorAll('.report-row').forEach(row => {
+        row.style.display = row.innerText.toLowerCase().includes(q) ? '' : 'none';
+    });
+};
 
 // 10% REFERRAL & TEAM SYSTEM
 function loadMyReferrals() {
@@ -275,7 +190,7 @@ async function loadOffers() {
             const isApproved = (o.offerStatus || 'approved').toLowerCase() === 'approved';
 
             tbody.innerHTML += `
-                <tr class="border-b hover:bg-blue-50/40 transition offer-row" data-name="${(o.name || '').toLowerCase()}" data-visibility="${offerType}">
+                <tr class="border-b hover:bg-blue-50/40 transition offer-row" data-name="${(o.name \vert{}\vert{} '').toLowerCase()}" data-visibility="${offerType}">
                     <td class="p-4 font-mono text-xs font-bold text-gray-600">#${oid}</td>
                     <td class="p-4">
                         <div class="font-bold text-gray-900 text-xs sm:text-sm">${o.name || 'Campaign'}</div>
@@ -298,34 +213,9 @@ async function loadOffers() {
             `;
         });
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500 text-xs">Error loading offers: ${e.message}</td></tr>`;
-    }
-}
-
-window.filterOffersTable = function() {
-    const searchVal = (document.getElementById('offerSearchInput')?.value || '').toLowerCase();
-    const visVal = (document.getElementById('offerVisibilityFilter')?.value || 'all').toLowerCase();
-
-    document.querySelectorAll('.offer-row').forEach(row => {
-        const nameMatch = row.dataset.name.includes(searchVal);
-        const visMatch = visVal === 'all' || row.dataset.visibility === visVal;
-        row.style.display = (nameMatch && visMatch) ? '' : 'none';
-    });
-};
-
-window.openOfferDetails = function(oid) {
-    const o = allOffersMap[oid];
-    if (!o) return;
-    activeOfferId = oid;
-
-    document.getElementById('offersListView').classList.add('hidden');
-    document.getElementById('offerDetailView').classList.remove('hidden');
-
-    safeSetText('detOfferName', o.name || 'Campaign Details');
-    safeSetText('detOfferId', `#${oid}`);
+        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500 text-xs">Error loading offers: ${e.message}</td></tr>`; } }  window.filterOffersTable = function() { const searchVal = (document.getElementById('offerSearchInput')?.value \vert{}\vert{} '').toLowerCase(); const visVal = (document.getElementById('offerVisibilityFilter')?.value \vert{}\vert{} 'all').toLowerCase();  document.querySelectorAll('.offer-row').forEach(row => { const nameMatch = row.dataset.name.includes(searchVal); const visMatch = visVal === 'all' \vert{}\vert{} row.dataset.visibility === visVal; row.style.display = (nameMatch && visMatch) ? '' : 'none'; }); };  window.openOfferDetails = function(oid) { const o = allOffersMap[oid]; if (!o) return; activeOfferId = oid;  document.getElementById('offersListView').classList.add('hidden'); document.getElementById('offerDetailView').classList.remove('hidden');  safeSetText('detOfferName', o.name \vert{}\vert{} 'Campaign Details'); safeSetText('detOfferId', `#${oid}`);
     safeSetText('detOfferCapping', o.capping || 'None');
-    safeSetText('detOfferPayout', `₹${o.payout || 0}`);
-    safeSetText('detEventPayout', `₹${o.payout || 0}`);
+    safeSetText('detOfferPayout', `₹${o.payout \vert{}\vert{} 0}`); safeSetText('detEventPayout', `₹${o.payout || 0}`);
     safeSetText('detOfferVisibility', o.visibility || 'Public');
     safeSetText('detOfferGeo', o.geo || 'Available for all states (India)');
     safeSetText('detOfferDesc', o.description || 'Complete full account opening / KYC process via valid tracking link. Fraudulent or duplicate leads will be rejected.');
@@ -334,61 +224,9 @@ window.openOfferDetails = function(oid) {
     if (logoContainer) {
         logoContainer.innerHTML = o.logoUrl 
             ? `<img src="${o.logoUrl}" class="w-12 h-12 rounded-xl object-contain border p-1 bg-white">`
-            : `<div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-base uppercase">${(o.name || 'OF').substring(0, 2)}</div>`;
-    }
-
-    document.querySelectorAll('.sub-param-input').forEach(inp => inp.value = '');
-    updateGeneratedTrackingLink();
-};
-
-window.closeOfferDetails = function() {
-    activeOfferId = null;
-    const listView = document.getElementById('offersListView');
-    const detView = document.getElementById('offerDetailView');
-    if (listView) listView.classList.remove('hidden');
-    if (detView) detView.classList.add('hidden');
-};
-
-window.updateGeneratedTrackingLink = function() {
-    if (!activeOfferId) return;
-    const pubId = currentUser.publisherId || "662";
-    let url = `https://affiliatewealthhub.online/go?oid=${activeOfferId}&pid=${pubId}`;
-
-    const s1 = document.getElementById('paramSub1')?.value.trim();
-    const s2 = document.getElementById('paramSub2')?.value.trim();
-    const s3 = document.getElementById('paramSub3')?.value.trim();
-    const clickId = document.getElementById('paramClickId')?.value.trim();
-
-    if (s1) url += `&sub1=${encodeURIComponent(s1)}`;
-    if (s2) url += `&sub2=${encodeURIComponent(s2)}`;
-    if (s3) url += `&sub3=${encodeURIComponent(s3)}`;
-    if (clickId) url += `&click_id=${encodeURIComponent(clickId)}`;
-
-    const urlBox = document.getElementById('detTrackingUrl');
-    if (urlBox) urlBox.value = url;
-};
-
-window.copyDetailTrackingUrl = function() {
-    const urlBox = document.getElementById('detTrackingUrl');
-    if (!urlBox || !urlBox.value) return;
-    navigator.clipboard.writeText(urlBox.value).then(() => {
-        showToast("✓ Tracking URL Copied to Clipboard!");
-    }).catch(() => {
-        urlBox.select();
-        document.execCommand("copy");
-        showToast("✓ Tracking URL Copied!");
-    });
-};
-
-window.exportCSV = (filename, dataArray) => {
-    if (!dataArray || dataArray.length === 0) {
-        showToast("No data available to export.", true);
-        return;
-    }
-    const headers = Object.keys(dataArray[0]);
-    const csvRows = [headers.join(',')];
-    for (const row of dataArray) {
-        const values = headers.map(h => `"${('' + row[h]).replace(/"/g, '""')}"`);
+            : `<div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-base uppercase">${(o.name \vert{}\vert{} 'OF').substring(0, 2)}</div>`; }  document.querySelectorAll('.sub-param-input').forEach(inp => inp.value = ''); updateGeneratedTrackingLink(); };  window.closeOfferDetails = function() { activeOfferId = null; const listView = document.getElementById('offersListView'); const detView = document.getElementById('offerDetailView'); if (listView) listView.classList.remove('hidden'); if (detView) detView.classList.add('hidden'); };  window.updateGeneratedTrackingLink = function() { if (!activeOfferId) return; const pubId = currentUser.publisherId \vert{}\vert{} "662"; let url = `https://affiliatewealthhub.online/go?oid=${activeOfferId}&pid=${pubId}`;  const s1 = document.getElementById('paramSub1')?.value.trim(); const s2 = document.getElementById('paramSub2')?.value.trim(); const s3 = document.getElementById('paramSub3')?.value.trim(); const clickId = document.getElementById('paramClickId')?.value.trim();  if (s1) url += `&sub1=${encodeURIComponent(s1)}`;
+    if (s2) url += `&sub2=${encodeURIComponent(s2)}`; if (s3) url += `&sub3=${encodeURIComponent(s3)}`;
+    if (clickId) url += `&click_id=${encodeURIComponent(clickId)}`;  const urlBox = document.getElementById('detTrackingUrl'); if (urlBox) urlBox.value = url; };  window.copyDetailTrackingUrl = function() { const urlBox = document.getElementById('detTrackingUrl'); if (!urlBox \vert{}\vert{} !urlBox.value) return; navigator.clipboard.writeText(urlBox.value).then(() => { showToast("✓ Tracking URL Copied to Clipboard!"); }).catch(() => { urlBox.select(); document.execCommand("copy"); showToast("✓ Tracking URL Copied!"); }); };  window.exportCSV = (filename, dataArray) => { if (!dataArray \vert{}\vert{} dataArray.length === 0) { showToast("No data available to export.", true); return; } const headers = Object.keys(dataArray[0]); const csvRows = [headers.join(',')]; for (const row of dataArray) { const values = headers.map(h => `"${('' + row[h]).replace(/"/g, '""')}"`);
         csvRows.push(values.join(','));
     }
     const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
@@ -787,23 +625,29 @@ document.addEventListener('DOMContentLoaded', initDashboard);
 
 <!-- 3. CLICKS & LEAD REPORTS -->
 <div id="tab-clicks" class="tab-content hidden space-y-6">
-<div class="flex items-center justify-between">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 <div>
 <h2 class="font-bold text-base text-gray-900">Clicks & Lead Reports</h2>
-<p class="text-xs text-gray-500">Real-time tracking of date, Click ID, Sub-ID & approval status.</p>
+<p class="text-xs text-gray-500">Track System Click ID, Custom Click ID, Sub1, Sub2, Sub3 & approval status.</p>
 </div>
-<button type="button" onclick="exportCSV('clicks_report.csv', cachedClicks)" class="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer">
+<div class="flex items-center gap-2">
+<input type="text" onkeyup="filterPartnerReports(this.value)" placeholder="Filter Sub1, Sub2, Click ID, Name..." class="border border-gray-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500 bg-white w-48 sm:w-64">
+<button type="button" onclick="exportCSV('clicks_report.csv', cachedClicks)" class="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer whitespace-nowrap">
 📥 Export CSV
 </button>
+</div>
 </div>
 <div class="bg-white rounded-xl border overflow-x-auto">
 <table class="w-full text-left text-xs">
 <thead>
-<tr class="border-b bg-gray-50 text-gray-600 font-bold">
+<tr class="border-b bg-gray-50 text-gray-600 font-bold whitespace-nowrap">
 <th class="p-3">Date & Time</th>
-<th class="p-3">Click ID</th>
+<th class="p-3">System Click ID</th>
+<th class="p-3">Custom Click ID</th>
 <th class="p-3">Offer</th>
-<th class="p-3">Sub ID</th>
+<th class="p-3">Sub 1</th>
+<th class="p-3">Sub 2</th>
+<th class="p-3">Sub 3</th>
 <th class="p-3">Customer Name</th>
 <th class="p-3">Mobile</th>
 <th class="p-3">PAN</th>
