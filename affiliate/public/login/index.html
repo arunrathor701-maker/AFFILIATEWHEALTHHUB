@@ -11,7 +11,7 @@
         import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey:"AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
+            apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
             authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
             projectId: "affiliatewealthhub-542e0",
             storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
@@ -19,17 +19,30 @@
             appId: "1:1088047960863:web:bd7fe0e8e0404fdf9bb562a",
             measurementId: "G-PX59VJN9TK"
         };
-const initialRef = new URLSearchParams(window.location.search).get('ref');
-if (initialRef) localStorage.setItem('awh_ref', initialRef);
+
+        // Save referral code from URL immediately
+        const initialRef = new URLSearchParams(window.location.search).get('ref');
+        if (initialRef) localStorage.setItem('awh_ref', initialRef);
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
         let isRegisterMode = false;
 
+        // Pre-fill referral input box if ref exists in URL or localStorage
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedRef = new URLSearchParams(window.location.search).get('ref') || localStorage.getItem('awh_ref') || "";
+            const refInput = document.getElementById('signupRefInput');
+            if (savedRef && refInput) {
+                refInput.value = savedRef;
+            }
+        });
+
         window.toggleMode = () => {
             isRegisterMode = !isRegisterMode;
             document.getElementById('nameField').classList.toggle('hidden', !isRegisterMode);
+            document.getElementById('refFieldContainer').classList.toggle('hidden', !isRegisterMode);
             document.getElementById('formTitle').innerText = isRegisterMode ? "Create Affiliate Account" : "Welcome back";
             document.getElementById('formSubtitle').innerText = isRegisterMode ? "Register to start earning with AffiliateWealthHub." : "Sign in to access your affiliate dashboard.";
             document.getElementById('submitBtn').innerText = isRegisterMode ? "Create Account" : "Sign In";
@@ -68,6 +81,11 @@ if (initialRef) localStorage.setItem('awh_ref', initialRef);
                 if (isRegisterMode) {
                     const cred = await createUserWithEmailAndPassword(auth, email, password);
                     const newPubId = Math.floor(100 + Math.random() * 899);
+                    
+                    const manualRef = document.getElementById('signupRefInput')?.value.trim();
+                    const urlRef = new URLSearchParams(window.location.search).get('ref') || localStorage.getItem('awh_ref') || "";
+                    const finalRef = manualRef || urlRef;
+
                     const userData = {
                         uid: cred.user.uid,
                         name: fullName || "Publisher",
@@ -75,20 +93,11 @@ if (initialRef) localStorage.setItem('awh_ref', initialRef);
                         role: "publisher",
                         publisherId: newPubId,
                         balance: 0,
+                        referralEarnings: 0,
+                        referredBy: finalRef ? String(finalRef) : "",
                         createdAt: new Date().toISOString()
                     };
-                    // --- 10% Referral System Code Start ---
-const urlParams = new URLSearchParams(window.location.search);
-const refBy = urlParams.get('ref') || localStorage.getItem('awh_ref') || "";
-if (refBy) {
-    userData.referredBy = String(refBy);
-    userData.referralEarnings = 0;
-}
-// --- 10% Referral System Code End ---
 
-await setDoc(doc(db, "users", cred.user.uid), userData);
-localStorage.setItem("awh_user", JSON.stringify(userData));
-window.location.replace("/affiliate/public/dashboard/index.html");
                     await setDoc(doc(db, "users", cred.user.uid), userData);
                     localStorage.setItem("awh_user", JSON.stringify(userData));
                     window.location.replace("/affiliate/public/dashboard/index.html");
@@ -193,18 +202,12 @@ window.location.replace("/affiliate/public/dashboard/index.html");
                         <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Password</label>
                         <input id="password" type="password" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter your password">
                     </div>
-<div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Password</label>
-                        <input id="password" type="password" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter your password">
-                    </div>
 
-                    <!-- यहाँ लगाएं Referral ID बॉक्स -->
                     <div id="refFieldContainer" class="hidden">
                         <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Referral ID (Optional)</label>
                         <input id="signupRefInput" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm font-mono font-bold text-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="e.g. 662">
                     </div>
 
-                    <div class="flex items-center justify-between text-sm">
                     <div class="flex items-center justify-between text-sm">
                         <label class="flex items-center text-slate-600">
                             <input type="checkbox" checked class="h-4 w-4 text-blue-600 border-gray-300 rounded">
