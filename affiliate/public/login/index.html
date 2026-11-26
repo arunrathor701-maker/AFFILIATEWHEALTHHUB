@@ -27,7 +27,6 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        let activeMethod = 'phone'; // 'phone' or 'email'
         let isRegisterMode = false;
 
         function showError(msg) {
@@ -40,78 +39,64 @@
             document.getElementById('errorDiv').classList.add('hidden');
         }
 
-        function syncFieldRequirements() {
-            const phoneWrapper = document.getElementById('phoneInputWrapper');
-            const emailWrapper = document.getElementById('emailInputWrapper');
-            const phoneInput = document.getElementById('pubPhoneInput');
-            const emailInput = document.getElementById('email');
-            const nameInput = document.getElementById('fullName');
-
-            // Mobile number is ALWAYS mandatory on Phone tab OR during Registration on Email tab
-            const showPhone = (activeMethod === 'phone') || isRegisterMode;
-            phoneWrapper.classList.toggle('hidden', !showPhone);
-            phoneInput.required = showPhone;
-
-            // Email is required when on Email tab
-            const showEmail = (activeMethod === 'email');
-            emailWrapper.classList.toggle('hidden', !showEmail);
-            emailInput.required = showEmail;
-
-            // Full Name required during Registration
-            document.getElementById('nameField').classList.toggle('hidden', !isRegisterMode);
-            nameInput.required = isRegisterMode;
-            document.getElementById('refFieldContainer').classList.toggle('hidden', !isRegisterMode);
+        function isValidIndianPhone(val) {
+            const cleaned = val.replace(/^\+91/, '').replace(/\s+/g, '');
+            return /^[6-9]\d{9}$/.test(cleaned);
         }
+
+        // Check if user typed Email during Registration -> require separate Mobile Number box
+        window.checkUnifiedInputType = () => {
+            const val = document.getElementById('loginIdentifier').value.trim();
+            const extraPhoneDiv = document.getElementById('extraMobileForEmailReg');
+            const extraPhoneInput = document.getElementById('extraRegMobile');
+
+            if (isRegisterMode && val.includes('@')) {
+                extraPhoneDiv.classList.remove('hidden');
+                extraPhoneInput.required = true;
+            } else {
+                extraPhoneDiv.classList.add('hidden');
+                extraPhoneInput.required = false;
+            }
+        };
 
         document.addEventListener('DOMContentLoaded', () => {
             const savedRef = new URLSearchParams(window.location.search).get('ref') || localStorage.getItem('awh_ref') || "";
             const refInput = document.getElementById('signupRefInput');
             if (savedRef && refInput) refInput.value = savedRef;
-            syncFieldRequirements();
         });
 
-        // Switch between Mobile Number & Email tabs
-        window.switchAuthTab = (method) => {
-            hideError();
-            activeMethod = method;
-            const tabPhone = document.getElementById('tab-phone-btn');
-            const tabEmail = document.getElementById('tab-email-btn');
-            const forgotBtn = document.getElementById('forgotBtn');
-
-            if (method === 'phone') {
-                if (forgotBtn) forgotBtn.classList.add('hidden');
-                tabPhone.className = "flex-1 py-2.5 text-xs font-bold rounded-lg bg-blue-600 text-white shadow-sm transition cursor-pointer";
-                tabEmail.className = "flex-1 py-2.5 text-xs font-bold rounded-lg text-slate-600 hover:bg-slate-200/70 transition cursor-pointer";
-            } else {
-                if (forgotBtn) forgotBtn.classList.remove('hidden');
-                tabEmail.className = "flex-1 py-2.5 text-xs font-bold rounded-lg bg-blue-600 text-white shadow-sm transition cursor-pointer";
-                tabPhone.className = "flex-1 py-2.5 text-xs font-bold rounded-lg text-slate-600 hover:bg-slate-200/70 transition cursor-pointer";
-            }
-            syncFieldRequirements();
-        };
-
-        // Toggle Login vs Register
         window.toggleMode = () => {
             hideError();
             isRegisterMode = !isRegisterMode;
+            const nameField = document.getElementById('nameField');
+            const nameInput = document.getElementById('fullName');
+            const refField = document.getElementById('refFieldContainer');
+
+            nameField.classList.toggle('hidden', !isRegisterMode);
+            nameInput.required = isRegisterMode;
+            refField.classList.toggle('hidden', !isRegisterMode);
+
             document.getElementById('formTitle').innerText = isRegisterMode ? "Create Affiliate Account" : "Welcome back";
-            document.getElementById('formSubtitle').innerText = isRegisterMode ? "Register with your Mobile Number to start earning." : "Sign in using your Mobile Number or Email.";
+            document.getElementById('formSubtitle').innerText = isRegisterMode
+                ? "Register using your Mobile Number or Email to start earning."
+                : "Sign in using your Mobile Number or Email Address.";
             document.getElementById('submitBtn').innerText = isRegisterMode ? "Create Account" : "Sign In";
             document.getElementById('toggleText').innerHTML = isRegisterMode
-                ? `Already have an account? <button type="button" onclick="toggleMode()" class="font-bold text-blue-600 hover:text-blue-500">Sign In</button>`
-                : `Don't have an account? <button type="button" onclick="toggleMode()" class="font-bold text-blue-600 hover:text-blue-500">Create Affiliate Account</button>`;
-            syncFieldRequirements();
+                ? `Already have an account? <button type="button" onclick="toggleMode()" class="font-bold text-blue-600 hover:text-blue-500 cursor-pointer">Sign In</button>`
+                : `Don't have an account? <button type="button" onclick="toggleMode()" class="font-bold text-blue-600 hover:text-blue-500 cursor-pointer">Create Affiliate Account</button>`;
+
+            window.checkUnifiedInputType();
         };
 
         window.forgotPassword = async () => {
-            const email = document.getElementById('email').value.trim();
-            if (!email) {
-                alert("Pehle upar Email box mein apna email likhein, phir Forgot Password dabayein.");
+            const val = document.getElementById('loginIdentifier').value.trim();
+            if (!val || !val.includes('@')) {
+                alert("Password reset link sirf Email Address par bheja ja sakta hai. Kripya upar box mein apna registered Email dalein, ya Mobile password reset ke liye Account Manager se WhatsApp par sampark karein.");
                 return;
             }
             try {
-                await sendPasswordResetEmail(auth, email);
-                alert("Password reset link aapke email (" + email + ") par bhej diya gaya hai!");
+                await sendPasswordResetEmail(auth, val);
+                alert("Password reset link aapke email (" + val + ") par bhej diya gaya hai!");
             } catch (err) {
                 alert("Error: " + err.message);
             }
@@ -121,22 +106,35 @@
             e.preventDefault();
             hideError();
 
-            const rawPhone = document.getElementById('pubPhoneInput').value.trim();
-            const isPhoneRequired = (activeMethod === 'phone') || isRegisterMode;
-
-            if (isPhoneRequired && !/^[6-9]\d{9}$/.test(rawPhone)) {
-                showError("Kripya sahi 10-digit Indian mobile number dalein (Mandatory).");
-                return;
-            }
-
-            const phoneFormatted = rawPhone ? `+91${rawPhone}` : "";
-            const authEmail = (activeMethod === 'phone')
-                ? `${rawPhone}@awh.in`
-                : document.getElementById('email').value.trim();
-
+            const rawInput = document.getElementById('loginIdentifier').value.trim();
             const password = document.getElementById('password').value;
             const fullName = document.getElementById('fullName').value.trim();
             const btn = document.getElementById('submitBtn');
+
+            let authEmail = "";
+            let phoneFormatted = "";
+            let realEmail = "";
+
+            if (isValidIndianPhone(rawInput)) {
+                const cleanTenDigit = rawInput.replace(/^\+91/, '').replace(/\s+/g, '');
+                authEmail = `${cleanTenDigit}@awh.in`;
+                phoneFormatted = `+91${cleanTenDigit}`;
+            } else if (rawInput.includes('@') && rawInput.includes('.')) {
+                authEmail = rawInput.toLowerCase();
+                realEmail = authEmail;
+
+                if (isRegisterMode) {
+                    const extraMob = document.getElementById('extraRegMobile').value.trim();
+                    if (!isValidIndianPhone(extraMob)) {
+                        showError("Kripya sahi 10-digit Indian mobile number dalein (Mandatory).");
+                        return;
+                    }
+                    phoneFormatted = `+91${extraMob.replace(/^\+91/, '').replace(/\s+/g, '')}`;
+                }
+            } else {
+                showError("Kripya sahi 10-digit Mobile Number ya Email Address dalein.");
+                return;
+            }
 
             btn.disabled = true;
             btn.innerText = isRegisterMode ? "Creating Account..." : "Signing In...";
@@ -145,7 +143,7 @@
                 if (isRegisterMode) {
                     const cred = await createUserWithEmailAndPassword(auth, authEmail, password);
                     const newPubId = Math.floor(100 + Math.random() * 899);
-                    
+
                     const manualRef = document.getElementById('signupRefInput')?.value.trim();
                     const urlRef = new URLSearchParams(window.location.search).get('ref') || localStorage.getItem('awh_ref') || "";
                     const finalRef = manualRef || urlRef;
@@ -153,7 +151,7 @@
                     const userData = {
                         uid: cred.user.uid,
                         name: fullName || ("Partner #" + newPubId),
-                        email: activeMethod === 'email' ? authEmail : "",
+                        email: realEmail,
                         phone: phoneFormatted,
                         role: "publisher",
                         publisherId: newPubId,
@@ -165,14 +163,14 @@
 
                     await setDoc(doc(db, "users", cred.user.uid), userData);
                     localStorage.setItem("awh_user", JSON.stringify(userData));
-                    window.location.replace("/affiliate/public/dashboard/index.html");
+                    window.location.href = "/affiliate/public/dashboard/index.html";
                 } else {
                     const cred = await signInWithEmailAndPassword(auth, authEmail, password);
                     const userDoc = await getDoc(doc(db, "users", cred.user.uid));
                     const userData = userDoc.exists() ? userDoc.data() : { name: "Publisher", role: "publisher", publisherId: "662" };
                     const sessionData = {
                         uid: cred.user.uid,
-                        email: userData.email || "",
+                        email: userData.email || realEmail,
                         phone: userData.phone || phoneFormatted,
                         name: userData.name,
                         role: userData.role || "publisher",
@@ -181,17 +179,15 @@
                     localStorage.setItem("awh_user", JSON.stringify(sessionData));
 
                     if (sessionData.role === "admin" || sessionData.email === "arunrathor701@gmail.com") {
-                        window.location.replace("/affiliate/public/admin/index.html");
+                        window.location.href = "/affiliate/public/admin/index.html";
                     } else {
-                        window.location.replace("/affiliate/public/dashboard/index.html");
+                        window.location.href = "/affiliate/public/dashboard/index.html";
                     }
                 }
             } catch (err) {
-                let msg = err.message.replace("Firebase: ", "");
-                if (activeMethod === 'phone') {
-                    msg = msg.replace(/email-already-in-use/g, "Yeh Mobile Number pehle se registered hai. Sign In karein.")
-                             .replace(/invalid-credential|user-not-found|wrong-password/g, "Galat Mobile Number ya Password.");
-                }
+                let msg = err.message.replace("Firebase: ", "")
+                    .replace(/email-already-in-use/g, "Yeh Mobile Number ya Email pehle se registered hai. Sign In karein.")
+                    .replace(/invalid-credential|user-not-found|wrong-password/g, "Galat Mobile Number/Email ya Password.");
                 showError(msg);
                 btn.disabled = false;
                 btn.innerText = isRegisterMode ? "Create Account" : "Sign In";
@@ -199,8 +195,8 @@
         };
     </script>
 </head>
-<body class="h-full font-sans antialiased">
-    <div class="min-h-screen flex flex-col lg:flex-row">
+<body class="h-full font-sans antialiased flex flex-col">
+    <div class="flex-1 flex flex-col lg:flex-row">
         <!-- Left Branding Panel -->
         <div class="lg:w-1/2 bg-[#1e295d] text-white p-8 lg:p-12 flex flex-col justify-between relative overflow-hidden">
             <div class="relative z-10">
@@ -221,7 +217,7 @@
                     </li>
                     <li class="flex items-center space-x-3 text-sm font-medium">
                         <svg class="w-5 h-5 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        <span>Instant conversion attribution</span>
+                        <span>MIS verified payouts directly to Bank / UPI</span>
                     </li>
                 </ul>
 
@@ -250,19 +246,9 @@
                     <span class="font-black text-xl tracking-tight text-slate-900">AffiliateWealthHub</span>
                 </div>
 
-                <!-- Switcher Tabs -->
-                <div class="flex bg-slate-100 p-1 rounded-xl gap-1">
-                    <button type="button" id="tab-phone-btn" onclick="switchAuthTab('phone')" class="flex-1 py-2.5 text-xs font-bold rounded-lg bg-blue-600 text-white shadow-sm transition cursor-pointer">
-                        📱 Mobile Number
-                    </button>
-                    <button type="button" id="tab-email-btn" onclick="switchAuthTab('email')" class="flex-1 py-2.5 text-xs font-bold rounded-lg text-slate-600 hover:bg-slate-200/70 transition cursor-pointer">
-                        ✉️ Email Address
-                    </button>
-                </div>
-
                 <div>
                     <h2 id="formTitle" class="text-2xl font-extrabold text-slate-900 tracking-tight">Welcome back</h2>
-                    <p id="formSubtitle" class="text-sm text-slate-500 mt-1">Sign in using your Mobile Number or Email.</p>
+                    <p id="formSubtitle" class="text-sm text-slate-500 mt-1">Sign in using your Mobile Number or Email Address.</p>
                 </div>
 
                 <form class="space-y-4" onsubmit="handleAuth(event)">
@@ -273,19 +259,19 @@
                         <input id="fullName" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter your full name">
                     </div>
 
-                    <!-- Mobile Number Field (Mandatory for Mobile Login & All Registrations) -->
-                    <div id="phoneInputWrapper">
+                    <!-- Single Unified Mobile Number OR Email Field -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Mobile Number or Email Address <span class="text-red-500">*</span></label>
+                        <input id="loginIdentifier" type="text" required onkeyup="checkUnifiedInputType()" onchange="checkUnifiedInputType()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter 10-digit mobile or email">
+                    </div>
+
+                    <!-- Mandatory Mobile Number Field (Only appears if registering via Email) -->
+                    <div id="extraMobileForEmailReg" class="hidden">
                         <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Mobile Number (+91) <span class="text-red-500">*</span></label>
                         <div class="flex gap-2">
                             <span class="bg-slate-100 border border-slate-300 rounded-lg px-3.5 py-3 text-sm font-bold text-slate-700 flex items-center">+91</span>
-                            <input id="pubPhoneInput" type="tel" maxlength="10" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter 10-digit mobile number">
+                            <input id="extraRegMobile" type="tel" maxlength="10" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter 10-digit mobile number">
                         </div>
-                    </div>
-
-                    <!-- Email Field -->
-                    <div id="emailInputWrapper" class="hidden">
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Email Address <span class="text-red-500">*</span></label>
-                        <input id="email" type="email" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter your email">
                     </div>
 
                     <div>
@@ -303,17 +289,75 @@
                             <input type="checkbox" checked class="h-4 w-4 text-blue-600 border-gray-300 rounded">
                             <span class="ml-2 text-xs font-medium">Remember me</span>
                         </label>
-                        <button id="forgotBtn" type="button" onclick="forgotPassword()" class="hidden text-xs font-semibold text-blue-600 hover:text-blue-500">Forgot password?</button>
+                        <button type="button" onclick="forgotPassword()" class="text-xs font-semibold text-blue-600 hover:text-blue-500 cursor-pointer">Forgot password?</button>
                     </div>
 
                     <button id="submitBtn" type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-blue-600/20 transition text-sm cursor-pointer">Sign In</button>
                 </form>
 
                 <div id="toggleText" class="text-center pt-4 border-t border-slate-100 text-xs text-slate-600">
-                    Don't have an account? <button type="button" onclick="toggleMode()" class="font-bold text-blue-600 hover:text-blue-500">Create Affiliate Account</button>
+                    Don't have an account? <button type="button" onclick="toggleMode()" class="font-bold text-blue-600 hover:text-blue-500 cursor-pointer">Create Affiliate Account</button>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Legal & MIS Policy Footer + Modal -->
+    <footer class="bg-slate-900 text-slate-400 text-[11px] py-4 px-6 border-t border-slate-800">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex flex-wrap items-center justify-center gap-2">
+                <span class="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-bold">✓ Udyam (MSME) Registered</span>
+                <span>• AffiliateWealthHub Network (Gwalior, MP)</span>
+            </div>
+            <div class="flex items-center gap-4 font-semibold text-slate-300">
+                <button type="button" onclick="openPolicyModal('terms')" class="hover:text-white underline cursor-pointer">Terms & Conditions</button>
+                <button type="button" onclick="openPolicyModal('mis')" class="hover:text-white underline cursor-pointer">MIS & Payout Policy</button>
+                <button type="button" onclick="openPolicyModal('privacy')" class="hover:text-white underline cursor-pointer">Privacy Policy</button>
+            </div>
+        </div>
+    </footer>
+
+    <div id="policyModal" class="hidden fixed inset-0 bg-slate-900/70 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 max-h-[85vh] overflow-y-auto space-y-4">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 id="policyModalTitle" class="font-extrabold text-base text-slate-900">Policy</h3>
+                <button type="button" onclick="document.getElementById('policyModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-700 font-bold text-xl cursor-pointer">&times;</button>
+            </div>
+            <div id="policyModalBody" class="text-xs text-slate-600 space-y-2.5 leading-relaxed"></div>
+            <div class="pt-2 text-right">
+                <button type="button" onclick="document.getElementById('policyModal').classList.add('hidden')" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-bold cursor-pointer">I Understand</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    window.openPolicyModal = function(type) {
+        const titleEl = document.getElementById('policyModalTitle');
+        const bodyEl = document.getElementById('policyModalBody');
+        if (type === 'mis') {
+            titleEl.innerText = "MIS Lead Validation & Payout Policy";
+            bodyEl.innerHTML = `
+                <p><strong>1. MIS-Based Validation:</strong> All financial, Demat, and EMI card leads are validated strictly against the official Advertiser / Client MIS Report.</p>
+                <p><strong>2. Approval Timeline:</strong> Tracking clicks appear in real time, while final conversion approval takes 7 to 30 working days depending on the advertiser's validation cycle.</p>
+                <p><strong>3. Payout Release:</strong> Wallet balance becomes eligible for withdrawal (Minimum ₹100) only after official MIS confirmation.</p>
+                <p><strong>4. Zero Tolerance for Fraud:</strong> Self-referrals, fake KYC documents, duplicate leads, or unauthorized incentivized traffic will result in immediate lead rejection and account suspension.</p>
+            `;
+        } else if (type === 'privacy') {
+            titleEl.innerText = "Privacy Policy";
+            bodyEl.innerHTML = `
+                <p><strong>1. Data Collection:</strong> We collect publisher details (Name, Mobile Number, Email, and Bank/UPI details) solely for account management, lead attribution, and payout processing.</p>
+                <p><strong>2. Data Security:</strong> Your personal and banking information is securely stored and never sold or shared with unauthorized third parties.</p>
+            `;
+        } else {
+            titleEl.innerText = "Publisher Terms & Conditions";
+            bodyEl.innerHTML = `
+                <p><strong>1. Compliance:</strong> Publishers must follow all campaign-specific KPIs and traffic guidelines listed on the Offer Details page.</p>
+                <p><strong>2. Brand Bidding:</strong> Running search ads on brand keywords without written approval is strictly prohibited.</p>
+                <p><strong>3. Governing Jurisdiction:</strong> Operated by AffiliateWealthHub (Sole Proprietorship, Gwalior, Madhya Pradesh, India).</p>
+            `;
+        }
+        document.getElementById('policyModal').classList.remove('hidden');
+    };
+    </script>
 </body>
 </html>
