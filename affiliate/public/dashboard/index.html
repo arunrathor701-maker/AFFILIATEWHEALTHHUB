@@ -542,7 +542,42 @@ document.addEventListener('DOMContentLoaded', initDashboard);
 <h3 class="font-extrabold text-base text-gray-900">Request Withdrawal</h3>
 <button type="button" onclick="closePayoutModal()" class="text-gray-400 hover:text-gray-700 font-bold text-lg cursor-pointer">&times;</button>
 </div>
-<form onsubmit="submitPayoutRequest(event)" class="space-y-4 text-xs">
+<form onsubmit="submitPayoutRequest(event)" class="space-y-3 text-xs">
+    <div class="bg-blue-50 p-3 rounded-xl flex justify-between items-center">
+        <span class="font-bold text-gray-600">Available Wallet Balance:</span>
+        <span id="modalAvailBal" class="font-black text-base text-blue-700">₹0</span>
+    </div>
+    <div>
+        <label class="block font-bold text-gray-600 mb-1 uppercase">Withdrawal Amount (₹) *</label>
+        <input type="number" id="withdrawAmount" min="100" class="w-full border border-gray-300 p-2.5 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500" required>
+    </div>
+    <div>
+        <label class="block font-bold text-gray-600 mb-1 uppercase">Account Holder Name *</label>
+        <input type="text" id="withdrawHolderName" placeholder="Name as per Bank / UPI" class="w-full border border-gray-300 p-2.5 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-blue-500" required>
+    </div>
+    <div>
+        <label class="block font-bold text-gray-600 mb-1 uppercase">Registered Mobile Number *</label>
+        <input type="tel" id="withdrawMobile" maxlength="10" placeholder="10-digit Mobile Number" class="w-full border border-gray-300 p-2.5 rounded-xl font-mono font-semibold outline-none focus:ring-2 focus:ring-blue-500" required>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div>
+            <label class="block font-bold text-gray-600 mb-1 uppercase">Bank Account Number</label>
+            <input type="text" id="withdrawAccNo" placeholder="e.g. 123456789012" class="w-full border border-gray-300 p-2.5 rounded-xl font-mono outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+            <label class="block font-bold text-gray-600 mb-1 uppercase">IFSC Code</label>
+            <input type="text" id="withdrawIfsc" placeholder="e.g. SBIN0001234" class="w-full border border-gray-300 p-2.5 rounded-xl font-mono uppercase outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+    </div>
+    <div>
+        <label class="block font-bold text-gray-600 mb-1 uppercase">UPI ID (PhonePe / GPay / Paytm)</label>
+        <input type="text" id="withdrawUpi" placeholder="e.g. 9479532362@ybl" class="w-full border border-gray-300 p-2.5 rounded-xl font-mono outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+    <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closePayoutModal()" class="px-4 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100 cursor-pointer">Cancel</button>
+        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-bold shadow cursor-pointer">Submit Request</button>
+    </div>
+</form>
 <div class="bg-blue-50 p-3 rounded-xl flex justify-between items-center">
 <span class="font-bold text-gray-600">Available Wallet Balance:</span>
 <span id="modalAvailBal" class="font-black text-base text-blue-700">₹0</span>
