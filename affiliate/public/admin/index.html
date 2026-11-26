@@ -482,6 +482,7 @@ async function loadPublishers() {
                 <td class="p-4 whitespace-nowrap"><span class="font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">#${u.publisherId || '-'}</span></td>
                 <td class="p-4 font-bold text-slate-800 whitespace-nowrap">${u.name || 'User'}</td>
                 <td class="p-4 text-slate-500 whitespace-nowrap">${u.email || 'N/A'}</td>
+                <td class="p-4 font-mono font-bold text-slate-700 whitespace-nowrap">${u.phone || 'N/A'}</td>
                 <td class="p-4 whitespace-nowrap">${refByBadge}</td>
                 <td class="p-4 font-bold text-indigo-600 whitespace-nowrap">₹${u.referralEarnings || 0}</td>
                 <td class="p-4 font-extrabold text-emerald-600 whitespace-nowrap text-sm">₹${u.balance || 0}</td>
@@ -909,6 +910,7 @@ window.logout = () => {
 <th class="p-4">Pub ID</th>
 <th class="p-4">Partner Name</th>
 <th class="p-4">Email Address</th>
+<th class="p-4">Mobile Number</th>
 <th class="p-4">Referred By</th>
 <th class="p-4">Ref Bonus</th>
 <th class="p-4">Available Balance</th>
