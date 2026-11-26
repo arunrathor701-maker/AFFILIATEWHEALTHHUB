@@ -24,7 +24,14 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let currentUser = JSON.parse(localStorage.getItem("awh_user") || "null");
+let currentUser = null;
+try {
+    currentUser = JSON.parse(localStorage.getItem("awh_user") || "null");
+} catch (e) {
+    localStorage.removeItem("awh_user");
+    currentUser = null;
+}
+
 let currentBalance = 0;
 let cachedClicks = [];
 let cachedPayouts = [];
@@ -76,7 +83,8 @@ window.switchTab = function(tabId, btnEl) {
 
 async function initDashboard() {
     if (!currentUser || !currentUser.uid) {
-        window.location.replace("/affiliate/public/login/index.html");
+        localStorage.removeItem("awh_user");
+        window.location.href = "/affiliate/public/login/index.html";
         return;
     }
     updateUI();
@@ -541,7 +549,7 @@ window.saveProfile = async (e) => {
 
 window.logout = () => {
     localStorage.removeItem("awh_user");
-    signOut(auth).then(() => window.location.replace("/affiliate/public/login/index.html"));
+    signOut(auth).then(() => window.location.href = "/affiliate/public/login/index.html");
 };
 
 function updateChart(clicks, convs) {
