@@ -24,7 +24,14 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-let currentUser = JSON.parse(localStorage.getItem("awh_user") || "null");
+let currentUser = null;
+try {
+    currentUser = JSON.parse(localStorage.getItem("awh_user") || "null");
+} catch (e) {
+    localStorage.removeItem("awh_user");
+    currentUser = null;
+}
+
 let currentBalance = 0;
 let cachedClicks = [];
 let cachedPayouts = [];
@@ -76,7 +83,8 @@ window.switchTab = function(tabId, btnEl) {
 
 async function initDashboard() {
     if (!currentUser || !currentUser.uid) {
-        window.location.replace("/affiliate/public/login/index.html");
+        localStorage.removeItem("awh_user");
+        window.location.href = "/affiliate/public/login/index.html";
         return;
     }
     updateUI();
@@ -127,7 +135,6 @@ function setupRealtimeListeners() {
             rawDocs.push({ id: docSnap.id, ...docSnap.data() });
         });
 
-        // Sort latest report on top (Descending order by createdAt)
         rawDocs.sort((a, b) => {
             const timeA = a.createdAt ? (a.createdAt.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt).getTime()) : 0;
             const timeB = b.createdAt ? (b.createdAt.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt).getTime()) : 0;
@@ -248,7 +255,6 @@ window.filterPartnerReports = function(term) {
     });
 };
 
-// 10% REFERRAL & TEAM SYSTEM
 function loadMyReferrals() {
     const pubId = String(currentUser.publisherId || "662");
     const refInput = document.getElementById('myReferralLink');
@@ -291,7 +297,6 @@ window.copyReferralLink = () => {
     });
 };
 
-// NEXAOFFERS STYLE OFFERS TABLE & DETAIL VIEW
 async function loadOffers() {
     const tbody = document.getElementById('offersTableBody');
     if (!tbody) return;
@@ -381,7 +386,6 @@ window.openOfferDetails = function(oid) {
             : `<div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-base uppercase">${(o.name || 'OF').substring(0, 2)}</div>`;
     }
 
-    // Multi-Step Events Table Render (1 to 3 Steps)
     const eventsTbody = document.getElementById('detEventsTableBody');
     if (eventsTbody) {
         const eventsList = (Array.isArray(o.events) && o.events.length > 0)
@@ -545,7 +549,7 @@ window.saveProfile = async (e) => {
 
 window.logout = () => {
     localStorage.removeItem("awh_user");
-    signOut(auth).then(() => window.location.replace("/affiliate/public/login/index.html"));
+    signOut(auth).then(() => window.location.href = "/affiliate/public/login/index.html");
 };
 
 function updateChart(clicks, convs) {
@@ -622,6 +626,20 @@ document.addEventListener('DOMContentLoaded', initDashboard);
 </div>
 </div>
 
+<!-- Legal & MIS Policy Modal -->
+<div id="policyModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-200 max-h-[85vh] overflow-y-auto space-y-4">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 id="policyModalTitle" class="font-extrabold text-base text-gray-900">Policy</h3>
+            <button type="button" onclick="document.getElementById('policyModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-700 font-bold text-xl cursor-pointer">&times;</button>
+        </div>
+        <div id="policyModalBody" class="text-xs text-gray-600 space-y-2.5 leading-relaxed"></div>
+        <div class="pt-2 text-right">
+            <button type="button" onclick="document.getElementById('policyModal').classList.add('hidden')" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-bold cursor-pointer">I Understand</button>
+        </div>
+    </div>
+</div>
+
 <div class="flex h-screen overflow-hidden">
 <!-- Sidebar -->
 <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform -translate-x-full md:translate-x-0 md:static transition-transform duration-300 ease-in-out flex flex-col justify-between overflow-y-auto">
@@ -695,7 +713,7 @@ document.addEventListener('DOMContentLoaded', initDashboard);
 </div>
 </header>
 
-<main class="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
+<main class="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full flex-1">
 <div class="md:hidden flex items-center justify-between bg-white p-4 rounded-xl shadow-sm mb-4">
   <span class="font-bold text-base">AffiliateWealthHub</span>
   <button type="button" onclick="document.getElementById('sidebar').classList.toggle('-translate-x-full')" class="px-3 py-1.5 rounded bg-blue-600 text-white text-xs font-bold">
@@ -1021,8 +1039,51 @@ Request Payout
 </form>
 </div>
 </div>
+
+<!-- Legal & MIS Policy Footer -->
+<footer class="mt-10 pt-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-2 text-[11px] text-gray-500">
+    <div class="flex items-center gap-2">
+        <span class="bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">✓ Udyam (MSME) Registered</span>
+        <span>© 2026 AffiliateWealthHub Network</span>
+    </div>
+    <div class="flex items-center gap-4 font-semibold text-gray-600">
+        <button type="button" onclick="openPolicyModal('terms')" class="hover:text-blue-600 underline cursor-pointer">Terms</button>
+        <button type="button" onclick="openPolicyModal('mis')" class="hover:text-blue-600 underline cursor-pointer">MIS & Payout Policy</button>
+        <button type="button" onclick="openPolicyModal('privacy')" class="hover:text-blue-600 underline cursor-pointer">Privacy</button>
+    </div>
+</footer>
 </main>
 </div>
 </div>
+
+<script>
+window.openPolicyModal = function(type) {
+    const titleEl = document.getElementById('policyModalTitle');
+    const bodyEl = document.getElementById('policyModalBody');
+    if (type === 'mis') {
+        titleEl.innerText = "MIS Lead Validation & Payout Policy";
+        bodyEl.innerHTML = `
+            <p><strong>1. MIS-Based Validation:</strong> All financial, Demat, and EMI card leads are validated strictly against the official Advertiser / Client MIS Report.</p>
+            <p><strong>2. Approval Timeline:</strong> Tracking clicks appear in real time, while final conversion approval takes 7 to 30 working days depending on the advertiser's validation cycle.</p>
+            <p><strong>3. Payout Release:</strong> Wallet balance becomes eligible for withdrawal (Minimum ₹100) only after official MIS confirmation.</p>
+            <p><strong>4. Zero Tolerance for Fraud:</strong> Self-referrals, fake KYC documents, duplicate leads, or unauthorized incentivized traffic will result in immediate lead rejection and account suspension.</p>
+        `;
+    } else if (type === 'privacy') {
+        titleEl.innerText = "Privacy Policy";
+        bodyEl.innerHTML = `
+            <p><strong>1. Data Collection:</strong> We collect publisher details (Name, Mobile Number, Email, and Bank/UPI details) solely for account management, lead attribution, and payout processing.</p>
+            <p><strong>2. Data Security:</strong> Your personal and banking information is securely stored and never sold or shared with unauthorized third parties.</p>
+        `;
+    } else {
+        titleEl.innerText = "Publisher Terms & Conditions";
+        bodyEl.innerHTML = `
+            <p><strong>1. Compliance:</strong> Publishers must follow all campaign-specific KPIs and traffic guidelines listed on the Offer Details page.</p>
+            <p><strong>2. Brand Bidding:</strong> Running search ads on brand keywords without written approval is strictly prohibited.</p>
+            <p><strong>3. Governing Jurisdiction:</strong> Operated by AffiliateWealthHub (Sole Proprietorship, Gwalior, Madhya Pradesh, India).</p>
+        `;
+    }
+    document.getElementById('policyModal').classList.remove('hidden');
+};
+</script>
 </body>
 </html>
