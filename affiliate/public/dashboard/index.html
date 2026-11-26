@@ -1,11 +1,20 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-100">
+<html lang="en" class="h-full bg-slate-50">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AffiliateWealthHub - Partner Dashboard</title>
+<title>AffiliateWealthHub - Partner Portal</title>
+<link rel="icon" href="logo.jpg" type="image/jpeg">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body { font-family: 'Plus Jakarta Sans', sans-serif; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f8fafc; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+</style>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -48,7 +57,7 @@ function showToast(message, isError = false) {
     const toast = document.getElementById('fixedToast');
     if (!toast) return;
     toast.innerText = message;
-    toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-full shadow-2xl text-xs font-bold transition-all duration-300 z-50 text-white pointer-events-none ${isError ? 'bg-red-600' : 'bg-gray-900'}`;
+    toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl text-xs font-bold transition-all duration-300 z-50 text-white pointer-events-none ${isError ? 'bg-red-600' : 'bg-gray-900'}`;
     toast.style.opacity = '1';
     toast.style.transform = 'translateY(0)';
     setTimeout(() => {
@@ -99,7 +108,7 @@ function updateUI() {
     const email = currentUser.email || "arunrathor701@gmail.com";
 
     document.querySelectorAll('.pubNameDisplay').forEach(el => el.innerText = name);
-    safeSetText('pubIdDisplay', pubId);
+    safeSetText('pubIdDisplay', `#${pubId}`);
 
     const profPubId = document.getElementById('profilePubId');
     const profName = document.getElementById('profileName');
@@ -118,10 +127,10 @@ function setupRealtimeListeners() {
             const data = docSnap.data();
             currentBalance = Number(data.balance || 0);
             const refEarned = Number(data.referralEarnings || 0);
-            safeSetText('walletBalance', `₹${currentBalance}`);
-            safeSetText('totalEarnings', `₹${currentBalance}`);
-            safeSetText('modalAvailBal', `₹${currentBalance}`);
-            safeSetText('refTotalEarnings', `₹${refEarned}`);
+            safeSetText('walletBalance', `₹${currentBalance.toLocaleString('en-IN')}`);
+            safeSetText('totalEarnings', `₹${currentBalance.toLocaleString('en-IN')}`);
+            safeSetText('modalAvailBal', `₹${currentBalance.toLocaleString('en-IN')}`);
+            safeSetText('refTotalEarnings', `₹${refEarned.toLocaleString('en-IN')}`);
         }
     });
 
@@ -188,31 +197,33 @@ function setupRealtimeListeners() {
                 : ((isApproved || isPartial) && data.lastApprovedStep ? `<div class="text-[10px] text-green-700 font-semibold mt-0.5">✓ ${data.lastApprovedStep} (₹${data.payoutCredited || 0})</div>` : '');
 
             clicksListHtml.push(`
-                <tr class="border-b hover:bg-gray-50 whitespace-nowrap report-row">
-                    <td class="p-3 text-xs">${dateStr}</td>
-                    <td class="p-3 text-xs font-mono text-gray-500">${sysClickId}</td>
-                    <td class="p-3 text-xs font-mono text-purple-600 font-semibold">${custClickId}</td>
-                    <td class="p-3 text-xs font-semibold">Offer #${data.offerId || '1'}</td>
-                    <td class="p-3 text-xs font-mono font-bold text-blue-600">${s1}</td>
-                    <td class="p-3 text-xs font-mono text-gray-700">${s2}</td>
-                    <td class="p-3 text-xs font-mono text-gray-700">${s3}</td>
-                    <td class="p-3 text-xs font-semibold text-gray-800">${data.customerName || '-'}</td>
-                    <td class="p-3 text-xs font-mono text-gray-600">${data.customerPhone || '-'}</td>
-                    <td class="p-3 text-xs font-mono uppercase text-indigo-600">${data.customerPan || '-'}</td>
-                    <td class="p-3 text-xs">
-                        <span class="px-2.5 py-1 ${badgeClass} rounded text-[11px] font-bold uppercase">${data.status || 'Recorded'}</span>
+                <tr class="border-b border-gray-100 hover:bg-gray-50 whitespace-nowrap report-row transition">
+                    <td class="p-3.5 text-xs text-gray-600">${dateStr}</td>
+                    <td class="p-3.5 text-xs font-mono text-gray-500">${sysClickId}</td>
+                    <td class="p-3.5 text-xs font-mono text-indigo-600 font-semibold">${custClickId}</td>
+                    <td class="p-3.5 text-xs font-bold text-gray-900">Offer #${data.offerId || '1'}</td>
+                    <td class="p-3.5 text-xs font-mono font-bold text-blue-600">${s1}</td>
+                    <td class="p-3.5 text-xs font-mono text-gray-700">${s2}</td>
+                    <td class="p-3.5 text-xs font-mono text-gray-700">${s3}</td>
+                    <td class="p-3.5 text-xs font-semibold text-gray-800">${data.customerName || '-'}</td>
+                    <td class="p-3.5 text-xs font-mono text-gray-600">${data.customerPhone || '-'}</td>
+                    <td class="p-3.5 text-xs font-mono uppercase text-indigo-600">${data.customerPan || '-'}</td>
+                    <td class="p-3.5 text-xs">
+                        <span class="px-2.5 py-1 ${badgeClass} rounded-md text-[10px] font-bold uppercase tracking-wide">${data.status || 'Recorded'}</span>
                         ${remarkHtml}
                     </td>
                 </tr>
             `);
         });
 
+        const crRate = totalClicks > 0 ? ((approvedCount / totalClicks) * 100).toFixed(1) : "0.0";
         safeSetText('totalClicksDisplay', totalClicks);
         safeSetText('totalConvDisplay', approvedCount);
+        safeSetText('conversionRateDisplay', `${crRate}%`);
 
         const clicksBody = document.getElementById('clicksTableBody');
         if (clicksBody) {
-            clicksBody.innerHTML = clicksListHtml.join('') || `<tr><td colspan="11" class="p-4 text-center text-gray-400">No clicks recorded yet.</td></tr>`;
+            clicksBody.innerHTML = clicksListHtml.join('') || `<tr><td colspan="11" class="p-8 text-center text-gray-400 text-xs">No clicks or conversions recorded yet.</td></tr>`;
         }
 
         updateChart(totalClicks, approvedCount);
@@ -235,16 +246,16 @@ function setupRealtimeListeners() {
             });
 
             rows.push(`
-                <tr class="border-b hover:bg-gray-50">
-                    <td class="p-3 text-xs">${dStr}</td>
-                    <td class="p-3 text-xs font-bold text-gray-900">₹${p.amount || 0}</td>
-                    <td class="p-3 text-xs">${p.method || 'N/A'}</td>
-                    <td class="p-3 text-xs"><span class="px-2 py-0.5 ${stColor} rounded text-xs font-bold uppercase">${p.status || 'Pending'}</span></td>
+                <tr class="border-b border-gray-100 hover:bg-gray-50 transition">
+                    <td class="p-3.5 text-xs text-gray-600">${dStr}</td>
+                    <td class="p-3.5 text-xs font-extrabold text-gray-900">₹${p.amount || 0}</td>
+                    <td class="p-3.5 text-xs font-mono text-gray-700">${p.method || 'N/A'}</td>
+                    <td class="p-3.5 text-xs"><span class="px-2.5 py-1 ${stColor} rounded-md text-[10px] font-bold uppercase">${p.status || 'Pending'}</span></td>
                 </tr>
             `);
         });
         const tbody = document.getElementById('payoutsTableBody');
-        if (tbody) tbody.innerHTML = rows.join('') || `<tr><td colspan="4" class="p-4 text-center text-gray-400">No payout history.</td></tr>`;
+        if (tbody) tbody.innerHTML = rows.join('') || `<tr><td colspan="4" class="p-8 text-center text-gray-400 text-xs">No payout history found.</td></tr>`;
     });
 }
 
@@ -270,17 +281,17 @@ function loadMyReferrals() {
             const m = docSnap.data();
             const jDate = m.createdAt ? new Date(m.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Active';
             rows.push(`
-                <tr class="hover:bg-gray-50">
+                <tr class="hover:bg-gray-50 transition">
                     <td class="p-3.5 text-xs text-gray-500 whitespace-nowrap">${jDate}</td>
                     <td class="p-3.5 text-xs font-mono font-bold text-indigo-600">#${m.publisherId || '-'}</td>
                     <td class="p-3.5 text-xs font-bold text-gray-900">${m.name || 'Partner'}</td>
-                    <td class="p-3.5 text-xs"><span class="px-2.5 py-0.5 bg-green-100 text-green-700 rounded-full font-bold uppercase text-[10px]">Active • 10% Bonus</span></td>
+                    <td class="p-3.5 text-xs"><span class="px-2.5 py-1 bg-green-100 text-green-700 rounded-md font-bold uppercase text-[10px]">Active • 10% Commission</span></td>
                 </tr>
             `);
         });
         const tbody = document.getElementById('myTeamTableBody');
         if (tbody) {
-            tbody.innerHTML = rows.join('') || `<tr><td colspan="4" class="p-8 text-center text-gray-400 text-xs">Abhi tak aapki team me koi join nahi hua hai. Upar diya gaya invite link share karein!</td></tr>`;
+            tbody.innerHTML = rows.join('') || `<tr><td colspan="4" class="p-8 text-center text-gray-400 text-xs">No team members joined yet. Share your personal invite link above to earn 10% lifetime commission.</td></tr>`;
         }
     });
 }
@@ -289,18 +300,18 @@ window.copyReferralLink = () => {
     const inp = document.getElementById('myReferralLink');
     if (!inp) return;
     navigator.clipboard.writeText(inp.value).then(() => {
-        showToast("✓ Referral Invite Link Copied!");
+        showToast("Referral invite link copied to clipboard");
     }).catch(() => {
         inp.select();
         document.execCommand("copy");
-        showToast("✓ Referral Invite Link Copied!");
+        showToast("Referral invite link copied to clipboard");
     });
 };
 
 async function loadOffers() {
     const tbody = document.getElementById('offersTableBody');
     if (!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-gray-400 text-xs">Loading available campaigns...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-gray-400 text-xs">Loading active campaigns...</td></tr>`;
     
     try {
         const snap = await getDocs(collection(db, "offers"));
@@ -318,30 +329,30 @@ async function loadOffers() {
             allOffersMap[oid] = { id: oid, ...o };
 
             const logoHtml = o.logoUrl 
-                ? `<img src="${o.logoUrl}" alt="${o.name}" class="w-9 h-9 rounded-lg object-contain border bg-white p-1">`
-                : `<div class="w-9 h-9 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center font-black text-xs uppercase">${(o.name || 'OF').substring(0, 2)}</div>`;
+                ? `<img src="${o.logoUrl}" alt="${o.name}" class="w-10 h-10 rounded-xl object-contain border border-gray-200 bg-white p-1 shadow-sm">`
+                : `<div class="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center font-extrabold text-xs uppercase">${(o.name || 'OF').substring(0, 2)}</div>`;
 
             const offerType = (o.visibility || o.type || 'public').toLowerCase();
             const isApproved = (o.offerStatus || 'approved').toLowerCase() === 'approved';
 
             tbody.innerHTML += `
-                <tr class="border-b hover:bg-blue-50/40 transition offer-row" data-name="${(o.name || '').toLowerCase()}" data-visibility="${offerType}">
-                    <td class="p-4 font-mono text-xs font-bold text-gray-600">#${oid}</td>
+                <tr class="border-b border-gray-100 hover:bg-blue-50/40 transition offer-row" data-name="${(o.name || '').toLowerCase()}" data-visibility="${offerType}">
+                    <td class="p-4 font-mono text-xs font-bold text-gray-500">#${oid}</td>
                     <td class="p-4">${logoHtml}</td>
                     <td class="p-4">
                         <div class="font-bold text-gray-900 text-xs sm:text-sm">${o.name || 'Campaign'}</div>
-                        <div class="text-[11px] text-gray-400 mt-0.5">${o.category || 'Financial / CPA'}</div>
+                        <div class="text-[11px] text-gray-400 font-medium mt-0.5">${o.category || 'Financial / CPA'}</div>
                     </td>
-                    <td class="p-4 text-xs text-gray-600 capitalize font-medium">${offerType}</td>
-                    <td class="p-4 font-extrabold text-xs text-emerald-700">₹${o.payout || 0}</td>
+                    <td class="p-4 text-xs text-gray-600 capitalize font-semibold">${offerType}</td>
+                    <td class="p-4 font-extrabold text-sm text-green-600">₹${o.payout || 0}</td>
                     <td class="p-4">
-                        <span class="px-2.5 py-1 rounded text-[11px] font-bold uppercase ${isApproved ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">
+                        <span class="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide ${isApproved ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">
                             ${isApproved ? 'Approved' : 'Request'}
                         </span>
                     </td>
                     <td class="p-4 text-right">
-                        <button type="button" onclick="openOfferDetails('${oid}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-xs font-bold shadow-sm transition cursor-pointer">
-                            View
+                        <button type="button" onclick="openOfferDetails('${oid}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-sm transition cursor-pointer">
+                            Get Link
                         </button>
                     </td>
                 </tr>
@@ -382,7 +393,7 @@ window.openOfferDetails = function(oid) {
     const logoContainer = document.getElementById('detOfferLogo');
     if (logoContainer) {
         logoContainer.innerHTML = o.logoUrl 
-            ? `<img src="${o.logoUrl}" class="w-12 h-12 rounded-xl object-contain border p-1 bg-white">`
+            ? `<img src="${o.logoUrl}" class="w-12 h-12 rounded-xl object-contain border border-gray-200 p-1 bg-white shadow-sm">`
             : `<div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-base uppercase">${(o.name || 'OF').substring(0, 2)}</div>`;
     }
 
@@ -393,11 +404,11 @@ window.openOfferDetails = function(oid) {
             : [{ id: "EVT_01", name: "Approved Conversion / KYC Verified", payout: o.payout || 0 }];
 
         eventsTbody.innerHTML = eventsList.map(ev => `
-            <tr class="border-b">
-                <td class="p-4 font-mono font-bold text-gray-600">${ev.id}</td>
+            <tr class="border-b border-gray-100">
+                <td class="p-4 font-mono font-bold text-gray-500">${ev.id}</td>
                 <td class="p-4 font-bold text-gray-900">${ev.name}</td>
-                <td class="p-4 font-black text-emerald-600">₹${ev.payout}</td>
-                <td class="p-4"><span class="px-2 py-0.5 bg-green-100 text-green-700 rounded font-bold uppercase text-[10px]">Active</span></td>
+                <td class="p-4 font-black text-green-600">₹${ev.payout}</td>
+                <td class="p-4"><span class="px-2.5 py-1 bg-green-100 text-green-700 rounded-md font-bold uppercase text-[10px]">Active</span></td>
             </tr>
         `).join('');
     }
@@ -437,11 +448,11 @@ window.copyDetailTrackingUrl = function() {
     const urlBox = document.getElementById('detTrackingUrl');
     if (!urlBox || !urlBox.value) return;
     navigator.clipboard.writeText(urlBox.value).then(() => {
-        showToast("✓ Tracking URL Copied to Clipboard!");
+        showToast("Tracking link copied to clipboard");
     }).catch(() => {
         urlBox.select();
         document.execCommand("copy");
-        showToast("✓ Tracking URL Copied!");
+        showToast("Tracking link copied to clipboard");
     });
 };
 
@@ -464,7 +475,7 @@ window.exportCSV = (filename, dataArray) => {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    showToast("✓ CSV Report Downloaded!");
+    showToast("CSV report downloaded");
 };
 
 window.openPayoutModal = () => {
@@ -524,7 +535,7 @@ window.submitPayoutRequest = async (e) => {
         });
         closePayoutModal();
         e.target.reset();
-        showToast("✓ Withdrawal request submitted!");
+        showToast("Withdrawal request submitted successfully");
     } catch (err) {
         showToast("Error: " + err.message, true);
     }
@@ -541,7 +552,7 @@ window.saveProfile = async (e) => {
         currentUser.name = newName;
         localStorage.setItem("awh_user", JSON.stringify(currentUser));
         updateUI();
-        showToast("✓ Profile updated!");
+        showToast("Profile updated successfully");
     } catch (err) {
         showToast("Error updating profile: " + err.message, true);
     }
@@ -564,58 +575,66 @@ function updateChart(clicks, convs) {
             datasets: [{
                 label: 'Count',
                 data: [clicks, convs],
-                backgroundColor: ['#3b82f6', '#10b981'],
+                backgroundColor: ['#2563eb', '#10b981'],
                 borderRadius: 8,
-                barThickness: 55
+                barThickness: 50
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                x: { grid: { display: false } }
+            }
+        }
     });
 }
 
 document.addEventListener('DOMContentLoaded', initDashboard);
 </script>
 </head>
-<body class="h-full bg-gray-100 font-sans text-gray-800">
+<body class="h-full bg-slate-50 text-gray-800">
 <!-- Toast Notification -->
 <div id="fixedToast" style="opacity:0; transform:translateY(20px);" class="fixed bottom-6 right-6 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-2xl text-xs font-bold transition-all duration-300 z-50 pointer-events-none"></div>
 
 <!-- Custom Withdrawal Modal -->
 <div id="payoutModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
 <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-200 max-h-[90vh] overflow-y-auto">
-<div class="flex justify-between items-center border-b pb-3 mb-4">
+<div class="flex justify-between items-center border-b border-gray-100 pb-3 mb-4">
 <h3 class="font-extrabold text-base text-gray-900">Request Withdrawal</h3>
 <button type="button" onclick="closePayoutModal()" class="text-gray-400 hover:text-gray-700 font-bold text-lg cursor-pointer">&times;</button>
 </div>
 <form onsubmit="submitPayoutRequest(event)" class="space-y-3 text-xs">
-    <div class="bg-blue-50 p-3 rounded-xl flex justify-between items-center">
-        <span class="font-bold text-gray-600">Available Wallet Balance:</span>
+    <div class="bg-blue-50 p-3.5 rounded-xl flex justify-between items-center border border-blue-100">
+        <span class="font-bold text-gray-700">Available Wallet Balance</span>
         <span id="modalAvailBal" class="font-black text-base text-blue-700">₹0</span>
     </div>
     <div>
-        <label class="block font-bold text-gray-600 mb-1 uppercase">Withdrawal Amount (₹) *</label>
+        <label class="block font-bold text-gray-600 mb-1 uppercase text-[11px]">Withdrawal Amount (₹) *</label>
         <input type="number" id="withdrawAmount" min="100" class="w-full border border-gray-300 p-2.5 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500" required>
     </div>
     <div>
-        <label class="block font-bold text-gray-600 mb-1 uppercase">Account Holder Name *</label>
+        <label class="block font-bold text-gray-600 mb-1 uppercase text-[11px]">Account Holder Name *</label>
         <input type="text" id="withdrawHolderName" placeholder="Name as per Bank / UPI" class="w-full border border-gray-300 p-2.5 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-blue-500" required>
     </div>
     <div>
-        <label class="block font-bold text-gray-600 mb-1 uppercase">Registered Mobile Number *</label>
+        <label class="block font-bold text-gray-600 mb-1 uppercase text-[11px]">Registered Mobile Number *</label>
         <input type="tel" id="withdrawMobile" maxlength="10" placeholder="10-digit Mobile Number" class="w-full border border-gray-300 p-2.5 rounded-xl font-mono font-semibold outline-none focus:ring-2 focus:ring-blue-500" required>
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         <div>
-            <label class="block font-bold text-gray-600 mb-1 uppercase">Bank Account Number</label>
+            <label class="block font-bold text-gray-600 mb-1 uppercase text-[11px]">Bank Account Number</label>
             <input type="text" id="withdrawAccNo" placeholder="e.g. 123456789012" class="w-full border border-gray-300 p-2.5 rounded-xl font-mono outline-none focus:ring-2 focus:ring-blue-500">
         </div>
         <div>
-            <label class="block font-bold text-gray-600 mb-1 uppercase">IFSC Code</label>
+            <label class="block font-bold text-gray-600 mb-1 uppercase text-[11px]">IFSC Code</label>
             <input type="text" id="withdrawIfsc" placeholder="e.g. SBIN0001234" class="w-full border border-gray-300 p-2.5 rounded-xl font-mono uppercase outline-none focus:ring-2 focus:ring-blue-500">
         </div>
     </div>
     <div>
-        <label class="block font-bold text-gray-600 mb-1 uppercase">UPI ID (PhonePe / GPay / Paytm)</label>
+        <label class="block font-bold text-gray-600 mb-1 uppercase text-[11px]">UPI ID (PhonePe / GPay / Paytm)</label>
         <input type="text" id="withdrawUpi" placeholder="e.g. 9479532362@ybl" class="w-full border border-gray-300 p-2.5 rounded-xl font-mono outline-none focus:ring-2 focus:ring-blue-500">
     </div>
     <div class="flex justify-end gap-2 pt-2">
@@ -629,7 +648,7 @@ document.addEventListener('DOMContentLoaded', initDashboard);
 <!-- Legal & MIS Policy Modal -->
 <div id="policyModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
     <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-200 max-h-[85vh] overflow-y-auto space-y-4">
-        <div class="flex justify-between items-center border-b pb-3">
+        <div class="flex justify-between items-center border-b border-gray-100 pb-3">
             <h3 id="policyModalTitle" class="font-extrabold text-base text-gray-900">Policy</h3>
             <button type="button" onclick="document.getElementById('policyModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-700 font-bold text-xl cursor-pointer">&times;</button>
         </div>
@@ -641,130 +660,160 @@ document.addEventListener('DOMContentLoaded', initDashboard);
 </div>
 
 <div class="flex h-screen overflow-hidden">
-<!-- Sidebar -->
-<aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform -translate-x-full md:translate-x-0 md:static transition-transform duration-300 ease-in-out flex flex-col justify-between overflow-y-auto">
+<!-- Clean Corporate Sidebar -->
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform -translate-x-full md:translate-x-0 md:static transition-transform duration-300 ease-in-out flex flex-col justify-between overflow-y-auto">
 <div>
-<div class="p-5 border-b flex items-center space-x-3">
-<div class="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center font-bold text-white text-sm overflow-hidden"><img src="logo.jpg" alt="Logo" class="w-full h-full object-cover"></div>
+<div class="p-5 border-b border-gray-100 flex items-center space-x-3">
+<div class="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center font-bold text-white text-sm overflow-hidden shadow-sm"><img src="logo.jpg" alt="Logo" class="w-full h-full object-cover"></div>
 <div>
-<h2 class="font-bold text-gray-900 text-sm">AffiliateWealthHub</h2>
-<span class="text-xs text-gray-400 block font-bold uppercase">Partner Portal</span>
+<h2 class="font-extrabold text-gray-900 text-sm tracking-tight">AffiliateWealthHub</h2>
+<span class="text-[10px] text-blue-600 block font-bold uppercase tracking-wider">Partner Network</span>
 </div>
 </div>
 
 <div class="py-4 px-3 space-y-1 text-xs font-semibold">
-<button type="button" onclick="switchTab('tab-dashboard', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 bg-blue-600 text-white rounded-lg transition text-left shadow-sm cursor-pointer">
-<span>📊 Dashboard</span>
+<button type="button" onclick="switchTab('tab-dashboard', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-2.5 bg-blue-600 text-white rounded-xl transition text-left shadow-sm cursor-pointer">
+<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+<span>Dashboard</span>
 </button>
-<button type="button" onclick="switchTab('tab-offers', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
-<span>🎁 Offers</span>
+<button type="button" onclick="switchTab('tab-offers', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
+<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+<span>Live Campaigns</span>
 </button>
-<button type="button" onclick="switchTab('tab-clicks', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
-<span>🖱️ Click & Lead Reports</span>
+<button type="button" onclick="switchTab('tab-clicks', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
+<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+<span>Conversion Reports</span>
 </button>
-<button type="button" onclick="switchTab('tab-earnings', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
-<span>💰 My Earnings</span>
+<button type="button" onclick="switchTab('tab-earnings', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
+<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+<span>Wallet & Earnings</span>
 </button>
-<button type="button" onclick="switchTab('tab-payouts', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
-<span>💳 My Payouts</span>
+<button type="button" onclick="switchTab('tab-payouts', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
+<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+<span>Payout History</span>
 </button>
-<button type="button" onclick="switchTab('tab-referrals', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
-<span>🤝 Refer & Earn (10%)</span>
+<button type="button" onclick="switchTab('tab-referrals', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
+<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+<span>Refer & Earn (10%)</span>
 </button>
-<button type="button" onclick="switchTab('tab-profile', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
-<span>⚙️ Profile</span>
+<button type="button" onclick="switchTab('tab-profile', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
+<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+<span>Account Settings</span>
 </button>
 </div>
 </div>
 
 <div>
-<!-- Account Manager Card -->
-<div class="p-4 m-3 bg-gray-900 text-white rounded-xl text-xs space-y-2">
+<!-- Dedicated Manager Card -->
+<div class="p-4 m-3 bg-gray-900 text-white rounded-2xl text-xs space-y-2.5 shadow-md">
 <div class="flex items-center justify-between">
-<span class="font-bold text-blue-400 text-xs uppercase">Account Manager</span>
-<span class="h-2 w-2 rounded-full bg-green-500"></span>
+<span class="font-bold text-blue-400 text-[10px] uppercase tracking-wider">Dedicated Manager</span>
+<span class="flex items-center gap-1 text-[10px] text-green-400 font-semibold"><span class="h-2 w-2 rounded-full bg-green-500"></span> Online</span>
 </div>
 <div>
-<p class="font-bold text-sm">Arun Rathore</p>
-<p class="text-gray-300 text-xs mt-0.5">📞 +91 9479532362</p>
-<p class="text-gray-400 text-xs truncate">✉️ arunrathor701@gmail.com</p>
+<p class="font-bold text-sm text-white">Arun Rathore</p>
+<p class="text-gray-300 text-xs mt-1 font-mono">+91 9479532362</p>
+<p class="text-gray-400 text-[11px] truncate">arunrathor701@gmail.com</p>
 </div>
-<a href="https://wa.me/919479532362" target="_blank" class="w-full bg-green-600 hover:bg-green-700 text-white block text-center py-2 rounded-lg font-bold transition">
-💬 WhatsApp Support
+<a href="https://wa.me/919479532362" target="_blank" class="w-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-1.5 py-2 rounded-xl font-bold transition shadow-sm">
+<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.1.824z"/></svg>
+<span>WhatsApp Support</span>
 </a>
 </div>
 
-<div class="p-3 border-t">
-<button type="button" onclick="logout()" class="w-full px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition text-xs font-semibold text-left cursor-pointer">Exit / Logout</button>
+<div class="p-3 border-t border-gray-100">
+<button type="button" onclick="logout()" class="w-full flex items-center space-x-2 px-3.5 py-2 text-red-600 hover:bg-red-50 rounded-xl transition text-xs font-bold text-left cursor-pointer">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+<span>Sign Out</span>
+</button>
 </div>
 </div>
 </aside>
 
 <!-- Main Content -->
 <div class="flex-1 flex flex-col overflow-y-auto">
-<header class="bg-white border-b px-6 md:px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+<header class="bg-white border-b border-gray-200 px-6 md:px-8 py-4 flex items-center justify-between sticky top-0 z-10">
 <div>
-<h1 class="text-lg font-bold text-gray-900">Partner Dashboard</h1>
-<p class="text-xs text-gray-500">Welcome back, <span class="pubNameDisplay font-semibold text-gray-800">Arun Rathore</span></p>
+<h1 class="text-base sm:text-lg font-extrabold text-gray-900 tracking-tight">Partner Dashboard</h1>
+<p class="text-xs text-gray-500">Welcome back, <span class="pubNameDisplay font-bold text-gray-800">Arun Rathore</span></p>
 </div>
-<div class="text-right">
-<span class="block text-xs text-gray-400 font-bold uppercase">Publisher ID</span>
-<span id="pubIdDisplay" class="font-bold text-gray-800 font-mono text-sm">662</span>
+<div class="flex items-center gap-3">
+<div class="text-right bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl">
+<span class="block text-[10px] text-gray-400 font-bold uppercase tracking-wider">Publisher ID</span>
+<span id="pubIdDisplay" class="font-extrabold text-blue-600 font-mono text-xs sm:text-sm">#662</span>
+</div>
 </div>
 </header>
 
 <main class="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full flex-1">
-<div class="md:hidden flex items-center justify-between bg-white p-4 rounded-xl shadow-sm mb-4">
-  <span class="font-bold text-base">AffiliateWealthHub</span>
-  <button type="button" onclick="document.getElementById('sidebar').classList.toggle('-translate-x-full')" class="px-3 py-1.5 rounded bg-blue-600 text-white text-xs font-bold">
-    ☰ Menu
+<div class="md:hidden flex items-center justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-4">
+  <span class="font-extrabold text-sm text-gray-900">AffiliateWealthHub</span>
+  <button type="button" onclick="document.getElementById('sidebar').classList.toggle('-translate-x-full')" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold">
+    Menu
   </button>
+</div>
+
+<!-- Network Announcement Banner -->
+<div class="bg-gradient-to-r from-blue-900 to-indigo-900 text-white px-5 py-3.5 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+    <div class="flex items-center gap-2.5">
+        <span class="bg-blue-500/30 border border-blue-400/40 text-blue-200 px-2 py-0.5 rounded-md font-extrabold text-[10px] uppercase tracking-wider shrink-0">Notice</span>
+        <span class="font-medium text-blue-50">All Demat & Fintech campaigns are validated strictly via official Client MIS Reports. Minimum payout threshold is ₹100.</span>
+    </div>
+    <button type="button" onclick="switchTab('tab-offers')" class="text-blue-300 hover:text-white font-bold underline text-left sm:text-right shrink-0 cursor-pointer">Explore Campaigns →</button>
 </div>
 
 <!-- 1. DASHBOARD -->
 <div id="tab-dashboard" class="tab-content space-y-6">
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-<div class="bg-white p-5 rounded-xl border shadow-sm">
-<span class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Total Clicks</span>
-<div id="totalClicksDisplay" class="text-3xl font-black text-blue-600 mt-1">0</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+<div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+<span class="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Total Clicks</span>
+<div id="totalClicksDisplay" class="text-3xl font-black text-gray-900 mt-1">0</div>
+<span class="text-[11px] text-gray-400 font-medium mt-1 block">Real-time tracked clicks</span>
 </div>
-<div class="bg-white p-5 rounded-xl border shadow-sm">
-<span class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Approved Leads</span>
+<div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+<span class="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Approved Leads</span>
 <div id="totalConvDisplay" class="text-3xl font-black text-green-600 mt-1">0</div>
+<span class="text-[11px] text-green-600 font-semibold mt-1 block">MIS confirmed conversions</span>
 </div>
-<div class="bg-blue-600 text-white p-5 rounded-xl shadow-md">
-<span class="text-xs font-bold text-blue-200 uppercase tracking-wider block">Wallet Balance</span>
+<div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+<span class="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Approval Rate</span>
+<div id="conversionRateDisplay" class="text-3xl font-black text-indigo-600 mt-1">0.0%</div>
+<span class="text-[11px] text-gray-400 font-medium mt-1 block">Clicks to conversion ratio</span>
+</div>
+<div class="bg-blue-600 text-white p-5 rounded-2xl shadow-md">
+<span class="text-[11px] font-bold text-blue-200 uppercase tracking-wider block">Available Wallet</span>
 <div id="walletBalance" class="text-3xl font-black mt-1">₹0</div>
+<button type="button" onclick="openPayoutModal()" class="mt-2 bg-white/15 hover:bg-white/25 text-white text-[11px] font-bold px-3 py-1 rounded-lg transition cursor-pointer">Withdraw Funds →</button>
 </div>
 </div>
 
-<div class="bg-white p-6 rounded-xl border shadow-sm">
-<h3 class="font-bold text-sm mb-4">Performance Overview</h3>
+<div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+<div class="flex items-center justify-between mb-4">
+    <h3 class="font-extrabold text-sm text-gray-900">Traffic & Conversion Performance</h3>
+    <span class="text-[11px] font-semibold text-gray-400">Live Account Overview</span>
+</div>
 <div class="h-64 w-full"><canvas id="perfChart"></canvas></div>
 </div>
 </div>
 
-<!-- 2. OFFERS (NEXAOFFERS STYLE) -->
+<!-- 2. OFFERS -->
 <div id="tab-offers" class="tab-content hidden space-y-5">
-    
-    <!-- A. ALL OFFERS LIST TABLE -->
     <div id="offersListView" class="space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-                <h2 class="font-extrabold text-lg text-gray-900">Offers</h2>
-                <p class="text-xs text-gray-500">Browse active campaigns with instant tracking & payout details.</p>
+                <h2 class="font-extrabold text-lg text-gray-900">Live Campaigns</h2>
+                <p class="text-xs text-gray-500">Select any campaign to generate your custom Sub-ID tracking link and view KPIs.</p>
             </div>
         </div>
 
-        <!-- Search & Filter Bar -->
-        <div class="bg-white p-4 rounded-xl border shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
             <div class="w-full sm:w-80">
-                <label class="block text-[11px] font-bold text-gray-500 uppercase mb-1">Search</label>
-                <input type="text" id="offerSearchInput" onkeyup="filterOffersTable()" placeholder="Search by campaign name..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Search Campaign</label>
+                <input type="text" id="offerSearchInput" onkeyup="filterOffersTable()" placeholder="Search by campaign name..." class="w-full border border-gray-300 rounded-xl px-3.5 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
             </div>
             <div class="w-full sm:w-48">
-                <label class="block text-[11px] font-bold text-gray-500 uppercase mb-1">Visibility</label>
-                <select id="offerVisibilityFilter" onchange="filterOffersTable()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Visibility</label>
+                <select id="offerVisibilityFilter" onchange="filterOffersTable()" class="w-full border border-gray-300 rounded-xl px-3.5 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                     <option value="all">All Visibility</option>
                     <option value="public">Public</option>
                     <option value="private">Private</option>
@@ -772,18 +821,17 @@ document.addEventListener('DOMContentLoaded', initDashboard);
             </div>
         </div>
 
-        <!-- Offers Table -->
-        <div class="bg-white rounded-xl border shadow-sm overflow-x-auto">
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
-                    <tr class="border-b bg-gray-50 text-gray-500 text-[11px] font-extrabold uppercase tracking-wider">
+                    <tr class="border-b border-gray-200 bg-gray-50 text-gray-500 text-[10px] font-extrabold uppercase tracking-wider">
                         <th class="p-4">Offer ID</th>
-                        <th class="p-4">Logo</th>
-                        <th class="p-4">Name</th>
-                        <th class="p-4">Offer Type</th>
-                        <th class="p-4">Payout</th>
-                        <th class="p-4">Offer Status</th>
-                        <th class="p-4 text-right">Actions</th>
+                        <th class="p-4">Brand</th>
+                        <th class="p-4">Campaign Name</th>
+                        <th class="p-4">Access</th>
+                        <th class="p-4">Total Payout</th>
+                        <th class="p-4">Status</th>
+                        <th class="p-4 text-right">Action</th>
                     </tr>
                 </thead>
                 <tbody id="offersTableBody" class="divide-y divide-gray-100"></tbody>
@@ -791,103 +839,102 @@ document.addEventListener('DOMContentLoaded', initDashboard);
         </div>
     </div>
 
-    <!-- B. SINGLE OFFER DETAILS VIEW -->
+    <!-- SINGLE OFFER DETAILS VIEW -->
     <div id="offerDetailView" class="hidden space-y-5">
         <div class="flex items-center justify-between">
             <div>
-                <h2 class="font-extrabold text-lg text-gray-900">Offer Details</h2>
-                <p class="text-xs text-gray-500">Full overview of the selected offer & custom tracking link generator.</p>
+                <h2 class="font-extrabold text-lg text-gray-900">Campaign Details & Link Builder</h2>
+                <p class="text-xs text-gray-500">Review payout milestones, KPI rules, and generate your tracking URL.</p>
             </div>
-            <button type="button" onclick="closeOfferDetails()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer">
-                ← Back to Offers
+            <button type="button" onclick="closeOfferDetails()" class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer">
+                ← Back to Campaigns
             </button>
         </div>
 
-        <!-- Main Detail Card -->
-        <div class="bg-white rounded-xl border shadow-sm p-6 space-y-6">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5">
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-5">
                 <div class="flex items-center gap-4">
                     <div id="detOfferLogo"></div>
                     <div>
                         <h3 id="detOfferName" class="text-lg font-extrabold text-gray-900">Campaign Name</h3>
                         <div class="flex items-center gap-2 mt-1">
-                            <span class="px-2 py-0.5 bg-green-100 text-green-700 rounded text-[11px] font-bold uppercase">Active</span>
-                            <span id="detOfferVisibility" class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[11px] font-bold capitalize">Public</span>
+                            <span class="px-2.5 py-0.5 bg-green-100 text-green-700 rounded-md text-[10px] font-bold uppercase">Active</span>
+                            <span id="detOfferVisibility" class="px-2.5 py-0.5 bg-gray-100 text-gray-600 rounded-md text-[10px] font-bold capitalize">Public</span>
                         </div>
                     </div>
                 </div>
                 <div class="text-left sm:text-right">
-                    <span class="text-[11px] text-gray-400 font-bold uppercase block">Default Payout</span>
-                    <span id="detOfferPayout" class="text-2xl font-black text-emerald-600">₹0</span>
+                    <span class="text-[10px] text-gray-400 font-bold uppercase block">Total Campaign Payout</span>
+                    <span id="detOfferPayout" class="text-2xl font-black text-green-600">₹0</span>
                 </div>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div class="border rounded-xl p-4 bg-gray-50/60">
-                    <span class="text-[11px] font-bold text-gray-400 uppercase block">Offer ID</span>
+                <div class="border border-gray-200 rounded-xl p-4 bg-gray-50/60">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase block">Campaign ID</span>
                     <span id="detOfferId" class="text-base font-extrabold text-gray-900 font-mono mt-1 block">#1</span>
                 </div>
-                <div class="border rounded-xl p-4 bg-gray-50/60">
-                    <span class="text-[11px] font-bold text-gray-400 uppercase block">Capping</span>
+                <div class="border border-gray-200 rounded-xl p-4 bg-gray-50/60">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase block">Daily Capping</span>
                     <span id="detOfferCapping" class="text-base font-extrabold text-gray-900 mt-1 block">None</span>
                 </div>
-                <div class="border rounded-xl p-4 bg-gray-50/60">
-                    <span class="text-[11px] font-bold text-gray-400 uppercase block">Currency / Model</span>
-                    <span class="text-base font-extrabold text-gray-900 mt-1 block">INR (CPA / CPL)</span>
+                <div class="border border-gray-200 rounded-xl p-4 bg-gray-50/60">
+                    <span class="text-[10px] font-bold text-gray-400 uppercase block">Currency / Model</span>
+                    <span class="text-base font-extrabold text-gray-900 mt-1 block">INR (CPA / Multi-Step)</span>
                 </div>
             </div>
 
-            <div class="space-y-3 border-t pt-5">
-                <label class="block text-xs font-extrabold text-gray-700 uppercase">Tracking URL</label>
+            <div class="space-y-3 border-t border-gray-100 pt-5">
+                <label class="block text-xs font-extrabold text-gray-700 uppercase">Your Tracking URL</label>
                 <div class="flex flex-col sm:flex-row gap-2">
-                    <input type="text" id="detTrackingUrl" readonly class="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3 py-2.5 text-xs font-mono text-blue-700 font-semibold outline-none">
-                    <button type="button" onclick="copyDetailTrackingUrl()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-xs font-bold shadow transition cursor-pointer whitespace-nowrap">
-                        📋 Copy Tracking Link
+                    <input type="text" id="detTrackingUrl" readonly class="flex-1 bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2.5 text-xs font-mono text-blue-700 font-semibold outline-none">
+                    <button type="button" onclick="copyDetailTrackingUrl()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow transition cursor-pointer whitespace-nowrap">
+                        Copy Tracking Link
                     </button>
                 </div>
 
                 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sub-Affiliate 1 (sub1)</label>
-                        <input type="text" id="paramSub1" onkeyup="updateGeneratedTrackingLink()" placeholder="e.g. Atul" class="sub-param-input w-full border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="paramSub1" onkeyup="updateGeneratedTrackingLink()" placeholder="e.g. Team1" class="sub-param-input w-full border border-gray-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sub-Affiliate 2 (sub2)</label>
-                        <input type="text" id="paramSub2" onkeyup="updateGeneratedTrackingLink()" placeholder="e.g. FB_Ads" class="sub-param-input w-full border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="paramSub2" onkeyup="updateGeneratedTrackingLink()" placeholder="e.g. WhatsApp" class="sub-param-input w-full border border-gray-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sub-Affiliate 3 (sub3)</label>
-                        <input type="text" id="paramSub3" onkeyup="updateGeneratedTrackingLink()" placeholder="e.g. TeamA" class="sub-param-input w-full border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="paramSub3" onkeyup="updateGeneratedTrackingLink()" placeholder="e.g. SourceA" class="sub-param-input w-full border border-gray-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
                         <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Custom Click ID</label>
-                        <input type="text" id="paramClickId" onkeyup="updateGeneratedTrackingLink()" placeholder="Optional" class="sub-param-input w-full border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                        <input type="text" id="paramClickId" onkeyup="updateGeneratedTrackingLink()" placeholder="Optional" class="sub-param-input w-full border border-gray-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
                     </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-5 text-xs">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-100 pt-5 text-xs">
                 <div>
-                    <h4 class="font-extrabold text-gray-900 uppercase mb-1">Profit Details 💰</h4>
-                    <p id="detOfferGeo" class="text-gray-600 bg-gray-50 p-3 rounded-lg border">Available for all states (India)</p>
+                    <h4 class="font-extrabold text-gray-900 uppercase mb-1.5">Allowed Geo & Payout Terms</h4>
+                    <p id="detOfferGeo" class="text-gray-600 bg-gray-50 p-3.5 rounded-xl border border-gray-200">Available for all states (India)</p>
                 </div>
                 <div>
-                    <h4 class="font-extrabold text-gray-900 uppercase mb-1">Description & Validation Criteria</h4>
-                    <div id="detOfferDesc" class="text-gray-600 bg-gray-50 p-3 rounded-lg border whitespace-pre-line leading-relaxed"></div>
+                    <h4 class="font-extrabold text-gray-900 uppercase mb-1.5">KPIs, Traffic Rules & Step Flow</h4>
+                    <div id="detOfferDesc" class="text-gray-600 bg-gray-50 p-3.5 rounded-xl border border-gray-200 whitespace-pre-line leading-relaxed"></div>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
-            <div class="p-4 border-b bg-gray-50">
-                <h4 class="font-extrabold text-sm text-gray-900">Events & Payout Structure</h4>
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="p-4 border-b border-gray-100 bg-gray-50">
+                <h4 class="font-extrabold text-sm text-gray-900">Conversion Events & Milestone Payouts</h4>
             </div>
             <table class="w-full text-left text-xs">
                 <thead>
-                    <tr class="border-b text-gray-500 font-bold uppercase text-[11px]">
+                    <tr class="border-b border-gray-200 text-gray-500 font-bold uppercase text-[10px]">
                         <th class="p-4">Event ID</th>
-                        <th class="p-4">Event Name</th>
-                        <th class="p-4">Default Payout</th>
+                        <th class="p-4">Milestone / Event Name</th>
+                        <th class="p-4">Payout</th>
                         <th class="p-4">Status</th>
                     </tr>
                 </thead>
@@ -901,31 +948,31 @@ document.addEventListener('DOMContentLoaded', initDashboard);
 <div id="tab-clicks" class="tab-content hidden space-y-6">
 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 <div>
-<h2 class="font-bold text-base text-gray-900">Clicks & Lead Reports</h2>
-<p class="text-xs text-gray-500">Track System Click ID, Custom Click ID, Sub1, Sub2, Sub3 & approval status.</p>
+<h2 class="font-extrabold text-base text-gray-900">Conversion & Click Reports</h2>
+<p class="text-xs text-gray-500">Track System Click ID, Sub-IDs, Customer Details, and step-wise approval status.</p>
 </div>
 <div class="flex items-center gap-2">
-<input type="text" onkeyup="filterPartnerReports(this.value)" placeholder="Filter Sub1, Sub2, Click ID, Name..." class="border border-gray-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500 bg-white w-48 sm:w-64">
-<button type="button" onclick="exportCSV('clicks_report.csv', cachedClicks)" class="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer whitespace-nowrap">
-📥 Export CSV
+<input type="text" onkeyup="filterPartnerReports(this.value)" placeholder="Filter Sub1, Sub2, Click ID, Name..." class="border border-gray-300 rounded-xl px-3.5 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500 bg-white w-48 sm:w-64">
+<button type="button" onclick="exportCSV('clicks_report.csv', cachedClicks)" class="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer whitespace-nowrap">
+Export CSV
 </button>
 </div>
 </div>
-<div class="bg-white rounded-xl border overflow-x-auto">
+<div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-x-auto">
 <table class="w-full text-left text-xs">
 <thead>
-<tr class="border-b bg-gray-50 text-gray-600 font-bold whitespace-nowrap">
-<th class="p-3">Date & Time</th>
-<th class="p-3">System Click ID</th>
-<th class="p-3">Custom Click ID</th>
-<th class="p-3">Offer</th>
-<th class="p-3">Sub 1</th>
-<th class="p-3">Sub 2</th>
-<th class="p-3">Sub 3</th>
-<th class="p-3">Customer Name</th>
-<th class="p-3">Mobile</th>
-<th class="p-3">PAN</th>
-<th class="p-3">Status</th>
+<tr class="border-b border-gray-200 bg-gray-50 text-gray-500 font-extrabold uppercase text-[10px] whitespace-nowrap">
+<th class="p-3.5">Date & Time</th>
+<th class="p-3.5">System Click ID</th>
+<th class="p-3.5">Custom Click ID</th>
+<th class="p-3.5">Offer</th>
+<th class="p-3.5">Sub 1</th>
+<th class="p-3.5">Sub 2</th>
+<th class="p-3.5">Sub 3</th>
+<th class="p-3.5">Customer Name</th>
+<th class="p-3.5">Mobile</th>
+<th class="p-3.5">PAN</th>
+<th class="p-3.5">Status</th>
 </tr>
 </thead>
 <tbody id="clicksTableBody"></tbody>
@@ -935,13 +982,14 @@ document.addEventListener('DOMContentLoaded', initDashboard);
 
 <!-- 4. MY EARNINGS -->
 <div id="tab-earnings" class="tab-content hidden space-y-4">
-<div class="bg-white p-6 rounded-xl border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+<div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
 <div>
-<span class="text-xs font-semibold text-gray-400 block uppercase">Available Balance</span>
+<span class="text-xs font-bold text-gray-400 block uppercase tracking-wider">Available Withdrawable Balance</span>
 <div id="totalEarnings" class="text-4xl font-black text-green-600 mt-1">₹0</div>
+<span class="text-xs text-gray-500 mt-1 block">Minimum withdrawal amount is ₹100 via Bank Transfer or UPI.</span>
 </div>
 <button type="button" onclick="openPayoutModal()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow transition cursor-pointer">
-Request Payout
+Request Withdrawal
 </button>
 </div>
 </div>
@@ -949,24 +997,24 @@ Request Payout
 <!-- 5. MY PAYOUTS -->
 <div id="tab-payouts" class="tab-content hidden space-y-4">
 <div class="flex items-center justify-between">
-<h2 class="font-bold text-base text-gray-900">Payout History</h2>
+<h2 class="font-extrabold text-base text-gray-900">Payout History</h2>
 <div class="flex gap-2">
-<button type="button" onclick="openPayoutModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer">
-+ Request Payout
+<button type="button" onclick="openPayoutModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer">
++ Request Withdrawal
 </button>
-<button type="button" onclick="exportCSV('payouts_report.csv', cachedPayouts)" class="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer">
-📥 Export CSV
+<button type="button" onclick="exportCSV('payouts_report.csv', cachedPayouts)" class="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer">
+Export CSV
 </button>
 </div>
 </div>
-<div class="bg-white rounded-xl border overflow-hidden">
+<div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
 <table class="w-full text-left text-xs">
 <thead>
-<tr class="border-b bg-gray-50 text-gray-600 font-bold">
-<th class="p-3">Date</th>
-<th class="p-3">Amount</th>
-<th class="p-3">Method</th>
-<th class="p-3">Status</th>
+<tr class="border-b border-gray-200 bg-gray-50 text-gray-500 font-extrabold uppercase text-[10px]">
+<th class="p-3.5">Date</th>
+<th class="p-3.5">Amount</th>
+<th class="p-3.5">Payment Details</th>
+<th class="p-3.5">Status</th>
 </tr>
 </thead>
 <tbody id="payoutsTableBody"></tbody>
@@ -978,64 +1026,62 @@ Request Payout
 <div id="tab-referrals" class="tab-content hidden space-y-6">
     <div class="bg-gradient-to-r from-indigo-600 to-blue-600 text-white p-6 rounded-2xl shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-            <span class="bg-white/20 text-[11px] font-bold px-2.5 py-1 rounded-full uppercase">Lifetime Partner Program</span>
-            <h2 class="text-xl font-extrabold mt-2">Refer Friends & Earn 10% Commission</h2>
-            <p class="text-xs text-blue-100 mt-1">Jab bhi aapki team ka member koi lead approve karwayega, aapko turant 10% bonus aapke wallet mein milega!</p>
+            <span class="bg-white/20 text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider">Partner Referral Program</span>
+            <h2 class="text-xl font-extrabold mt-2">Refer Partners & Earn 10% Lifetime Commission</h2>
+            <p class="text-xs text-blue-100 mt-1">Earn an instant 10% override bonus on every approved conversion generated by your referred partners.</p>
         </div>
-        <div class="bg-white/10 p-4 rounded-xl text-right shrink-0">
-            <span class="text-[11px] text-blue-200 font-bold uppercase block">Total Referral Bonus</span>
+        <div class="bg-white/10 p-4 rounded-xl text-right shrink-0 border border-white/10">
+            <span class="text-[10px] text-blue-200 font-bold uppercase block">Total Referral Bonus</span>
             <span id="refTotalEarnings" class="text-2xl font-black">₹0</span>
         </div>
     </div>
 
-    <!-- Personal Invite Link Box -->
-    <div class="bg-white p-6 rounded-xl border shadow-sm space-y-3">
-        <label class="block text-xs font-extrabold text-gray-700 uppercase">Your Personal Team Invite Link</label>
+    <div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
+        <label class="block text-xs font-extrabold text-gray-700 uppercase">Your Personal Partner Invite Link</label>
         <div class="flex flex-col sm:flex-row gap-2">
-            <input type="text" id="myReferralLink" readonly class="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3.5 py-2.5 text-xs font-mono font-bold text-indigo-700 outline-none">
-            <button type="button" onclick="copyReferralLink()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg text-xs font-bold shadow transition cursor-pointer whitespace-nowrap">
-                📋 Copy Invite Link
+            <input type="text" id="myReferralLink" readonly class="flex-1 bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-indigo-700 outline-none">
+            <button type="button" onclick="copyReferralLink()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow transition cursor-pointer whitespace-nowrap">
+                Copy Invite Link
             </button>
         </div>
     </div>
 
-    <!-- My Referred Team Table -->
-    <div class="bg-white rounded-xl border shadow-sm overflow-x-auto">
-        <div class="p-4 border-b bg-gray-50 flex justify-between items-center">
-            <h3 class="font-extrabold text-sm text-gray-900">My Referred Team (<span id="teamCountDisplay">0</span>)</h3>
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-x-auto">
+        <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+            <h3 class="font-extrabold text-sm text-gray-900">Referred Partners (<span id="teamCountDisplay">0</span>)</h3>
         </div>
         <table class="w-full text-left text-xs">
             <thead>
-                <tr class="border-b bg-gray-50 text-gray-500 font-bold uppercase text-[11px]">
+                <tr class="border-b border-gray-200 bg-gray-50 text-gray-500 font-bold uppercase text-[10px]">
                     <th class="p-3.5">Joined Date</th>
-                    <th class="p-3.5">Member ID</th>
-                    <th class="p-3.5">Member Name</th>
-                    <th class="p-3.5">Status</th>
+                    <th class="p-3.5">Partner ID</th>
+                    <th class="p-3.5">Partner Name</th>
+                    <th class="p-3.5">Commission Tier</th>
                 </tr>
             </thead>
-            <tbody id="myTeamTableBody" class="divide-y"></tbody>
+            <tbody id="myTeamTableBody" class="divide-y divide-gray-100"></tbody>
         </table>
     </div>
 </div>
 
 <!-- 7. PROFILE -->
 <div id="tab-profile" class="tab-content hidden max-w-xl">
-<div class="bg-white p-6 rounded-xl border space-y-4">
-<h2 class="font-bold text-base border-b pb-3 text-gray-900">Publisher Profile Details</h2>
+<div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4">
+<h2 class="font-extrabold text-base border-b border-gray-100 pb-3 text-gray-900">Publisher Profile Details</h2>
 <form onsubmit="saveProfile(event)" class="space-y-4 text-xs">
 <div>
-<label class="block font-bold text-gray-500 mb-1 uppercase">Publisher ID</label>
-<input type="text" id="profilePubId" class="w-full border p-3 rounded-lg bg-gray-100 font-mono font-bold text-gray-600 cursor-not-allowed" readonly>
+<label class="block font-bold text-gray-500 mb-1 uppercase text-[11px]">Publisher ID</label>
+<input type="text" id="profilePubId" class="w-full border border-gray-200 p-3 rounded-xl bg-gray-100 font-mono font-bold text-gray-600 cursor-not-allowed" readonly>
 </div>
 <div>
-<label class="block font-bold text-gray-500 mb-1 uppercase">Full Name</label>
-<input type="text" id="profileName" class="w-full border p-3 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-semibold" required>
+<label class="block font-bold text-gray-500 mb-1 uppercase text-[11px]">Full Name</label>
+<input type="text" id="profileName" class="w-full border border-gray-300 p-3 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-semibold" required>
 </div>
 <div>
-<label class="block font-bold text-gray-500 mb-1 uppercase">Email Address</label>
-<input type="email" id="profileEmail" class="w-full border p-3 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed" readonly>
+<label class="block font-bold text-gray-500 mb-1 uppercase text-[11px]">Email Address</label>
+<input type="email" id="profileEmail" class="w-full border border-gray-200 p-3 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed" readonly>
 </div>
-<button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-full font-bold transition cursor-pointer">Update Name</button>
+<button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold transition cursor-pointer shadow-sm">Save Changes</button>
 </form>
 </div>
 </div>
@@ -1043,7 +1089,7 @@ Request Payout
 <!-- Legal & MIS Policy Footer -->
 <footer class="mt-10 pt-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-2 text-[11px] text-gray-500">
     <div class="flex items-center gap-2">
-        <span class="bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">✓ Udyam (MSME) Registered</span>
+        <span class="bg-green-100 text-green-700 px-2.5 py-0.5 rounded-md font-bold">✓ Udyam (MSME) Registered</span>
         <span>© 2026 AffiliateWealthHub Network</span>
     </div>
     <div class="flex items-center gap-4 font-semibold text-gray-600">
