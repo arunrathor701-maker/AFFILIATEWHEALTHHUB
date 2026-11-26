@@ -141,8 +141,9 @@ function setupRealtimeListeners() {
             totalClicks++;
             const status = (data.status || "recorded").toLowerCase();
             const isApproved = status === "approved";
+            const isPartial = status.includes("step") || status.includes("partial");
             const isRejected = status === "rejected";
-            if (isApproved) approvedCount++;
+            if (isApproved || isPartial) approvedCount++;
 
             const dateStr = data.createdAt 
                 ? new Date(data.createdAt.seconds ? data.createdAt.seconds * 1000 : data.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) 
@@ -150,6 +151,7 @@ function setupRealtimeListeners() {
 
             let badgeClass = 'bg-yellow-100 text-yellow-800';
             if (isApproved) badgeClass = 'bg-green-600 text-white';
+            else if (isPartial) badgeClass = 'bg-blue-600 text-white';
             if (isRejected) badgeClass = 'bg-red-600 text-white';
 
             const sysClickId = data.clickId || data.id;
@@ -170,12 +172,13 @@ function setupRealtimeListeners() {
                 Mobile: data.customerPhone || '-',
                 PAN: data.customerPan || '-',
                 Status: data.status || 'Recorded',
+                PayoutCredited: data.payoutCredited || 0,
                 Remark: data.remark || '-'
             });
 
             const remarkHtml = (isRejected && data.remark)
                 ? `<div class="text-[10px] text-red-600 font-semibold mt-0.5 max-w-[140px] truncate" title="${data.remark}">${data.remark}</div>`
-                : '';
+                : ((isApproved || isPartial) && data.lastApprovedStep ? `<div class="text-[10px] text-green-700 font-semibold mt-0.5">✓ ${data.lastApprovedStep} (₹${data.payoutCredited || 0})</div>` : '');
 
             clicksListHtml.push(`
                 <tr class="border-b hover:bg-gray-50 whitespace-nowrap report-row">
@@ -318,12 +321,12 @@ async function loadOffers() {
 
             tbody.innerHTML += `
                 <tr class="border-b hover:bg-blue-50/40 transition offer-row" data-name="${(o.name || '').toLowerCase()}" data-visibility="${offerType}">
-                 <td class="p-4 font-mono text-xs font-bold text-gray-600">#${oid}</td>
-<td class="p-4">${logoHtml}</td>
-<td class="p-4">
-    <div class="font-bold text-gray-900 text-xs sm:text-sm">${o.name || 'Campaign'}</div>
-    <div class="text-[11px] text-gray-400 mt-0.5">${o.category || 'Financial / CPA'}</div>
-</td>
+                    <td class="p-4 font-mono text-xs font-bold text-gray-600">#${oid}</td>
+                    <td class="p-4">${logoHtml}</td>
+                    <td class="p-4">
+                        <div class="font-bold text-gray-900 text-xs sm:text-sm">${o.name || 'Campaign'}</div>
+                        <div class="text-[11px] text-gray-400 mt-0.5">${o.category || 'Financial / CPA'}</div>
+                    </td>
                     <td class="p-4 text-xs text-gray-600 capitalize font-medium">${offerType}</td>
                     <td class="p-4 font-extrabold text-xs text-emerald-700">₹${o.payout || 0}</td>
                     <td class="p-4">
@@ -367,7 +370,6 @@ window.openOfferDetails = function(oid) {
     safeSetText('detOfferId', `#${oid}`);
     safeSetText('detOfferCapping', o.capping || 'None');
     safeSetText('detOfferPayout', `₹${o.payout || 0}`);
-    safeSetText('detEventPayout', `₹${o.payout || 0}`);
     safeSetText('detOfferVisibility', o.visibility || 'Public');
     safeSetText('detOfferGeo', o.geo || 'Available for all states (India)');
     safeSetText('detOfferDesc', o.description || 'Complete full account opening / KYC process via valid tracking link. Fraudulent or duplicate leads will be rejected.');
@@ -377,6 +379,23 @@ window.openOfferDetails = function(oid) {
         logoContainer.innerHTML = o.logoUrl 
             ? `<img src="${o.logoUrl}" class="w-12 h-12 rounded-xl object-contain border p-1 bg-white">`
             : `<div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-base uppercase">${(o.name || 'OF').substring(0, 2)}</div>`;
+    }
+
+    // Multi-Step Events Table Render (1 to 3 Steps)
+    const eventsTbody = document.getElementById('detEventsTableBody');
+    if (eventsTbody) {
+        const eventsList = (Array.isArray(o.events) && o.events.length > 0)
+            ? o.events
+            : [{ id: "EVT_01", name: "Approved Conversion / KYC Verified", payout: o.payout || 0 }];
+
+        eventsTbody.innerHTML = eventsList.map(ev => `
+            <tr class="border-b">
+                <td class="p-4 font-mono font-bold text-gray-600">${ev.id}</td>
+                <td class="p-4 font-bold text-gray-900">${ev.name}</td>
+                <td class="p-4 font-black text-emerald-600">₹${ev.payout}</td>
+                <td class="p-4"><span class="px-2 py-0.5 bg-green-100 text-green-700 rounded font-bold uppercase text-[10px]">Active</span></td>
+            </tr>
+        `).join('');
     }
 
     document.querySelectorAll('.sub-param-input').forEach(inp => inp.value = '');
@@ -450,6 +469,8 @@ window.openPayoutModal = () => {
         return;
     }
     document.getElementById('withdrawAmount').value = currentBalance;
+    if (currentUser.name) document.getElementById('withdrawHolderName').value = currentUser.name;
+    if (currentUser.phone) document.getElementById('withdrawMobile').value = currentUser.phone.replace('+91', '');
     document.getElementById('payoutModal').classList.remove('hidden');
 };
 
@@ -460,25 +481,45 @@ window.closePayoutModal = () => {
 window.submitPayoutRequest = async (e) => {
     e.preventDefault();
     const amount = Number(document.getElementById('withdrawAmount').value);
-    const method = document.getElementById('withdrawMethod').value.trim();
+    const holderName = document.getElementById('withdrawHolderName').value.trim();
+    const mobile = document.getElementById('withdrawMobile').value.trim();
+    const accountNumber = document.getElementById('withdrawAccNo').value.trim();
+    const ifscCode = document.getElementById('withdrawIfsc').value.trim().toUpperCase();
+    const upiId = document.getElementById('withdrawUpi').value.trim();
 
-    if (!method || amount < 100 || amount > currentBalance) {
-        showToast("Valid amount aur UPI/Bank details dalein.", true);
+    if (amount < 100 || amount > currentBalance) {
+        showToast("Valid withdrawal amount dalein (Min ₹100).", true);
         return;
     }
+    if (!upiId && (!accountNumber || !ifscCode)) {
+        showToast("Kripya UPI ID ya Bank Account Number + IFSC Code dalein.", true);
+        return;
+    }
+
+    const summaryText = [
+        holderName ? `Name: ${holderName}` : '',
+        mobile ? `Mob: ${mobile}` : '',
+        upiId ? `UPI: ${upiId}` : '',
+        accountNumber ? `A/C: ${accountNumber} (${ifscCode})` : ''
+    ].filter(Boolean).join(' | ');
 
     try {
         await addDoc(collection(db, "payouts"), {
             publisherId: String(currentUser.publisherId || "662"),
-            publisherName: currentUser.name || "Publisher",
+            publisherName: currentUser.name || holderName || "Publisher",
             uid: currentUser.uid || "",
             amount: amount,
-            method: method,
+            holderName: holderName,
+            mobile: mobile,
+            accountNumber: accountNumber,
+            ifscCode: ifscCode,
+            upiId: upiId,
+            method: summaryText,
             status: "pending",
             requestedAt: new Date().toISOString()
         });
         closePayoutModal();
-        document.getElementById('withdrawMethod').value = "";
+        e.target.reset();
         showToast("✓ Withdrawal request submitted!");
     } catch (err) {
         showToast("Error: " + err.message, true);
@@ -537,7 +578,7 @@ document.addEventListener('DOMContentLoaded', initDashboard);
 
 <!-- Custom Withdrawal Modal -->
 <div id="payoutModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
-<div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-200">
+<div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-200 max-h-[90vh] overflow-y-auto">
 <div class="flex justify-between items-center border-b pb-3 mb-4">
 <h3 class="font-extrabold text-base text-gray-900">Request Withdrawal</h3>
 <button type="button" onclick="closePayoutModal()" class="text-gray-400 hover:text-gray-700 font-bold text-lg cursor-pointer">&times;</button>
@@ -577,23 +618,6 @@ document.addEventListener('DOMContentLoaded', initDashboard);
         <button type="button" onclick="closePayoutModal()" class="px-4 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100 cursor-pointer">Cancel</button>
         <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-bold shadow cursor-pointer">Submit Request</button>
     </div>
-</form>
-<div class="bg-blue-50 p-3 rounded-xl flex justify-between items-center">
-<span class="font-bold text-gray-600">Available Wallet Balance:</span>
-<span id="modalAvailBal" class="font-black text-base text-blue-700">₹0</span>
-</div>
-<div>
-<label class="block font-bold text-gray-600 mb-1 uppercase">Withdrawal Amount (₹)</label>
-<input type="number" id="withdrawAmount" min="100" class="w-full border border-gray-300 p-3 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500" required>
-</div>
-<div>
-<label class="block font-bold text-gray-600 mb-1 uppercase">UPI ID / Bank Account Details</label>
-<input type="text" id="withdrawMethod" placeholder="e.g. 9479532362@ybl or Bank A/C + IFSC" class="w-full border border-gray-300 p-3 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-blue-500" required>
-</div>
-<div class="flex justify-end gap-2 pt-2">
-<button type="button" onclick="closePayoutModal()" class="px-4 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100 cursor-pointer">Cancel</button>
-<button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-bold shadow cursor-pointer">Submit Request</button>
-</div>
 </form>
 </div>
 </div>
@@ -734,15 +758,15 @@ document.addEventListener('DOMContentLoaded', initDashboard);
         <div class="bg-white rounded-xl border shadow-sm overflow-x-auto">
             <table class="w-full text-left border-collapse">
                 <thead>
-                 <tr class="border-b bg-gray-50 text-gray-500 text-[11px] font-extrabold uppercase tracking-wider">
-    <th class="p-4">Offer ID</th>
-    <th class="p-4">Logo</th>
-    <th class="p-4">Name</th>
-    <th class="p-4">Offer Type</th>
-    <th class="p-4">Payout</th>
-    <th class="p-4">Offer Status</th>
-    <th class="p-4 text-right">Actions</th>
-</tr>
+                    <tr class="border-b bg-gray-50 text-gray-500 text-[11px] font-extrabold uppercase tracking-wider">
+                        <th class="p-4">Offer ID</th>
+                        <th class="p-4">Logo</th>
+                        <th class="p-4">Name</th>
+                        <th class="p-4">Offer Type</th>
+                        <th class="p-4">Payout</th>
+                        <th class="p-4">Offer Status</th>
+                        <th class="p-4 text-right">Actions</th>
+                    </tr>
                 </thead>
                 <tbody id="offersTableBody" class="divide-y divide-gray-100"></tbody>
             </table>
@@ -849,14 +873,7 @@ document.addEventListener('DOMContentLoaded', initDashboard);
                         <th class="p-4">Status</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <tr>
-                        <td class="p-4 font-mono font-bold text-gray-600">EVT_01</td>
-                        <td class="p-4 font-bold text-gray-900">Approved Conversion / KYC Verified</td>
-                        <td id="detEventPayout" class="p-4 font-black text-emerald-600">₹0</td>
-                        <td class="p-4"><span class="px-2 py-0.5 bg-green-100 text-green-700 rounded font-bold uppercase text-[10px]">Active</span></td>
-                    </tr>
-                </tbody>
+                <tbody id="detEventsTableBody"></tbody>
             </table>
         </div>
     </div>
