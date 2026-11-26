@@ -1,349 +1,1081 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-50">
+<html lang="en" class="h-full bg-slate-100">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Partner Login - AffiliateWealthHub</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AffiliateWealthHub - Partner Dashboard</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, doc, collection, getDocs, query, where, updateDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
-            authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
-            projectId: "affiliatewealthhub-542e0",
-            storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
-            messagingSenderId: "1088047960863",
-            appId: "1:1088047960863:web:bd7fe0e8e0404fdf9bb562a",
-            measurementId: "G-PX59VJN9TK"
-        };
+const firebaseConfig = {
+    apiKey: "AIzaSyDO06SrF0Y15lFcFhXwJIyDbGFsTuxoswY",
+    authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
+    projectId: "affiliatewealthhub-542e0",
+    storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
+    messagingSenderId: "1088047960863",
+    appId: "1:1088047960863:web:bd7fe0e8e0404fdf9bb562a"
+};
 
-        const initialRef = new URLSearchParams(window.location.search).get('ref');
-        if (initialRef) localStorage.setItem('awh_ref', initialRef);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+let currentUser = JSON.parse(localStorage.getItem("awh_user") || "null");
+let currentBalance = 0;
+let cachedClicks = [];
+let cachedPayouts = [];
+let allOffersMap = {};
+let activeOfferId = null;
+let myChart = null;
 
-        let isRegisterMode = false;
+function safeSetText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.innerText = text;
+}
 
-        function showError(msg) {
-            const errDiv = document.getElementById('errorDiv');
-            errDiv.innerText = msg;
-            errDiv.classList.remove('hidden');
+function showToast(message, isError = false) {
+    const toast = document.getElementById('fixedToast');
+    if (!toast) return;
+    toast.innerText = message;
+    toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-full shadow-2xl text-xs font-bold transition-all duration-300 z-50 text-white pointer-events-none ${isError ? 'bg-red-600' : 'bg-gray-900'}`;
+    toast.style.opacity = '1';
+    toast.style.transform = 'translateY(0)';
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(20px)';
+    }, 3000);
+}
+
+window.switchTab = function(tabId, btnEl) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    const activeTab = document.getElementById(tabId);
+    if (activeTab) activeTab.classList.remove('hidden');
+
+    if (tabId === 'tab-offers') {
+        closeOfferDetails();
+    }
+
+    document.querySelectorAll('.nav-link').forEach(el => {
+        el.classList.remove('bg-blue-600', 'text-white', 'shadow-sm');
+        el.classList.add('text-gray-600', 'hover:bg-gray-100');
+    });
+    if (btnEl) {
+        btnEl.classList.remove('text-gray-600', 'hover:bg-gray-100');
+        btnEl.classList.add('bg-blue-600', 'text-white', 'shadow-sm');
+    }
+
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar && window.innerWidth < 768) {
+        sidebar.classList.add('-translate-x-full');
+    }
+};
+
+async function initDashboard() {
+    if (!currentUser || !currentUser.uid) {
+        window.location.replace("/affiliate/public/login/index.html");
+        return;
+    }
+    updateUI();
+    setupRealtimeListeners();
+    loadOffers();
+    loadMyReferrals();
+}
+
+function updateUI() {
+    const name = currentUser.name || "Arun Rathore";
+    const pubId = currentUser.publisherId || "662";
+    const email = currentUser.email || "arunrathor701@gmail.com";
+
+    document.querySelectorAll('.pubNameDisplay').forEach(el => el.innerText = name);
+    safeSetText('pubIdDisplay', pubId);
+
+    const profPubId = document.getElementById('profilePubId');
+    const profName = document.getElementById('profileName');
+    const profEmail = document.getElementById('profileEmail');
+    if (profPubId) profPubId.value = pubId;
+    if (profName) profName.value = name;
+    if (profEmail) profEmail.value = email;
+}
+
+function setupRealtimeListeners() {
+    const pubId = String(currentUser.publisherId || "662");
+    const userRef = doc(db, "users", currentUser.uid);
+
+    onSnapshot(userRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            currentBalance = Number(data.balance || 0);
+            const refEarned = Number(data.referralEarnings || 0);
+            safeSetText('walletBalance', `₹${currentBalance}`);
+            safeSetText('totalEarnings', `₹${currentBalance}`);
+            safeSetText('modalAvailBal', `₹${currentBalance}`);
+            safeSetText('refTotalEarnings', `₹${refEarned}`);
         }
+    });
 
-        function hideError() {
-            document.getElementById('errorDiv').classList.add('hidden');
-        }
+    const clicksQuery = query(collection(db, "clicks"), where("publisherId", "==", pubId));
+    onSnapshot(clicksQuery, (snapshot) => {
+        let totalClicks = 0;
+        let approvedCount = 0;
+        const rawDocs = [];
 
-        function syncFieldRequirements() {
-            const loginWrapper = document.getElementById('loginIdentifierWrapper');
-            const loginInput = document.getElementById('loginIdentifier');
-
-            const regFieldsWrapper = document.getElementById('registerFieldsWrapper');
-            const phoneInput = document.getElementById('pubPhoneInput');
-            const emailInput = document.getElementById('email');
-            const nameInput = document.getElementById('fullName');
-            const forgotBtn = document.getElementById('forgotBtn');
-
-            // Login Mode vs Register Mode fields
-            loginWrapper.classList.toggle('hidden', isRegisterMode);
-            loginInput.required = !isRegisterMode;
-
-            regFieldsWrapper.classList.toggle('hidden', !isRegisterMode);
-            phoneInput.required = isRegisterMode;
-            emailInput.required = isRegisterMode;
-            nameInput.required = isRegisterMode;
-
-            if (forgotBtn) forgotBtn.classList.toggle('hidden', isRegisterMode);
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedRef = new URLSearchParams(window.location.search).get('ref') || localStorage.getItem('awh_ref') || "";
-            const refInput = document.getElementById('signupRefInput');
-            if (savedRef && refInput) refInput.value = savedRef;
-            syncFieldRequirements();
+        snapshot.forEach((docSnap) => {
+            rawDocs.push({ id: docSnap.id, ...docSnap.data() });
         });
 
-        // Toggle Login vs Register
-        window.toggleMode = () => {
-            hideError();
-            isRegisterMode = !isRegisterMode;
-            document.getElementById('formTitle').innerText = isRegisterMode ? "Create Affiliate Account" : "Welcome back";
-            document.getElementById('formSubtitle').innerText = isRegisterMode
-                ? "Enter your details below to create your partner account."
-                : "Sign in using your Mobile Number or Email.";
-            document.getElementById('submitBtn').innerText = isRegisterMode ? "Create Account" : "Sign In";
-            document.getElementById('toggleText').innerHTML = isRegisterMode
-                ? `Already have an account? <button type="button" onclick="toggleMode()" class="font-bold text-blue-600 hover:text-blue-500 cursor-pointer">Sign In</button>`
-                : `Don't have an account? <button type="button" onclick="toggleMode()" class="font-bold text-blue-600 hover:text-blue-500 cursor-pointer">Create Affiliate Account</button>`;
-            syncFieldRequirements();
-        };
-        window.forgotPassword = async () => {
-            const identifier = document.getElementById('loginIdentifier').value.trim();
-            if (!identifier) {
-                alert("Pehle upar box mein apna Email ya Mobile Number likhein, phir Forgot Password dabayein.");
-                return;
-            }
+        rawDocs.sort((a, b) => {
+            const timeA = a.createdAt ? (a.createdAt.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt).getTime()) : 0;
+            const timeB = b.createdAt ? (b.createdAt.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt).getTime()) : 0;
+            return timeB - timeA;
+        });
 
-            try {
-                let targetEmail = identifier;
-                // Agar user ne mobile number daala hai toh database se email nikalein
-                if (!identifier.includes('@')) {
-                    const cleanPhone = identifier.replace(/^\+91/, '').replace(/\s+/g, '');
-                    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-                        alert("Kripya sahi 10-digit Mobile Number ya Email ID dalein.");
-                        return;
-                    }
-                    const q = query(collection(db, "users"), where("phone", "==", `+91${cleanPhone}`));
-                    const snap = await getDocs(q);
-                    if (snap.empty || !snap.docs[0].data().email) {
-                        alert("Is mobile number se koi valid email linked nahi mila.");
-                        return;
-                    }
-                    targetEmail = snap.docs[0].data().email;
-                }
+        const clicksListHtml = [];
+        cachedClicks = [];
 
-                await sendPasswordResetEmail(auth, targetEmail);
-                alert("Password reset link aapke registered email (" + targetEmail + ") par bhej diya gaya hai!");
-            } catch (err) {
-                alert("Error: " + err.message);
-            }
-        };
+        rawDocs.forEach((data) => {
+            totalClicks++;
+            const status = (data.status || "recorded").toLowerCase();
+            const isApproved = status === "approved";
+            const isPartial = status.includes("step") || status.includes("partial");
+            const isRejected = status === "rejected";
+            if (isApproved || isPartial) approvedCount++;
 
-        window.handleAuth = async (e) => {
-            e.preventDefault();
-            hideError();
+            const dateStr = data.createdAt 
+                ? new Date(data.createdAt.seconds ? data.createdAt.seconds * 1000 : data.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) 
+                : 'N/A';
 
-            const password = document.getElementById('password').value;
-            const btn = document.getElementById('submitBtn');
+            let badgeClass = 'bg-yellow-100 text-yellow-800';
+            if (isApproved) badgeClass = 'bg-green-600 text-white';
+            else if (isPartial) badgeClass = 'bg-blue-600 text-white';
+            if (isRejected) badgeClass = 'bg-red-600 text-white';
 
-            btn.disabled = true;
-            btn.innerText = isRegisterMode ? "Creating Account..." : "Signing In...";
+            const sysClickId = data.clickId || data.id;
+            const custClickId = data.customClickId || data.click_id || '-';
+            const s1 = data.sub1 || 'Direct';
+            const s2 = data.sub2 || '-';
+            const s3 = data.sub3 || '-';
 
-            try {
-                if (isRegisterMode) {
-                    const fullName = document.getElementById('fullName').value.trim();
-                    const rawPhone = document.getElementById('pubPhoneInput').value.trim();
-                    const email = document.getElementById('email').value.trim().toLowerCase();
+            cachedClicks.push({
+                Date: dateStr,
+                SystemClickID: sysClickId,
+                CustomClickID: custClickId,
+                Offer: `Offer #${data.offerId || '1'}`,
+                Sub1: s1,
+                Sub2: s2,
+                Sub3: s3,
+                CustomerName: data.customerName || '-',
+                Mobile: data.customerPhone || '-',
+                PAN: data.customerPan || '-',
+                Status: data.status || 'Recorded',
+                PayoutCredited: data.payoutCredited || 0,
+                Remark: data.remark || '-'
+            });
 
-                    if (!/^[6-9]\d{9}$/.test(rawPhone)) {
-                        throw new Error("Kripya sahi 10-digit Indian mobile number dalein.");
-                    }
-                    if (!email.includes('@')) {
-                        throw new Error("Kripya sahi Email Address dalein.");
-                    }
+            const remarkHtml = (isRejected && data.remark)
+                ? `<div class="text-[10px] text-red-600 font-semibold mt-0.5 max-w-[140px] truncate" title="${data.remark}">${data.remark}</div>`
+                : ((isApproved || isPartial) && data.lastApprovedStep ? `<div class="text-[10px] text-green-700 font-semibold mt-0.5">✓ ${data.lastApprovedStep} (₹${data.payoutCredited || 0})</div>` : '');
 
-                    const phoneFormatted = `+91${rawPhone}`;
+            clicksListHtml.push(`
+                <tr class="border-b hover:bg-gray-50 whitespace-nowrap report-row">
+                    <td class="p-3 text-xs">${dateStr}</td>
+                    <td class="p-3 text-xs font-mono text-gray-500">${sysClickId}</td>
+                    <td class="p-3 text-xs font-mono text-purple-600 font-semibold">${custClickId}</td>
+                    <td class="p-3 text-xs font-semibold">Offer #${data.offerId || '1'}</td>
+                    <td class="p-3 text-xs font-mono font-bold text-blue-600">${s1}</td>
+                    <td class="p-3 text-xs font-mono text-gray-700">${s2}</td>
+                    <td class="p-3 text-xs font-mono text-gray-700">${s3}</td>
+                    <td class="p-3 text-xs font-semibold text-gray-800">${data.customerName || '-'}</td>
+                    <td class="p-3 text-xs font-mono text-gray-600">${data.customerPhone || '-'}</td>
+                    <td class="p-3 text-xs font-mono uppercase text-indigo-600">${data.customerPan || '-'}</td>
+                    <td class="p-3 text-xs">
+                        <span class="px-2.5 py-1 ${badgeClass} rounded text-[11px] font-bold uppercase">${data.status || 'Recorded'}</span>
+                        ${remarkHtml}
+                    </td>
+                </tr>
+            `);
+        });
 
-                    // Check karein ki mobile number pehle se registered toh nahi hai
-                    const phoneQuery = query(collection(db, "users"), where("phone", "==", phoneFormatted));
-                    const phoneSnap = await getDocs(phoneQuery);
-                    if (!phoneSnap.empty) {
-                        throw new Error("Yeh Mobile Number pehle se registered hai. Kripya Sign In karein.");
-                    }
+        safeSetText('totalClicksDisplay', totalClicks);
+        safeSetText('totalConvDisplay', approvedCount);
 
-                    // Firebase Auth mein account create karein
-                    const cred = await createUserWithEmailAndPassword(auth, email, password);
-                    const newPubId = Math.floor(100 + Math.random() * 899);
+        const clicksBody = document.getElementById('clicksTableBody');
+        if (clicksBody) {
+            clicksBody.innerHTML = clicksListHtml.join('') || `<tr><td colspan="11" class="p-4 text-center text-gray-400">No clicks recorded yet.</td></tr>`;
+        }
 
-                    const manualRef = document.getElementById('signupRefInput')?.value.trim();
-                    const urlRef = new URLSearchParams(window.location.search).get('ref') || localStorage.getItem('awh_ref') || "";
-                    const finalRef = manualRef || urlRef;
+        updateChart(totalClicks, approvedCount);
+    });
 
-                    const userData = {
-                        uid: cred.user.uid,
-                        name: fullName || ("Partner #" + newPubId),
-                        email: email,
-                        phone: phoneFormatted,
-                        role: "publisher",
-                        publisherId: newPubId,
-                        balance: 0,
-                        referralEarnings: 0,
-                        referredBy: finalRef ? String(finalRef) : "",
-                        createdAt: new Date().toISOString()
-                    };
+    const payoutsQuery = query(collection(db, "payouts"), where("publisherId", "==", pubId));
+    onSnapshot(payoutsQuery, (snapshot) => {
+        const rows = [];
+        cachedPayouts = [];
+        snapshot.forEach(docSnap => {
+            const p = docSnap.data();
+            const dStr = p.requestedAt ? new Date(p.requestedAt).toLocaleDateString('en-IN') : 'N/A';
+            const stColor = p.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
 
-                    await setDoc(doc(db, "users", cred.user.uid), userData);
-                    localStorage.setItem("awh_user", JSON.stringify(userData));
-                    window.location.replace("/affiliate/public/dashboard/index.html");
+            cachedPayouts.push({
+                Date: dStr,
+                Amount: p.amount || 0,
+                Method: p.method || 'N/A',
+                Status: p.status || 'Pending'
+            });
 
-                } else {
-                    // UNIFIED LOGIN (Email OR Mobile Number)
-                    const identifier = document.getElementById('loginIdentifier').value.trim();
-                    let authEmail = "";
+            rows.push(`
+                <tr class="border-b hover:bg-gray-50">
+                    <td class="p-3 text-xs">${dStr}</td>
+                    <td class="p-3 text-xs font-bold text-gray-900">₹${p.amount || 0}</td>
+                    <td class="p-3 text-xs">${p.method || 'N/A'}</td>
+                    <td class="p-3 text-xs"><span class="px-2 py-0.5 ${stColor} rounded text-xs font-bold uppercase">${p.status || 'Pending'}</span></td>
+                </tr>
+            `);
+        });
+        const tbody = document.getElementById('payoutsTableBody');
+        if (tbody) tbody.innerHTML = rows.join('') || `<tr><td colspan="4" class="p-4 text-center text-gray-400">No payout history.</td></tr>`;
+    });
+}
 
-                    if (identifier.includes('@')) {
-                        // User ne Email daala hai
-                        authEmail = identifier.toLowerCase();
-                    } else {
-                        // User ne Mobile Number daala hai
-                        const cleanPhone = identifier.replace(/^\+91/, '').replace(/\s+/g, '');
-                        if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
-                            throw new Error("Kripya sahi Email Address ya 10-digit Mobile Number dalein.");
-                        }
+window.filterPartnerReports = function(term) {
+    const q = term.toLowerCase();
+    document.querySelectorAll('.report-row').forEach(row => {
+        row.style.display = row.innerText.toLowerCase().includes(q) ? '' : 'none';
+    });
+};
 
-                        const phoneFormatted = `+91${cleanPhone}`;
-                        const q = query(collection(db, "users"), where("phone", "==", phoneFormatted));
-                        const querySnap = await getDocs(q);
+function loadMyReferrals() {
+    const pubId = String(currentUser.publisherId || "662");
+    const refInput = document.getElementById('myReferralLink');
+    if (refInput) {
+        refInput.value = `https://affiliatewealthhub.online/affiliate/public/login/index.html?ref=${pubId}`;
+    }
 
-                        if (!querySnap.empty) {
-                            const foundData = querySnap.docs[0].data();
-                            // Agar user ke paas real email saved hai toh wo use karein, warna legacy @awh.in
-                            authEmail = foundData.email ? foundData.email : `${cleanPhone}@awh.in`;
-                        } else {
-                            // Fallback purane accounts ke liye
-                            authEmail = `${cleanPhone}@awh.in`;
-                        }
-                    }
+    const teamQuery = query(collection(db, "users"), where("referredBy", "==", pubId));
+    onSnapshot(teamQuery, (snapshot) => {
+        safeSetText('teamCountDisplay', snapshot.size);
+        const rows = [];
+        snapshot.forEach((docSnap) => {
+            const m = docSnap.data();
+            const jDate = m.createdAt ? new Date(m.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Active';
+            rows.push(`
+                <tr class="hover:bg-gray-50">
+                    <td class="p-3.5 text-xs text-gray-500 whitespace-nowrap">${jDate}</td>
+                    <td class="p-3.5 text-xs font-mono font-bold text-indigo-600">#${m.publisherId || '-'}</td>
+                    <td class="p-3.5 text-xs font-bold text-gray-900">${m.name || 'Partner'}</td>
+                    <td class="p-3.5 text-xs"><span class="px-2.5 py-0.5 bg-green-100 text-green-700 rounded-full font-bold uppercase text-[10px]">Active • 10% Bonus</span></td>
+                </tr>
+            `);
+        });
+        const tbody = document.getElementById('myTeamTableBody');
+        if (tbody) {
+            tbody.innerHTML = rows.join('') || `<tr><td colspan="4" class="p-8 text-center text-gray-400 text-xs">Abhi tak aapki team me koi join nahi hua hai. Upar diya gaya invite link share karein!</td></tr>`;
+        }
+    });
+}
 
-                    const cred = await signInWithEmailAndPassword(auth, authEmail, password);
-                    const userDoc = await getDoc(doc(db, "users", cred.user.uid));
-                    const userData = userDoc.exists() ? userDoc.data() : { name: "Publisher", role: "publisher", publisherId: "662" };
+window.copyReferralLink = () => {
+    const inp = document.getElementById('myReferralLink');
+    if (!inp) return;
+    navigator.clipboard.writeText(inp.value).then(() => {
+        showToast("✓ Referral Invite Link Copied!");
+    }).catch(() => {
+        inp.select();
+        document.execCommand("copy");
+        showToast("✓ Referral Invite Link Copied!");
+    });
+};
 
-                    const sessionData = {
-                        uid: cred.user.uid,
-                        email: userData.email || authEmail,
-                        phone: userData.phone || "",
-                        name: userData.name,
-                        role: userData.role || "publisher",
-                        publisherId: userData.publisherId || "662"
-                    };
-                    localStorage.setItem("awh_user", JSON.stringify(sessionData));
+async function loadOffers() {
+    const tbody = document.getElementById('offersTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-gray-400 text-xs">Loading available campaigns...</td></tr>`;
+    
+    try {
+        const snap = await getDocs(collection(db, "offers"));
+        tbody.innerHTML = "";
+        allOffersMap = {};
 
-                    if (sessionData.role === "admin" || sessionData.email === "arunrathor701@gmail.com") {
-                        window.location.replace("/affiliate/public/admin/index.html");
-                    } else {
-                        window.location.replace("/affiliate/public/dashboard/index.html");
-                    }
-                }
-            } catch (err) {
-                let msg = err.message.replace("Firebase: ", "");
-                msg = msg.replace(/email-already-in-use/g, "Yeh Email Address pehle se registered hai. Sign In karein.")
-                         .replace(/invalid-credential|user-not-found|wrong-password/g, "Galat Email/Mobile Number ya Password.");
-                showError(msg);
-                btn.disabled = false;
-                btn.innerText = isRegisterMode ? "Create Account" : "Sign In";
-            }
-        };
-         </script>
+        if (snap.empty) {
+            tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-gray-400 text-xs">No active offers available right now.</td></tr>`;
+            return;
+        }
+
+        snap.forEach(docSnap => {
+            const o = docSnap.data();
+            const oid = docSnap.id;
+            allOffersMap[oid] = { id: oid, ...o };
+
+            const logoHtml = o.logoUrl 
+                ? `<img src="${o.logoUrl}" alt="${o.name}" class="w-9 h-9 rounded-lg object-contain border bg-white p-1">`
+                : `<div class="w-9 h-9 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center font-black text-xs uppercase">${(o.name || 'OF').substring(0, 2)}</div>`;
+
+            const offerType = (o.visibility || o.type || 'public').toLowerCase();
+            const isApproved = (o.offerStatus || 'approved').toLowerCase() === 'approved';
+
+            tbody.innerHTML += `
+                <tr class="border-b hover:bg-blue-50/40 transition offer-row" data-name="${(o.name || '').toLowerCase()}" data-visibility="${offerType}">
+                    <td class="p-4 font-mono text-xs font-bold text-gray-600">#${oid}</td>
+                    <td class="p-4">${logoHtml}</td>
+                    <td class="p-4">
+                        <div class="font-bold text-gray-900 text-xs sm:text-sm">${o.name || 'Campaign'}</div>
+                        <div class="text-[11px] text-gray-400 mt-0.5">${o.category || 'Financial / CPA'}</div>
+                    </td>
+                    <td class="p-4 text-xs text-gray-600 capitalize font-medium">${offerType}</td>
+                    <td class="p-4 font-extrabold text-xs text-emerald-700">₹${o.payout || 0}</td>
+                    <td class="p-4">
+                        <span class="px-2.5 py-1 rounded text-[11px] font-bold uppercase ${isApproved ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">
+                            ${isApproved ? 'Approved' : 'Request'}
+                        </span>
+                    </td>
+                    <td class="p-4 text-right">
+                        <button type="button" onclick="openOfferDetails('${oid}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-md text-xs font-bold shadow-sm transition cursor-pointer">
+                            View
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500 text-xs">Error loading offers: ${e.message}</td></tr>`;
+    }
+}
+
+window.filterOffersTable = function() {
+    const searchVal = (document.getElementById('offerSearchInput')?.value || '').toLowerCase();
+    const visVal = (document.getElementById('offerVisibilityFilter')?.value || 'all').toLowerCase();
+
+    document.querySelectorAll('.offer-row').forEach(row => {
+        const nameMatch = row.dataset.name.includes(searchVal);
+        const visMatch = visVal === 'all' || row.dataset.visibility === visVal;
+        row.style.display = (nameMatch && visMatch) ? '' : 'none';
+    });
+};
+
+window.openOfferDetails = function(oid) {
+    const o = allOffersMap[oid];
+    if (!o) return;
+    activeOfferId = oid;
+
+    document.getElementById('offersListView').classList.add('hidden');
+    document.getElementById('offerDetailView').classList.remove('hidden');
+
+    safeSetText('detOfferName', o.name || 'Campaign Details');
+    safeSetText('detOfferId', `#${oid}`);
+    safeSetText('detOfferCapping', o.capping || 'None');
+    safeSetText('detOfferPayout', `₹${o.payout || 0}`);
+    safeSetText('detOfferVisibility', o.visibility || 'Public');
+    safeSetText('detOfferGeo', o.geo || 'Available for all states (India)');
+    safeSetText('detOfferDesc', o.description || 'Complete full account opening / KYC process via valid tracking link. Fraudulent or duplicate leads will be rejected.');
+
+    const logoContainer = document.getElementById('detOfferLogo');
+    if (logoContainer) {
+        logoContainer.innerHTML = o.logoUrl 
+            ? `<img src="${o.logoUrl}" class="w-12 h-12 rounded-xl object-contain border p-1 bg-white">`
+            : `<div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-base uppercase">${(o.name || 'OF').substring(0, 2)}</div>`;
+    }
+
+    const eventsTbody = document.getElementById('detEventsTableBody');
+    if (eventsTbody) {
+        const eventsList = (Array.isArray(o.events) && o.events.length > 0)
+            ? o.events
+            : [{ id: "EVT_01", name: "Approved Conversion / KYC Verified", payout: o.payout || 0 }];
+
+        eventsTbody.innerHTML = eventsList.map(ev => `
+            <tr class="border-b">
+                <td class="p-4 font-mono font-bold text-gray-600">${ev.id}</td>
+                <td class="p-4 font-bold text-gray-900">${ev.name}</td>
+                <td class="p-4 font-black text-emerald-600">₹${ev.payout}</td>
+                <td class="p-4"><span class="px-2 py-0.5 bg-green-100 text-green-700 rounded font-bold uppercase text-[10px]">Active</span></td>
+            </tr>
+        `).join('');
+    }
+
+    document.querySelectorAll('.sub-param-input').forEach(inp => inp.value = '');
+    updateGeneratedTrackingLink();
+};
+
+window.closeOfferDetails = function() {
+    activeOfferId = null;
+    const listView = document.getElementById('offersListView');
+    const detView = document.getElementById('offerDetailView');
+    if (listView) listView.classList.remove('hidden');
+    if (detView) detView.classList.add('hidden');
+};
+
+window.updateGeneratedTrackingLink = function() {
+    if (!activeOfferId) return;
+    const pubId = currentUser.publisherId || "662";
+    let url = `https://affiliatewealthhub.online/go?oid=${activeOfferId}&pid=${pubId}`;
+
+    const s1 = document.getElementById('paramSub1')?.value.trim();
+    const s2 = document.getElementById('paramSub2')?.value.trim();
+    const s3 = document.getElementById('paramSub3')?.value.trim();
+    const clickId = document.getElementById('paramClickId')?.value.trim();
+
+    if (s1) url += `&sub1=${encodeURIComponent(s1)}`;
+    if (s2) url += `&sub2=${encodeURIComponent(s2)}`;
+    if (s3) url += `&sub3=${encodeURIComponent(s3)}`;
+    if (clickId) url += `&click_id=${encodeURIComponent(clickId)}`;
+
+    const urlBox = document.getElementById('detTrackingUrl');
+    if (urlBox) urlBox.value = url;
+};
+
+window.copyDetailTrackingUrl = function() {
+    const urlBox = document.getElementById('detTrackingUrl');
+    if (!urlBox || !urlBox.value) return;
+    navigator.clipboard.writeText(urlBox.value).then(() => {
+        showToast("✓ Tracking URL Copied to Clipboard!");
+    }).catch(() => {
+        urlBox.select();
+        document.execCommand("copy");
+        showToast("✓ Tracking URL Copied!");
+    });
+};
+
+window.exportCSV = (filename, dataArray) => {
+    if (!dataArray || dataArray.length === 0) {
+        showToast("No data available to export.", true);
+        return;
+    }
+    const headers = Object.keys(dataArray[0]);
+    const csvRows = [headers.join(',')];
+    for (const row of dataArray) {
+        const values = headers.map(h => `"${('' + row[h]).replace(/"/g, '""')}"`);
+        csvRows.push(values.join(','));
+    }
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    showToast("✓ CSV Report Downloaded!");
+};
+
+window.openPayoutModal = () => {
+    if (currentBalance < 100) {
+        showToast("Minimum withdrawal ₹100 hai. Current balance: ₹" + currentBalance, true);
+        return;
+    }
+    document.getElementById('withdrawAmount').value = currentBalance;
+    if (currentUser.name) document.getElementById('withdrawHolderName').value = currentUser.name;
+    if (currentUser.phone) document.getElementById('withdrawMobile').value = currentUser.phone.replace('+91', '');
+    document.getElementById('payoutModal').classList.remove('hidden');
+};
+
+window.closePayoutModal = () => {
+    document.getElementById('payoutModal').classList.add('hidden');
+};
+
+window.submitPayoutRequest = async (e) => {
+    e.preventDefault();
+    const amount = Number(document.getElementById('withdrawAmount').value);
+    const holderName = document.getElementById('withdrawHolderName').value.trim();
+    const mobile = document.getElementById('withdrawMobile').value.trim();
+    const accountNumber = document.getElementById('withdrawAccNo').value.trim();
+    const ifscCode = document.getElementById('withdrawIfsc').value.trim().toUpperCase();
+    const upiId = document.getElementById('withdrawUpi').value.trim();
+
+    if (amount < 100 || amount > currentBalance) {
+        showToast("Valid withdrawal amount dalein (Min ₹100).", true);
+        return;
+    }
+    if (!upiId && (!accountNumber || !ifscCode)) {
+        showToast("Kripya UPI ID ya Bank Account Number + IFSC Code dalein.", true);
+        return;
+    }
+
+    const summaryText = [
+        holderName ? `Name: ${holderName}` : '',
+        mobile ? `Mob: ${mobile}` : '',
+        upiId ? `UPI: ${upiId}` : '',
+        accountNumber ? `A/C: ${accountNumber} (${ifscCode})` : ''
+    ].filter(Boolean).join(' | ');
+
+    try {
+        await addDoc(collection(db, "payouts"), {
+            publisherId: String(currentUser.publisherId || "662"),
+            publisherName: currentUser.name || holderName || "Publisher",
+            uid: currentUser.uid || "",
+            amount: amount,
+            holderName: holderName,
+            mobile: mobile,
+            accountNumber: accountNumber,
+            ifscCode: ifscCode,
+            upiId: upiId,
+            method: summaryText,
+            status: "pending",
+            requestedAt: new Date().toISOString()
+        });
+        closePayoutModal();
+        e.target.reset();
+        showToast("✓ Withdrawal request submitted!");
+    } catch (err) {
+        showToast("Error: " + err.message, true);
+    }
+};
+
+window.saveProfile = async (e) => {
+    e.preventDefault();
+    const nameInput = document.getElementById('profileName');
+    if (!nameInput) return;
+    const newName = nameInput.value.trim();
+    if (!newName || !currentUser.uid) return;
+    try {
+        await updateDoc(doc(db, "users", currentUser.uid), { name: newName });
+        currentUser.name = newName;
+        localStorage.setItem("awh_user", JSON.stringify(currentUser));
+        updateUI();
+        showToast("✓ Profile updated!");
+    } catch (err) {
+        showToast("Error updating profile: " + err.message, true);
+    }
+};
+
+window.logout = () => {
+    localStorage.removeItem("awh_user");
+    signOut(auth).then(() => window.location.replace("/affiliate/public/login/index.html"));
+};
+
+function updateChart(clicks, convs) {
+    const canvas = document.getElementById('perfChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (myChart) myChart.destroy();
+    myChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['Total Clicks', 'Approved Leads'],
+            datasets: [{
+                label: 'Count',
+                data: [clicks, convs],
+                backgroundColor: ['#3b82f6', '#10b981'],
+                borderRadius: 8,
+                barThickness: 55
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', initDashboard);
+</script>
 </head>
-<body class="h-full font-sans antialiased">
-    <div class="min-h-screen flex flex-col lg:flex-row">
-        <!-- Left Branding Panel -->
-        <div class="lg:w-1/2 bg-[#1e295d] text-white p-8 lg:p-12 flex flex-col justify-between relative overflow-hidden">
-            <div class="relative z-10">
-                <div class="bg-white/10 backdrop-blur-md px-3 py-1 rounded-md text-xs font-semibold inline-block mb-8 border border-white/10 uppercase tracking-wider">
-                    Performance Marketing Platform
-                </div>
-                <h1 class="text-3xl lg:text-5xl font-black leading-tight tracking-tight mb-6">Grow. Track. Earn.</h1>
-                <p class="text-blue-200 text-sm lg:text-base mb-8 max-w-md">Register and start earning by promoting our high-converting financial & digital offers.</p>
+<body class="h-full bg-gray-100 font-sans text-gray-800">
+<!-- Toast Notification -->
+<div id="fixedToast" style="opacity:0; transform:translateY(20px);" class="fixed bottom-6 right-6 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-2xl text-xs font-bold transition-all duration-300 z-50 pointer-events-none"></div>
 
-                <ul class="space-y-4 mb-12">
-                    <li class="flex items-center space-x-3 text-sm font-medium">
-                        <svg class="w-5 h-5 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        <span>Real-time campaign & Sub-ID tracking</span>
-                    </li>
-                    <li class="flex items-center space-x-3 text-sm font-medium">
-                        <svg class="w-5 h-5 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        <span>Detailed performance reports</span>
-                    </li>
-                    <li class="flex items-center space-x-3 text-sm font-medium">
-                        <svg class="w-5 h-5 text-blue-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                        <span>Instant conversion attribution</span>
-                    </li>
-                </ul>
-
-                <div class="bg-black/20 rounded-2xl p-6 backdrop-blur-sm border border-white/5">
-                    <div class="text-[11px] font-bold text-blue-300 uppercase tracking-widest mb-2">NETWORK GROWTH • LIVE STATS</div>
-                    <div class="text-2xl font-black mb-4 text-emerald-400">+18.4% Active Payouts</div>
-                    <div class="grid grid-cols-3 gap-2 text-xs text-blue-300 border-t border-white/10 pt-4">
-                        <div><span class="block text-[10px] text-gray-400">CLICKS</span> 12.4K+</div>
-                        <div><span class="block text-[10px] text-gray-400">LEADS</span> 3.1K+</div>
-                        <div><span class="block text-[10px] text-gray-400">PAYOUTS</span> ₹24L+</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="relative z-10 mt-12 pt-6 border-t border-white/10 flex justify-between text-xs text-blue-300">
-                <span>AffiliateWealthHub Network</span>
-                <span>© 2026 All rights reserved.</span>
-            </div>
+<!-- Custom Withdrawal Modal -->
+<div id="payoutModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
+<div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-200 max-h-[90vh] overflow-y-auto">
+<div class="flex justify-between items-center border-b pb-3 mb-4">
+<h3 class="font-extrabold text-base text-gray-900">Request Withdrawal</h3>
+<button type="button" onclick="closePayoutModal()" class="text-gray-400 hover:text-gray-700 font-bold text-lg cursor-pointer">&times;</button>
+</div>
+<form onsubmit="submitPayoutRequest(event)" class="space-y-3 text-xs">
+    <div class="bg-blue-50 p-3 rounded-xl flex justify-between items-center">
+        <span class="font-bold text-gray-600">Available Wallet Balance:</span>
+        <span id="modalAvailBal" class="font-black text-base text-blue-700">₹0</span>
+    </div>
+    <div>
+        <label class="block font-bold text-gray-600 mb-1 uppercase">Withdrawal Amount (₹) *</label>
+        <input type="number" id="withdrawAmount" min="100" class="w-full border border-gray-300 p-2.5 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500" required>
+    </div>
+    <div>
+        <label class="block font-bold text-gray-600 mb-1 uppercase">Account Holder Name *</label>
+        <input type="text" id="withdrawHolderName" placeholder="Name as per Bank / UPI" class="w-full border border-gray-300 p-2.5 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-blue-500" required>
+    </div>
+    <div>
+        <label class="block font-bold text-gray-600 mb-1 uppercase">Registered Mobile Number *</label>
+        <input type="tel" id="withdrawMobile" maxlength="10" placeholder="10-digit Mobile Number" class="w-full border border-gray-300 p-2.5 rounded-xl font-mono font-semibold outline-none focus:ring-2 focus:ring-blue-500" required>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div>
+            <label class="block font-bold text-gray-600 mb-1 uppercase">Bank Account Number</label>
+            <input type="text" id="withdrawAccNo" placeholder="e.g. 123456789012" class="w-full border border-gray-300 p-2.5 rounded-xl font-mono outline-none focus:ring-2 focus:ring-blue-500">
         </div>
-
-        <!-- Right Login / Register Form -->
-        <div class="lg:w-1/2 bg-slate-50 p-8 lg:p-12 flex flex-col justify-center items-center">
-            <div class="w-full max-w-md space-y-5 bg-white p-8 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100">
-                <div class="flex items-center space-x-3">
-                    <img src="./logo.jpg" alt="AWH Logo" class="h-12 w-12 rounded-full object-cover border border-slate-200 shadow">
-                    <span class="font-black text-xl tracking-tight text-slate-900">AffiliateWealthHub</span>
-                </div>
-
-                <div>
-                    <h2 id="formTitle" class="text-2xl font-extrabold text-slate-900 tracking-tight">Welcome back</h2>
-                    <p id="formSubtitle" class="text-sm text-slate-500 mt-1">Sign in using your Mobile Number or Email.</p>
-                </div>
-
-                <form class="space-y-4" onsubmit="handleAuth(event)">
-                    <div id="errorDiv" class="hidden p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs font-semibold"></div>
-
-                    <!-- SINGLE UNIFIED INPUT FOR LOGIN -->
-                    <div id="loginIdentifierWrapper">
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Mobile Number or Email Address <span class="text-red-500">*</span></label>
-                        <input id="loginIdentifier" type="text" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter 10-digit mobile or email">
-                    </div>
-
-                    <!-- REGISTRATION FIELDS (Shown only when creating account) -->
-                    <div id="registerFieldsWrapper" class="hidden space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Full Name <span class="text-red-500">*</span></label>
-                            <input id="fullName" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter your full name">
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Mobile Number (+91) <span class="text-red-500">*</span></label>
-                            <div class="flex gap-2">
-                                <span class="bg-slate-100 border border-slate-300 rounded-lg px-3.5 py-3 text-sm font-bold text-slate-700 flex items-center">+91</span>
-                                <input id="pubPhoneInput" type="tel" maxlength="10" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter 10-digit mobile number">
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Email Address <span class="text-red-500">*</span></label>
-                            <input id="email" type="email" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter your email">
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Referral ID (Optional)</label>
-                            <input id="signupRefInput" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm font-mono font-bold text-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="e.g. 662">
-                        </div>
-                    </div>
-
-                    <!-- PASSWORD FIELD (Common for both Login & Register) -->
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Password (Min 6 characters) <span class="text-red-500">*</span></label>
-                        <input id="password" type="password" required minlength="6" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter password">
-                    </div>
-
-                    <div class="flex items-center justify-between text-sm">
-                        <label class="flex items-center text-slate-600">
-                            <input type="checkbox" checked class="h-4 w-4 text-blue-600 border-gray-300 rounded">
-                            <span class="ml-2 text-xs font-medium">Remember me</span>
-                        </label>
-                        <button id="forgotBtn" type="button" onclick="forgotPassword()" class="text-xs font-semibold text-blue-600 hover:text-blue-500 cursor-pointer">Forgot password?</button>
-                    </div>
-
-                    <button id="submitBtn" type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-blue-600/20 transition text-sm cursor-pointer">Sign In</button>
-                </form>
-
-                <div id="toggleText" class="text-center pt-4 border-t border-slate-100 text-xs text-slate-600">
-                    Don't have an account? <button type="button" onclick="toggleMode()" class="font-bold text-blue-600 hover:text-blue-500 cursor-pointer">Create Affiliate Account</button>
-                </div>
-            </div>
+        <div>
+            <label class="block font-bold text-gray-600 mb-1 uppercase">IFSC Code</label>
+            <input type="text" id="withdrawIfsc" placeholder="e.g. SBIN0001234" class="w-full border border-gray-300 p-2.5 rounded-xl font-mono uppercase outline-none focus:ring-2 focus:ring-blue-500">
         </div>
     </div>
+    <div>
+        <label class="block font-bold text-gray-600 mb-1 uppercase">UPI ID (PhonePe / GPay / Paytm)</label>
+        <input type="text" id="withdrawUpi" placeholder="e.g. 9479532362@ybl" class="w-full border border-gray-300 p-2.5 rounded-xl font-mono outline-none focus:ring-2 focus:ring-blue-500">
+    </div>
+    <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closePayoutModal()" class="px-4 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100 cursor-pointer">Cancel</button>
+        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-bold shadow cursor-pointer">Submit Request</button>
+    </div>
+</form>
+</div>
+</div>
+
+<!-- Legal & MIS Policy Modal -->
+<div id="policyModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-200 max-h-[85vh] overflow-y-auto space-y-4">
+        <div class="flex justify-between items-center border-b pb-3">
+            <h3 id="policyModalTitle" class="font-extrabold text-base text-gray-900">Policy</h3>
+            <button type="button" onclick="document.getElementById('policyModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-700 font-bold text-xl cursor-pointer">&times;</button>
+        </div>
+        <div id="policyModalBody" class="text-xs text-gray-600 space-y-2.5 leading-relaxed"></div>
+        <div class="pt-2 text-right">
+            <button type="button" onclick="document.getElementById('policyModal').classList.add('hidden')" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-bold cursor-pointer">I Understand</button>
+        </div>
+    </div>
+</div>
+
+<div class="flex h-screen overflow-hidden">
+<!-- Sidebar -->
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform -translate-x-full md:translate-x-0 md:static transition-transform duration-300 ease-in-out flex flex-col justify-between overflow-y-auto">
+<div>
+<div class="p-5 border-b flex items-center space-x-3">
+<div class="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center font-bold text-white text-sm overflow-hidden"><img src="logo.jpg" alt="Logo" class="w-full h-full object-cover"></div>
+<div>
+<h2 class="font-bold text-gray-900 text-sm">AffiliateWealthHub</h2>
+<span class="text-xs text-gray-400 block font-bold uppercase">Partner Portal</span>
+</div>
+</div>
+
+<div class="py-4 px-3 space-y-1 text-xs font-semibold">
+<button type="button" onclick="switchTab('tab-dashboard', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 bg-blue-600 text-white rounded-lg transition text-left shadow-sm cursor-pointer">
+<span>📊 Dashboard</span>
+</button>
+<button type="button" onclick="switchTab('tab-offers', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
+<span>🎁 Offers</span>
+</button>
+<button type="button" onclick="switchTab('tab-clicks', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
+<span>🖱️ Click & Lead Reports</span>
+</button>
+<button type="button" onclick="switchTab('tab-earnings', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
+<span>💰 My Earnings</span>
+</button>
+<button type="button" onclick="switchTab('tab-payouts', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
+<span>💳 My Payouts</span>
+</button>
+<button type="button" onclick="switchTab('tab-referrals', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
+<span>🤝 Refer & Earn (10%)</span>
+</button>
+<button type="button" onclick="switchTab('tab-profile', this)" class="nav-link w-full flex items-center space-x-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition text-left cursor-pointer">
+<span>⚙️ Profile</span>
+</button>
+</div>
+</div>
+
+<div>
+<!-- Account Manager Card -->
+<div class="p-4 m-3 bg-gray-900 text-white rounded-xl text-xs space-y-2">
+<div class="flex items-center justify-between">
+<span class="font-bold text-blue-400 text-xs uppercase">Account Manager</span>
+<span class="h-2 w-2 rounded-full bg-green-500"></span>
+</div>
+<div>
+<p class="font-bold text-sm">Arun Rathore</p>
+<p class="text-gray-300 text-xs mt-0.5">📞 +91 9479532362</p>
+<p class="text-gray-400 text-xs truncate">✉️ arunrathor701@gmail.com</p>
+</div>
+<a href="https://wa.me/919479532362" target="_blank" class="w-full bg-green-600 hover:bg-green-700 text-white block text-center py-2 rounded-lg font-bold transition">
+💬 WhatsApp Support
+</a>
+</div>
+
+<div class="p-3 border-t">
+<button type="button" onclick="logout()" class="w-full px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition text-xs font-semibold text-left cursor-pointer">Exit / Logout</button>
+</div>
+</div>
+</aside>
+
+<!-- Main Content -->
+<div class="flex-1 flex flex-col overflow-y-auto">
+<header class="bg-white border-b px-6 md:px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+<div>
+<h1 class="text-lg font-bold text-gray-900">Partner Dashboard</h1>
+<p class="text-xs text-gray-500">Welcome back, <span class="pubNameDisplay font-semibold text-gray-800">Arun Rathore</span></p>
+</div>
+<div class="text-right">
+<span class="block text-xs text-gray-400 font-bold uppercase">Publisher ID</span>
+<span id="pubIdDisplay" class="font-bold text-gray-800 font-mono text-sm">662</span>
+</div>
+</header>
+
+<main class="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full flex-1">
+<div class="md:hidden flex items-center justify-between bg-white p-4 rounded-xl shadow-sm mb-4">
+  <span class="font-bold text-base">AffiliateWealthHub</span>
+  <button type="button" onclick="document.getElementById('sidebar').classList.toggle('-translate-x-full')" class="px-3 py-1.5 rounded bg-blue-600 text-white text-xs font-bold">
+    ☰ Menu
+  </button>
+</div>
+
+<!-- 1. DASHBOARD -->
+<div id="tab-dashboard" class="tab-content space-y-6">
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+<div class="bg-white p-5 rounded-xl border shadow-sm">
+<span class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Total Clicks</span>
+<div id="totalClicksDisplay" class="text-3xl font-black text-blue-600 mt-1">0</div>
+</div>
+<div class="bg-white p-5 rounded-xl border shadow-sm">
+<span class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Approved Leads</span>
+<div id="totalConvDisplay" class="text-3xl font-black text-green-600 mt-1">0</div>
+</div>
+<div class="bg-blue-600 text-white p-5 rounded-xl shadow-md">
+<span class="text-xs font-bold text-blue-200 uppercase tracking-wider block">Wallet Balance</span>
+<div id="walletBalance" class="text-3xl font-black mt-1">₹0</div>
+</div>
+</div>
+
+<div class="bg-white p-6 rounded-xl border shadow-sm">
+<h3 class="font-bold text-sm mb-4">Performance Overview</h3>
+<div class="h-64 w-full"><canvas id="perfChart"></canvas></div>
+</div>
+</div>
+
+<!-- 2. OFFERS (NEXAOFFERS STYLE) -->
+<div id="tab-offers" class="tab-content hidden space-y-5">
+    
+    <!-- A. ALL OFFERS LIST TABLE -->
+    <div id="offersListView" class="space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+                <h2 class="font-extrabold text-lg text-gray-900">Offers</h2>
+                <p class="text-xs text-gray-500">Browse active campaigns with instant tracking & payout details.</p>
+            </div>
+        </div>
+
+        <!-- Search & Filter Bar -->
+        <div class="bg-white p-4 rounded-xl border shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="w-full sm:w-80">
+                <label class="block text-[11px] font-bold text-gray-500 uppercase mb-1">Search</label>
+                <input type="text" id="offerSearchInput" onkeyup="filterOffersTable()" placeholder="Search by campaign name..." class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="w-full sm:w-48">
+                <label class="block text-[11px] font-bold text-gray-500 uppercase mb-1">Visibility</label>
+                <select id="offerVisibilityFilter" onchange="filterOffersTable()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                    <option value="all">All Visibility</option>
+                    <option value="public">Public</option>
+                    <option value="private">Private</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Offers Table -->
+        <div class="bg-white rounded-xl border shadow-sm overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="border-b bg-gray-50 text-gray-500 text-[11px] font-extrabold uppercase tracking-wider">
+                        <th class="p-4">Offer ID</th>
+                        <th class="p-4">Logo</th>
+                        <th class="p-4">Name</th>
+                        <th class="p-4">Offer Type</th>
+                        <th class="p-4">Payout</th>
+                        <th class="p-4">Offer Status</th>
+                        <th class="p-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="offersTableBody" class="divide-y divide-gray-100"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- B. SINGLE OFFER DETAILS VIEW -->
+    <div id="offerDetailView" class="hidden space-y-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="font-extrabold text-lg text-gray-900">Offer Details</h2>
+                <p class="text-xs text-gray-500">Full overview of the selected offer & custom tracking link generator.</p>
+            </div>
+            <button type="button" onclick="closeOfferDetails()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer">
+                ← Back to Offers
+            </button>
+        </div>
+
+        <!-- Main Detail Card -->
+        <div class="bg-white rounded-xl border shadow-sm p-6 space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-5">
+                <div class="flex items-center gap-4">
+                    <div id="detOfferLogo"></div>
+                    <div>
+                        <h3 id="detOfferName" class="text-lg font-extrabold text-gray-900">Campaign Name</h3>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="px-2 py-0.5 bg-green-100 text-green-700 rounded text-[11px] font-bold uppercase">Active</span>
+                            <span id="detOfferVisibility" class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[11px] font-bold capitalize">Public</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-left sm:text-right">
+                    <span class="text-[11px] text-gray-400 font-bold uppercase block">Default Payout</span>
+                    <span id="detOfferPayout" class="text-2xl font-black text-emerald-600">₹0</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="border rounded-xl p-4 bg-gray-50/60">
+                    <span class="text-[11px] font-bold text-gray-400 uppercase block">Offer ID</span>
+                    <span id="detOfferId" class="text-base font-extrabold text-gray-900 font-mono mt-1 block">#1</span>
+                </div>
+                <div class="border rounded-xl p-4 bg-gray-50/60">
+                    <span class="text-[11px] font-bold text-gray-400 uppercase block">Capping</span>
+                    <span id="detOfferCapping" class="text-base font-extrabold text-gray-900 mt-1 block">None</span>
+                </div>
+                <div class="border rounded-xl p-4 bg-gray-50/60">
+                    <span class="text-[11px] font-bold text-gray-400 uppercase block">Currency / Model</span>
+                    <span class="text-base font-extrabold text-gray-900 mt-1 block">INR (CPA / CPL)</span>
+                </div>
+            </div>
+
+            <div class="space-y-3 border-t pt-5">
+                <label class="block text-xs font-extrabold text-gray-700 uppercase">Tracking URL</label>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <input type="text" id="detTrackingUrl" readonly class="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3 py-2.5 text-xs font-mono text-blue-700 font-semibold outline-none">
+                    <button type="button" onclick="copyDetailTrackingUrl()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-xs font-bold shadow transition cursor-pointer whitespace-nowrap">
+                        📋 Copy Tracking Link
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sub-Affiliate 1 (sub1)</label>
+                        <input type="text" id="paramSub1" onkeyup="updateGeneratedTrackingLink()" placeholder="e.g. Atul" class="sub-param-input w-full border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sub-Affiliate 2 (sub2)</label>
+                        <input type="text" id="paramSub2" onkeyup="updateGeneratedTrackingLink()" placeholder="e.g. FB_Ads" class="sub-param-input w-full border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sub-Affiliate 3 (sub3)</label>
+                        <input type="text" id="paramSub3" onkeyup="updateGeneratedTrackingLink()" placeholder="e.g. TeamA" class="sub-param-input w-full border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Custom Click ID</label>
+                        <input type="text" id="paramClickId" onkeyup="updateGeneratedTrackingLink()" placeholder="Optional" class="sub-param-input w-full border rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-5 text-xs">
+                <div>
+                    <h4 class="font-extrabold text-gray-900 uppercase mb-1">Profit Details 💰</h4>
+                    <p id="detOfferGeo" class="text-gray-600 bg-gray-50 p-3 rounded-lg border">Available for all states (India)</p>
+                </div>
+                <div>
+                    <h4 class="font-extrabold text-gray-900 uppercase mb-1">Description & Validation Criteria</h4>
+                    <div id="detOfferDesc" class="text-gray-600 bg-gray-50 p-3 rounded-lg border whitespace-pre-line leading-relaxed"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+            <div class="p-4 border-b bg-gray-50">
+                <h4 class="font-extrabold text-sm text-gray-900">Events & Payout Structure</h4>
+            </div>
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="border-b text-gray-500 font-bold uppercase text-[11px]">
+                        <th class="p-4">Event ID</th>
+                        <th class="p-4">Event Name</th>
+                        <th class="p-4">Default Payout</th>
+                        <th class="p-4">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="detEventsTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 3. CLICKS & LEAD REPORTS -->
+<div id="tab-clicks" class="tab-content hidden space-y-6">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+<div>
+<h2 class="font-bold text-base text-gray-900">Clicks & Lead Reports</h2>
+<p class="text-xs text-gray-500">Track System Click ID, Custom Click ID, Sub1, Sub2, Sub3 & approval status.</p>
+</div>
+<div class="flex items-center gap-2">
+<input type="text" onkeyup="filterPartnerReports(this.value)" placeholder="Filter Sub1, Sub2, Click ID, Name..." class="border border-gray-300 rounded-lg px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500 bg-white w-48 sm:w-64">
+<button type="button" onclick="exportCSV('clicks_report.csv', cachedClicks)" class="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer whitespace-nowrap">
+📥 Export CSV
+</button>
+</div>
+</div>
+<div class="bg-white rounded-xl border overflow-x-auto">
+<table class="w-full text-left text-xs">
+<thead>
+<tr class="border-b bg-gray-50 text-gray-600 font-bold whitespace-nowrap">
+<th class="p-3">Date & Time</th>
+<th class="p-3">System Click ID</th>
+<th class="p-3">Custom Click ID</th>
+<th class="p-3">Offer</th>
+<th class="p-3">Sub 1</th>
+<th class="p-3">Sub 2</th>
+<th class="p-3">Sub 3</th>
+<th class="p-3">Customer Name</th>
+<th class="p-3">Mobile</th>
+<th class="p-3">PAN</th>
+<th class="p-3">Status</th>
+</tr>
+</thead>
+<tbody id="clicksTableBody"></tbody>
+</table>
+</div>
+</div>
+
+<!-- 4. MY EARNINGS -->
+<div id="tab-earnings" class="tab-content hidden space-y-4">
+<div class="bg-white p-6 rounded-xl border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+<div>
+<span class="text-xs font-semibold text-gray-400 block uppercase">Available Balance</span>
+<div id="totalEarnings" class="text-4xl font-black text-green-600 mt-1">₹0</div>
+</div>
+<button type="button" onclick="openPayoutModal()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow transition cursor-pointer">
+Request Payout
+</button>
+</div>
+</div>
+
+<!-- 5. MY PAYOUTS -->
+<div id="tab-payouts" class="tab-content hidden space-y-4">
+<div class="flex items-center justify-between">
+<h2 class="font-bold text-base text-gray-900">Payout History</h2>
+<div class="flex gap-2">
+<button type="button" onclick="openPayoutModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer">
++ Request Payout
+</button>
+<button type="button" onclick="exportCSV('payouts_report.csv', cachedPayouts)" class="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer">
+📥 Export CSV
+</button>
+</div>
+</div>
+<div class="bg-white rounded-xl border overflow-hidden">
+<table class="w-full text-left text-xs">
+<thead>
+<tr class="border-b bg-gray-50 text-gray-600 font-bold">
+<th class="p-3">Date</th>
+<th class="p-3">Amount</th>
+<th class="p-3">Method</th>
+<th class="p-3">Status</th>
+</tr>
+</thead>
+<tbody id="payoutsTableBody"></tbody>
+</table>
+</div>
+</div>
+
+<!-- 6. REFER & EARN (10% COMMISSION) -->
+<div id="tab-referrals" class="tab-content hidden space-y-6">
+    <div class="bg-gradient-to-r from-indigo-600 to-blue-600 text-white p-6 rounded-2xl shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+            <span class="bg-white/20 text-[11px] font-bold px-2.5 py-1 rounded-full uppercase">Lifetime Partner Program</span>
+            <h2 class="text-xl font-extrabold mt-2">Refer Friends & Earn 10% Commission</h2>
+            <p class="text-xs text-blue-100 mt-1">Jab bhi aapki team ka member koi lead approve karwayega, aapko turant 10% bonus aapke wallet mein milega!</p>
+        </div>
+        <div class="bg-white/10 p-4 rounded-xl text-right shrink-0">
+            <span class="text-[11px] text-blue-200 font-bold uppercase block">Total Referral Bonus</span>
+            <span id="refTotalEarnings" class="text-2xl font-black">₹0</span>
+        </div>
+    </div>
+
+    <!-- Personal Invite Link Box -->
+    <div class="bg-white p-6 rounded-xl border shadow-sm space-y-3">
+        <label class="block text-xs font-extrabold text-gray-700 uppercase">Your Personal Team Invite Link</label>
+        <div class="flex flex-col sm:flex-row gap-2">
+            <input type="text" id="myReferralLink" readonly class="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-3.5 py-2.5 text-xs font-mono font-bold text-indigo-700 outline-none">
+            <button type="button" onclick="copyReferralLink()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-lg text-xs font-bold shadow transition cursor-pointer whitespace-nowrap">
+                📋 Copy Invite Link
+            </button>
+        </div>
+    </div>
+
+    <!-- My Referred Team Table -->
+    <div class="bg-white rounded-xl border shadow-sm overflow-x-auto">
+        <div class="p-4 border-b bg-gray-50 flex justify-between items-center">
+            <h3 class="font-extrabold text-sm text-gray-900">My Referred Team (<span id="teamCountDisplay">0</span>)</h3>
+        </div>
+        <table class="w-full text-left text-xs">
+            <thead>
+                <tr class="border-b bg-gray-50 text-gray-500 font-bold uppercase text-[11px]">
+                    <th class="p-3.5">Joined Date</th>
+                    <th class="p-3.5">Member ID</th>
+                    <th class="p-3.5">Member Name</th>
+                    <th class="p-3.5">Status</th>
+                </tr>
+            </thead>
+            <tbody id="myTeamTableBody" class="divide-y"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- 7. PROFILE -->
+<div id="tab-profile" class="tab-content hidden max-w-xl">
+<div class="bg-white p-6 rounded-xl border space-y-4">
+<h2 class="font-bold text-base border-b pb-3 text-gray-900">Publisher Profile Details</h2>
+<form onsubmit="saveProfile(event)" class="space-y-4 text-xs">
+<div>
+<label class="block font-bold text-gray-500 mb-1 uppercase">Publisher ID</label>
+<input type="text" id="profilePubId" class="w-full border p-3 rounded-lg bg-gray-100 font-mono font-bold text-gray-600 cursor-not-allowed" readonly>
+</div>
+<div>
+<label class="block font-bold text-gray-500 mb-1 uppercase">Full Name</label>
+<input type="text" id="profileName" class="w-full border p-3 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 font-semibold" required>
+</div>
+<div>
+<label class="block font-bold text-gray-500 mb-1 uppercase">Email Address</label>
+<input type="email" id="profileEmail" class="w-full border p-3 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed" readonly>
+</div>
+<button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-full font-bold transition cursor-pointer">Update Name</button>
+</form>
+</div>
+</div>
+
+<!-- Legal & MIS Policy Footer -->
+<footer class="mt-10 pt-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-2 text-[11px] text-gray-500">
+    <div class="flex items-center gap-2">
+        <span class="bg-green-100 text-green-700 px-2 py-0.5 rounded font-bold">✓ MSME & GST Registered</span>
+        <span>© 2026 AffiliateWealthHub Network</span>
+    </div>
+    <div class="flex items-center gap-4 font-semibold text-gray-600">
+        <button type="button" onclick="openPolicyModal('terms')" class="hover:text-blue-600 underline cursor-pointer">Terms</button>
+        <button type="button" onclick="openPolicyModal('mis')" class="hover:text-blue-600 underline cursor-pointer">MIS & Payout Policy</button>
+        <button type="button" onclick="openPolicyModal('privacy')" class="hover:text-blue-600 underline cursor-pointer">Privacy</button>
+    </div>
+</footer>
+</main>
+</div>
+</div>
+
+<script>
+window.openPolicyModal = function(type) {
+    const titleEl = document.getElementById('policyModalTitle');
+    const bodyEl = document.getElementById('policyModalBody');
+    if (type === 'mis') {
+        titleEl.innerText = "MIS Lead Validation & Payout Policy";
+        bodyEl.innerHTML = `
+            <p><strong>1. MIS-Based Validation:</strong> All financial, Demat, and EMI card leads are validated strictly against the official Advertiser / Client MIS Report.</p>
+            <p><strong>2. Approval Timeline:</strong> Tracking clicks appear in real time, while final conversion approval takes 7 to 30 working days depending on the advertiser's validation cycle.</p>
+            <p><strong>3. Payout Release:</strong> Wallet balance becomes eligible for withdrawal (Minimum ₹100) only after official MIS confirmation.</p>
+            <p><strong>4. Zero Tolerance for Fraud:</strong> Self-referrals, fake KYC documents, duplicate leads, or unauthorized incentivized traffic will result in immediate lead rejection and account suspension.</p>
+        `;
+    } else if (type === 'privacy') {
+        titleEl.innerText = "Privacy Policy";
+        bodyEl.innerHTML = `
+            <p><strong>1. Data Collection:</strong> We collect publisher details (Name, Mobile Number, Email, and Bank/UPI details) solely for account management, lead attribution, and payout processing.</p>
+            <p><strong>2. Data Security:</strong> Your personal and banking information is securely stored and never sold or shared with unauthorized third parties.</p>
+        `;
+    } else {
+        titleEl.innerText = "Publisher Terms & Conditions";
+        bodyEl.innerHTML = `
+            <p><strong>1. Compliance:</strong> Publishers must follow all campaign-specific KPIs and traffic guidelines listed on the Offer Details page.</p>
+            <p><strong>2. Brand Bidding:</strong> Running search ads on brand keywords without written approval is strictly prohibited.</p>
+            <p><strong>3. Governing Jurisdiction:</strong> Operated by AffiliateWealthHub (Sole Proprietorship, Gwalior, Madhya Pradesh, India).</p>
+        `;
+    }
+    document.getElementById('policyModal').classList.remove('hidden');
+};
+</script>
 </body>
 </html>
