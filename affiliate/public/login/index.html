@@ -4,11 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Partner Login - AffiliateWealthHub</title>
+    <link rel="icon" type="image/jpeg" href="./logo.jpg" sizes="48x48">
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
@@ -39,57 +40,53 @@
             document.getElementById('errorDiv').classList.add('hidden');
         }
 
-        function isValidIndianPhone(val) {
-            const cleaned = val.replace(/^\+91/, '').replace(/\s+/g, '');
-            return /^[6-9]\d{9}$/.test(cleaned);
+        function cleanTenDigitPhone(val) {
+            return String(val || '').replace(/^\+91/, '').replace(/\D/g, '');
         }
 
-        // Check if user typed Email during Registration -> require separate Mobile Number box
-        window.checkUnifiedInputType = () => {
-            const val = document.getElementById('loginIdentifier').value.trim();
-            const extraPhoneDiv = document.getElementById('extraMobileForEmailReg');
-            const extraPhoneInput = document.getElementById('extraRegMobile');
-
-            if (isRegisterMode && val.includes('@')) {
-                extraPhoneDiv.classList.remove('hidden');
-                extraPhoneInput.required = true;
-            } else {
-                extraPhoneDiv.classList.add('hidden');
-                extraPhoneInput.required = false;
-            }
-        };
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedRef = new URLSearchParams(window.location.search).get('ref') || localStorage.getItem('awh_ref') || "";
-            const refInput = document.getElementById('signupRefInput');
-            if (savedRef && refInput) refInput.value = savedRef;
-        });
+        function isValidIndianPhone(val) {
+            return /^[6-9]\d{9}$/.test(cleanTenDigitPhone(val));
+        }
 
         window.toggleMode = () => {
             hideError();
             isRegisterMode = !isRegisterMode;
-            const nameField = document.getElementById('nameField');
-            const nameInput = document.getElementById('fullName');
-            const refField = document.getElementById('refFieldContainer');
 
-            nameField.classList.toggle('hidden', !isRegisterMode);
-            nameInput.required = isRegisterMode;
-            refField.classList.toggle('hidden', !isRegisterMode);
+            // Login vs Register fields toggle
+            document.getElementById('loginInputGroup').classList.toggle('hidden', isRegisterMode);
+            document.getElementById('loginIdentifier').required = !isRegisterMode;
+
+            document.getElementById('registerInputGroup').classList.toggle('hidden', !isRegisterMode);
+            document.getElementById('fullName').required = isRegisterMode;
+            document.getElementById('regPhone').required = isRegisterMode;
+            document.getElementById('regEmail').required = isRegisterMode;
 
             document.getElementById('formTitle').innerText = isRegisterMode ? "Create Affiliate Account" : "Welcome back";
             document.getElementById('formSubtitle').innerText = isRegisterMode
-                ? "Register using your Mobile Number or Email to start earning."
+                ? "Enter your Mobile Number and Email Address to register."
                 : "Sign in using your Mobile Number or Email Address.";
             document.getElementById('submitBtn').innerText = isRegisterMode ? "Create Account" : "Sign In";
             document.getElementById('toggleText').innerHTML = isRegisterMode
                 ? `Already have an account? <button type="button" onclick="toggleMode()" class="font-bold text-blue-600 hover:text-blue-500 cursor-pointer">Sign In</button>`
                 : `Don't have an account? <button type="button" onclick="toggleMode()" class="font-bold text-blue-600 hover:text-blue-500 cursor-pointer">Create Affiliate Account</button>`;
-
-            window.checkUnifiedInputType();
         };
 
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const savedRef = params.get('ref') || localStorage.getItem('awh_ref') || "";
+            const refInput = document.getElementById('signupRefInput');
+            if (savedRef && refInput) refInput.value = savedRef;
+
+            if (params.has('register') || params.get('mode') === 'register') {
+                window.toggleMode();
+            }
+        });
+
         window.forgotPassword = async () => {
-            const val = document.getElementById('loginIdentifier').value.trim();
+            const val = isRegisterMode
+                ? document.getElementById('regEmail').value.trim()
+                : document.getElementById('loginIdentifier').value.trim();
+
             if (!val || !val.includes('@')) {
                 alert("Password reset link sirf Email Address par bheja ja sakta hai. Kripya upar box mein apna registered Email dalein, ya Mobile password reset ke liye Account Manager se WhatsApp par sampark karein.");
                 return;
@@ -106,42 +103,44 @@
             e.preventDefault();
             hideError();
 
-            const rawInput = document.getElementById('loginIdentifier').value.trim();
             const password = document.getElementById('password').value;
-            const fullName = document.getElementById('fullName').value.trim();
             const btn = document.getElementById('submitBtn');
-
-            let authEmail = "";
-            let phoneFormatted = "";
-            let realEmail = "";
-
-            if (isValidIndianPhone(rawInput)) {
-                const cleanTenDigit = rawInput.replace(/^\+91/, '').replace(/\s+/g, '');
-                authEmail = `${cleanTenDigit}@awh.in`;
-                phoneFormatted = `+91${cleanTenDigit}`;
-            } else if (rawInput.includes('@') && rawInput.includes('.')) {
-                authEmail = rawInput.toLowerCase();
-                realEmail = authEmail;
-
-                if (isRegisterMode) {
-                    const extraMob = document.getElementById('extraRegMobile').value.trim();
-                    if (!isValidIndianPhone(extraMob)) {
-                        showError("Kripya sahi 10-digit Indian mobile number dalein (Mandatory).");
-                        return;
-                    }
-                    phoneFormatted = `+91${extraMob.replace(/^\+91/, '').replace(/\s+/g, '')}`;
-                }
-            } else {
-                showError("Kripya sahi 10-digit Mobile Number ya Email Address dalein.");
-                return;
-            }
 
             btn.disabled = true;
             btn.innerText = isRegisterMode ? "Creating Account..." : "Signing In...";
 
             try {
                 if (isRegisterMode) {
-                    const cred = await createUserWithEmailAndPassword(auth, authEmail, password);
+                    const fullName = document.getElementById('fullName').value.trim();
+                    const rawPhone = document.getElementById('regPhone').value.trim();
+                    const rawEmail = document.getElementById('regEmail').value.trim().toLowerCase();
+
+                    if (!isValidIndianPhone(rawPhone)) {
+                        showError("Kripya sahi 10-digit Indian mobile number dalein (Mandatory).");
+                        btn.disabled = false;
+                        btn.innerText = "Create Account";
+                        return;
+                    }
+                    if (!rawEmail.includes('@') || !rawEmail.includes('.')) {
+                        showError("Kripya sahi Email Address dalein (Mandatory).");
+                        btn.disabled = false;
+                        btn.innerText = "Create Account";
+                        return;
+                    }
+
+                    const tenDigit = cleanTenDigitPhone(rawPhone);
+                    const phoneFormatted = `+91${tenDigit}`;
+
+                    // Check if mobile number is already registered
+                    const phoneSnap = await getDocs(query(collection(db, "users"), where("phone", "in", [phoneFormatted, tenDigit])));
+                    if (!phoneSnap.empty) {
+                        showError("Yeh Mobile Number pehle se registered hai. Sign In karein.");
+                        btn.disabled = false;
+                        btn.innerText = "Create Account";
+                        return;
+                    }
+
+                    const cred = await createUserWithEmailAndPassword(auth, rawEmail, password);
                     const newPubId = Math.floor(100 + Math.random() * 899);
 
                     const manualRef = document.getElementById('signupRefInput')?.value.trim();
@@ -151,7 +150,7 @@
                     const userData = {
                         uid: cred.user.uid,
                         name: fullName || ("Partner #" + newPubId),
-                        email: realEmail,
+                        email: rawEmail,
                         phone: phoneFormatted,
                         role: "publisher",
                         publisherId: newPubId,
@@ -164,14 +163,49 @@
                     await setDoc(doc(db, "users", cred.user.uid), userData);
                     localStorage.setItem("awh_user", JSON.stringify(userData));
                     window.location.href = "/affiliate/public/dashboard/index.html";
+
                 } else {
-                    const cred = await signInWithEmailAndPassword(auth, authEmail, password);
+                    const identifier = document.getElementById('loginIdentifier').value.trim();
+                    let authEmailToTry = "";
+                    let fallbackLegacyEmail = "";
+
+                    if (identifier.includes('@')) {
+                        authEmailToTry = identifier.toLowerCase();
+                    } else if (isValidIndianPhone(identifier)) {
+                        const tenDigit = cleanTenDigitPhone(identifier);
+                        const phoneFormatted = `+91${tenDigit}`;
+                        fallbackLegacyEmail = `${tenDigit}@awh.in`;
+
+                        const phoneSnap = await getDocs(query(collection(db, "users"), where("phone", "in", [phoneFormatted, tenDigit])));
+                        if (!phoneSnap.empty && phoneSnap.docs[0].data().email) {
+                            authEmailToTry = phoneSnap.docs[0].data().email;
+                        } else {
+                            authEmailToTry = fallbackLegacyEmail;
+                        }
+                    } else {
+                        showError("Kripya sahi 10-digit Mobile Number ya Email Address dalein.");
+                        btn.disabled = false;
+                        btn.innerText = "Sign In";
+                        return;
+                    }
+
+                    let cred;
+                    try {
+                        cred = await signInWithEmailAndPassword(auth, authEmailToTry, password);
+                    } catch (firstErr) {
+                        if (fallbackLegacyEmail && authEmailToTry !== fallbackLegacyEmail) {
+                            cred = await signInWithEmailAndPassword(auth, fallbackLegacyEmail, password);
+                        } else {
+                            throw firstErr;
+                        }
+                    }
+
                     const userDoc = await getDoc(doc(db, "users", cred.user.uid));
                     const userData = userDoc.exists() ? userDoc.data() : { name: "Publisher", role: "publisher", publisherId: "662" };
                     const sessionData = {
                         uid: cred.user.uid,
-                        email: userData.email || realEmail,
-                        phone: userData.phone || phoneFormatted,
+                        email: userData.email || authEmailToTry,
+                        phone: userData.phone || "",
                         name: userData.name,
                         role: userData.role || "publisher",
                         publisherId: userData.publisherId || "662"
@@ -186,7 +220,7 @@
                 }
             } catch (err) {
                 let msg = err.message.replace("Firebase: ", "")
-                    .replace(/email-already-in-use/g, "Yeh Mobile Number ya Email pehle se registered hai. Sign In karein.")
+                    .replace(/email-already-in-use/g, "Yeh Email Address pehle se registered hai. Sign In karein.")
                     .replace(/invalid-credential|user-not-found|wrong-password/g, "Galat Mobile Number/Email ya Password.");
                 showError(msg);
                 btn.disabled = false;
@@ -254,34 +288,41 @@
                 <form class="space-y-4" onsubmit="handleAuth(event)">
                     <div id="errorDiv" class="hidden p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs font-semibold"></div>
 
-                    <div id="nameField" class="hidden">
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Full Name <span class="text-red-500">*</span></label>
-                        <input id="fullName" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter your full name">
-                    </div>
-
-                    <!-- Single Unified Mobile Number OR Email Field -->
-                    <div>
+                    <!-- SIGN IN INPUT (Single Box for Mobile OR Email) -->
+                    <div id="loginInputGroup">
                         <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Mobile Number or Email Address <span class="text-red-500">*</span></label>
-                        <input id="loginIdentifier" type="text" required onkeyup="checkUnifiedInputType()" onchange="checkUnifiedInputType()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter 10-digit mobile or email">
+                        <input id="loginIdentifier" type="text" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter 10-digit mobile or email">
                     </div>
 
-                    <!-- Mandatory Mobile Number Field (Only appears if registering via Email) -->
-                    <div id="extraMobileForEmailReg" class="hidden">
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Mobile Number (+91) <span class="text-red-500">*</span></label>
-                        <div class="flex gap-2">
-                            <span class="bg-slate-100 border border-slate-300 rounded-lg px-3.5 py-3 text-sm font-bold text-slate-700 flex items-center">+91</span>
-                            <input id="extraRegMobile" type="tel" maxlength="10" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter 10-digit mobile number">
+                    <!-- REGISTER INPUTS (Separate Name, Mobile Number & Email Address) -->
+                    <div id="registerInputGroup" class="hidden space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Full Name <span class="text-red-500">*</span></label>
+                            <input id="fullName" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter your full name">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Mobile Number (+91) <span class="text-red-500">*</span></label>
+                            <div class="flex gap-2">
+                                <span class="bg-slate-100 border border-slate-300 rounded-lg px-3.5 py-3 text-sm font-bold text-slate-700 flex items-center">+91</span>
+                                <input id="regPhone" type="tel" maxlength="10" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter 10-digit mobile number">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Email Address <span class="text-red-500">*</span></label>
+                            <input id="regEmail" type="email" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm font-semibold text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter your email address">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Referral ID (Optional)</label>
+                            <input id="signupRefInput" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm font-mono font-bold text-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="e.g. 662">
                         </div>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Password (Min 6 characters) <span class="text-red-500">*</span></label>
                         <input id="password" type="password" required minlength="6" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="Enter password">
-                    </div>
-
-                    <div id="refFieldContainer" class="hidden">
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">Referral ID (Optional)</label>
-                        <input id="signupRefInput" type="text" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-4 py-3 text-sm font-mono font-bold text-indigo-700 focus:outline-none focus:ring-2 focus:ring-blue-600" placeholder="e.g. 662">
                     </div>
 
                     <div class="flex items-center justify-between text-sm">
