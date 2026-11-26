@@ -89,20 +89,36 @@ if (!savedUser) {
     window.loadAllData();
 }
 
-// 1. Add / Update Offer (NexaOffers Style Fields)
+// 1. Add / Update Offer (With 1-3 Multi-Step Events & KPIs)
 document.getElementById('offerForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const oid = document.getElementById('offerId').value.trim();
     const name = document.getElementById('offerName').value.trim();
     const category = document.getElementById('offerCat').value.trim();
-    const payout = Number(document.getElementById('offerPayout').value);
     const targetUrl = document.getElementById('offerUrl').value.trim();
     const logoUrl = document.getElementById('offerLogo').value.trim();
     const visibility = document.getElementById('offerVisibility').value;
     const capping = document.getElementById('offerCapping').value.trim() || "None";
     const geo = document.getElementById('offerGeo').value.trim() || "Available for all states (India)";
     const offerStatus = document.getElementById('offerStatus').value;
+    const kpiRules = document.getElementById('offerKpi').value.trim();
     const desc = document.getElementById('offerDesc').value.trim();
+
+    // Multi-step events
+    const step1Name = document.getElementById('step1Name').value.trim() || "Account Open / KYC";
+    const step1Payout = Number(document.getElementById('step1Payout').value || 0);
+    const step2Name = document.getElementById('step2Name').value.trim();
+    const step2Payout = Number(document.getElementById('step2Payout').value || 0);
+    const step3Name = document.getElementById('step3Name').value.trim();
+    const step3Payout = Number(document.getElementById('step3Payout').value || 0);
+
+    const events = [];
+    if (step1Name) events.push({ id: "EVT_01", name: step1Name, payout: step1Payout });
+    if (step2Name && step2Payout > 0) events.push({ id: "EVT_02", name: step2Name, payout: step2Payout });
+    if (step3Name && step3Payout > 0) events.push({ id: "EVT_03", name: step3Name, payout: step3Payout });
+
+    const totalPayout = events.reduce((sum, ev) => sum + Number(ev.payout || 0), 0);
+    const fullDescription = kpiRules ? `📌 KPI & Traffic Rules:\n${kpiRules}\n\n📝 Campaign Details:\n${desc}` : desc;
 
     if (!oid) return;
 
@@ -110,8 +126,11 @@ document.getElementById('offerForm').addEventListener('submit', async (e) => {
         await setDoc(doc(db, "offers", oid), {
             offerId: oid,
             name: name,
-            category: category || "FINANCIAL",
-            payout: payout,
+            category: category || "DEMAT / FINANCE",
+            payout: totalPayout,
+            events: events,
+            kpiRules: kpiRules,
+            rawDesc: desc,
             targetUrl: targetUrl,
             url: targetUrl,
             logoUrl: logoUrl,
@@ -119,12 +138,12 @@ document.getElementById('offerForm').addEventListener('submit', async (e) => {
             capping: capping,
             geo: geo,
             offerStatus: offerStatus,
-            description: desc,
+            description: fullDescription,
             status: offerStatus === "approved" ? "active" : "paused",
             updatedAt: new Date().toISOString()
         }, { merge: true });
 
-        showToast(`Campaign #${oid} (${name}) saved successfully`);
+        showToast(`Campaign #${oid} (${name}) saved with ₹${totalPayout} total payout`);
         window.resetOfferForm();
         loadOffers();
     } catch (err) {
@@ -153,12 +172,16 @@ async function loadOffers() {
         const isLive = (o.offerStatus || 'approved').toLowerCase() === 'approved';
         const vis = (o.visibility || 'public').toLowerCase();
 
+        const stepsSummary = (Array.isArray(o.events) && o.events.length > 0)
+            ? o.events.map(ev => `${ev.name}: ₹${ev.payout}`).join(' | ')
+            : `Total: ₹${o.payout || 0}`;
+
         tbody.innerHTML += `
             <tr class="border-b border-slate-100 hover:bg-slate-50/80 transition text-xs">
                 <td class="p-4 font-mono font-bold text-indigo-600 whitespace-nowrap">#${oid}</td>
                 <td class="p-4">
                     <div class="font-bold text-slate-900">${o.name || 'Campaign'}</div>
-                    <div class="text-[11px] text-slate-400 mt-0.5">${o.category || 'FINANCIAL'}</div>
+                    <div class="text-[11px] text-indigo-600 font-semibold mt-0.5">${stepsSummary}</div>
                     <div class="text-[10px] font-mono text-slate-400 truncate max-w-xs">${o.targetUrl || o.url || ''}</div>
                 </td>
                 <td class="p-4">${logoHtml}</td>
@@ -193,15 +216,23 @@ window.editOffer = (oid) => {
     document.getElementById('offerId').value = oid;
     document.getElementById('offerId').readOnly = true;
     document.getElementById('offerName').value = o.name || '';
-    document.getElementById('offerCat').value = o.category || 'FINANCIAL';
-    document.getElementById('offerPayout').value = o.payout || '';
+    document.getElementById('offerCat').value = o.category || 'DEMAT / FINANCE';
     document.getElementById('offerUrl').value = o.targetUrl || o.url || '';
     document.getElementById('offerLogo').value = o.logoUrl || '';
     document.getElementById('offerVisibility').value = o.visibility || 'public';
     document.getElementById('offerCapping').value = o.capping || 'None';
     document.getElementById('offerGeo').value = o.geo || 'Available for all states (India)';
     document.getElementById('offerStatus').value = o.offerStatus || 'approved';
-    document.getElementById('offerDesc').value = o.description || '';
+    document.getElementById('offerKpi').value = o.kpiRules || '';
+    document.getElementById('offerDesc').value = o.rawDesc || o.description || '';
+
+    const evs = Array.isArray(o.events) ? o.events : [];
+    document.getElementById('step1Name').value = evs[0]?.name || 'Account Open / KYC';
+    document.getElementById('step1Payout').value = evs[0]?.payout ?? (o.payout || '');
+    document.getElementById('step2Name').value = evs[1]?.name || '';
+    document.getElementById('step2Payout').value = evs[1]?.payout ?? '';
+    document.getElementById('step3Name').value = evs[2]?.name || '';
+    document.getElementById('step3Payout').value = evs[2]?.payout ?? '';
 
     document.getElementById('sec-offers').scrollIntoView({ behavior: 'smooth' });
 };
@@ -225,7 +256,7 @@ window.deleteOffer = async (oid) => {
     }
 };
 
-// 2. Payout Requests (Structured Bank + UPI + Mobile View)
+// 2. Payout Requests
 async function loadPayouts() {
     const tbody = document.getElementById('payoutsAdminTable');
     tbody.innerHTML = "<tr><td colspan='6' class='p-8 text-center text-slate-400 text-xs'>Fetching withdrawal requests...</td></tr>";
@@ -240,7 +271,6 @@ async function loadPayouts() {
         rawPayouts.push({ id: docSnap.id, ...docSnap.data() });
     });
 
-    // Latest withdrawal requests on top
     rawPayouts.sort((a, b) => new Date(b.requestedAt || 0) - new Date(a.requestedAt || 0));
 
     rawPayouts.forEach((p) => {
@@ -310,7 +340,7 @@ window.approvePayout = async (payoutDocId, uid, pubId, amount) => {
     }
 };
 
-// 3. Clicks & Leads (With Approve, Reject + Remark, Sub1, Sub2, Sub3, Custom Click ID & Auto 10% Referral Bonus)
+// 3. Clicks & Leads (Multi-Step Approve + Reject)
 async function loadClicks() {
     const tbody = document.getElementById('clicksTable');
     tbody.innerHTML = `<tr><td colspan="11" class="p-8 text-center text-slate-400 text-xs">Loading tracking logs...</td></tr>`;
@@ -326,6 +356,7 @@ async function loadClicks() {
         const statusLower = (c.status || 'recorded').toLowerCase();
         const isApproved = statusLower === "approved";
         const isRejected = statusLower === "rejected";
+        const isPartial = statusLower.includes("step");
         if (!isApproved && !isRejected) pendingLeads++;
 
         const custInfo = (c.customerName || c.customerPhone || c.customerPan)
@@ -337,7 +368,7 @@ async function loadClicks() {
         const dateStr = c.createdAt 
             ? new Date(c.createdAt.seconds ? c.createdAt.seconds * 1000 : c.createdAt).toLocaleString('en-IN', {
                 day: '2-digit', month: 'short', year: 'numeric',
-                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
+                hour: '2-digit', minute: '2-digit', hour12: true
               })
             : '-';
 
@@ -346,18 +377,35 @@ async function loadClicks() {
 
         let badgeClass = 'bg-amber-500 text-white';
         if (isApproved) badgeClass = 'bg-emerald-500 text-white';
+        else if (isPartial) badgeClass = 'bg-blue-600 text-white';
         if (isRejected) badgeClass = 'bg-red-500 text-white';
+
+        const offerObj = allOffersMap[String(c.offerId)] || {};
+        const offerEvents = Array.isArray(offerObj.events) && offerObj.events.length > 0
+            ? offerObj.events
+            : [{ id: "EVT_01", name: "Approve Full", payout: offerObj.payout || 400 }];
+
+        const approvedSteps = Array.isArray(c.approvedSteps) ? c.approvedSteps : [];
 
         let actionHtml = '';
         if (isApproved) {
-            actionHtml = `<span class="text-emerald-600 text-xs font-bold">✓ Approved</span>`;
+            actionHtml = `<span class="text-emerald-600 text-xs font-bold">✓ Full Approved (₹${c.payoutCredited || offerObj.payout || 0})</span>`;
         } else if (isRejected) {
             actionHtml = `<div><span class="text-red-600 text-xs font-bold">✕ Rejected</span>${c.remark ? `<div class="text-[10px] text-slate-500 max-w-[140px] truncate" title="${c.remark}">Note: ${c.remark}</div>` : ''}</div>`;
         } else {
+            const stepBtns = offerEvents.map((ev, idx) => {
+                const alreadyDone = approvedSteps.includes(ev.id);
+                const isFinalStep = (idx === offerEvents.length - 1);
+                if (alreadyDone) {
+                    return `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-[10px] font-bold">✓ ${ev.name}</span>`;
+                }
+                return `<button type="button" onclick="approveLeadStep('${docSnap.id}', '${c.publisherId || ''}', '${ev.id}', '${ev.name.replace(/'/g, "\\'")}', ${Number(ev.payout || 0)}, ${isFinalStep})" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer">+ ${ev.name} (₹${ev.payout})</button>`;
+            }).join(' ');
+
             actionHtml = `
-                <div class="flex items-center gap-1.5">
-                    <button type="button" onclick="approveClick('${docSnap.id}', '${c.offerId || '1'}', '${c.publisherId || ''}')" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer">Approve</button>
-                    <button type="button" onclick="rejectClick('${docSnap.id}', '${c.publisherId || ''}')" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-md text-xs font-bold transition cursor-pointer">Reject</button>
+                <div class="flex flex-wrap items-center gap-1">
+                    ${stepBtns}
+                    <button type="button" onclick="rejectClick('${docSnap.id}', '${c.publisherId || ''}')" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer">Reject</button>
                 </div>
             `;
         }
@@ -377,6 +425,7 @@ async function loadClicks() {
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${badgeClass} uppercase">
                         ${(c.status || 'recorded').toUpperCase()}
                     </span>
+                    ${c.payoutCredited ? `<div class="text-[10px] font-bold text-emerald-700 mt-0.5">Paid: ₹${c.payoutCredited}</div>` : ''}
                 </td>
                 <td class="p-4">${actionHtml}</td>
             </tr>
@@ -394,21 +443,31 @@ window.filterLeadsTable = function(term) {
     });
 };
 
-window.approveClick = async (clickDocId, offerId, publisherId) => {
-    if (!confirm(`Approve lead ${clickDocId} and credit payout to Publisher #${publisherId}?`)) return;
+window.approveLeadStep = async (clickDocId, publisherId, eventId, eventName, stepPayout, isFinalStep) => {
+    if (!confirm(`Approve "${eventName}" (₹${stepPayout}) for Publisher #${publisherId}?`)) return;
     try {
-        const offerSnap = await getDoc(doc(db, "offers", String(offerId)));
-        const payout = offerSnap.exists() ? Number(offerSnap.data().payout) : 400;
+        const clickRef = doc(db, "clicks", clickDocId);
+        const clickSnap = await getDoc(clickRef);
+        const existingSteps = (clickSnap.exists() && Array.isArray(clickSnap.data().approvedSteps)) ? clickSnap.data().approvedSteps : [];
+        if (existingSteps.includes(eventId)) {
+            showToast("Yeh step pehle hi approve ho chuka hai!", true);
+            return;
+        }
 
-        await updateDoc(doc(db, "clicks", clickDocId), {
-            status: "approved",
-            payoutCredited: payout,
+        const updatedSteps = [...existingSteps, eventId];
+        const newStatus = isFinalStep ? "approved" : `step_${updatedSteps.length}_done`;
+
+        await updateDoc(clickRef, {
+            status: newStatus,
+            approvedSteps: updatedSteps,
+            lastApprovedStep: eventName,
+            payoutCredited: increment(stepPayout),
             approvedAt: new Date().toISOString()
         });
 
-        let toastMsg = `Lead Approved! ₹${payout} credited to #${publisherId}`;
+        let toastMsg = `${eventName} Approved! ₹${stepPayout} credited to #${publisherId}`;
 
-        if (publisherId) {
+        if (publisherId && stepPayout > 0) {
             let uQuery = query(collection(db, "users"), where("publisherId", "==", Number(publisherId)));
             let uSnap = await getDocs(uQuery);
             if (uSnap.empty) {
@@ -419,11 +478,11 @@ window.approveClick = async (clickDocId, offerId, publisherId) => {
             if (!uSnap.empty) {
                 const pubDoc = uSnap.docs[0];
                 const pubData = pubDoc.data();
-                await updateDoc(doc(db, "users", pubDoc.id), { balance: increment(payout) });
+                await updateDoc(doc(db, "users", pubDoc.id), { balance: increment(stepPayout) });
 
                 const uplinePubId = pubData.referredBy;
                 if (uplinePubId) {
-                    const refCommission = Math.round(payout * 0.10);
+                    const refCommission = Math.round(stepPayout * 0.10);
                     if (refCommission > 0) {
                         let upQuery = query(collection(db, "users"), where("publisherId", "==", Number(uplinePubId)));
                         let upSnap = await getDocs(upQuery);
@@ -431,13 +490,12 @@ window.approveClick = async (clickDocId, offerId, publisherId) => {
                             upQuery = query(collection(db, "users"), where("publisherId", "==", String(uplinePubId)));
                             upSnap = await getDocs(upQuery);
                         }
-
                         if (!upSnap.empty) {
                             await updateDoc(doc(db, "users", upSnap.docs[0].id), {
                                 balance: increment(refCommission),
                                 referralEarnings: increment(refCommission)
                             });
-                            toastMsg += ` + ₹${refCommission} (10% Ref Bonus) to #${uplinePubId}`;
+                            toastMsg += ` + ₹${refCommission} (10% Ref)`;
                         }
                     }
                 }
@@ -536,7 +594,7 @@ async function loadPublishers() {
     const badge = document.getElementById('totalRefMembersBadge');
     if (badge) badge.innerText = `${refCount} Referred Users`;
     if (refTbody && refCount === 0) {
-        refTbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400 text-xs">No referral signups recorded yet. Publishers can share their invite link from their dashboard, or you can assign a referrer using "Set Ref" in the Publishers table below.</td></tr>`;
+        refTbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400 text-xs">No referral signups recorded yet.</td></tr>`;
     }
 }
 
@@ -756,7 +814,7 @@ window.logout = () => {
 <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
 <div>
 <h2 id="offerFormHeading" class="text-sm font-extrabold text-slate-900">➕ Create / Update Campaign</h2>
-<p class="text-xs text-slate-500">Manage live CPA/CPL offers, payouts, visibility, and validation criteria</p>
+<p class="text-xs text-slate-500">Set multi-step payouts (e.g. Account Open ₹20 + First Trade ₹300) and KPI rules</p>
 </div>
 <button type="button" id="cancelOfferEditBtn" onclick="resetOfferForm()" class="hidden text-xs font-bold text-red-600 hover:underline cursor-pointer">Cancel Edit</button>
 </div>
@@ -768,12 +826,35 @@ window.logout = () => {
 </div>
 <div>
 <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Campaign Name *</label>
-<input type="text" id="offerName" required placeholder="e.g. ICICI MF CPA - Nov26" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition">
+<input type="text" id="offerName" required placeholder="e.g. Angel One Demat CPA" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition">
 </div>
 <div>
-<label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Publisher Payout (₹) *</label>
-<input type="number" id="offerPayout" required placeholder="e.g. 600" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-bold outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition">
+<label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Category</label>
+<input type="text" id="offerCat" required value="DEMAT / FINANCE" placeholder="e.g. DEMAT / MUTUAL FUND" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition">
 </div>
+
+<!-- Multi-Step Payout Structure (1 to 3 Steps) -->
+<div class="sm:col-span-2 lg:col-span-3 bg-blue-50/70 border border-blue-200/80 rounded-xl p-4 space-y-3">
+    <div class="text-xs font-extrabold text-blue-900 uppercase">💰 Multi-Step Payout Events (Set Step 1, Step 2 & Optional Step 3)</div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="bg-white p-3 rounded-lg border border-blue-100 space-y-2">
+            <span class="text-[10px] font-bold text-blue-600 uppercase">Step 1 (Mandatory) *</span>
+            <input type="text" id="step1Name" value="Account Open / KYC" placeholder="Event Name (e.g. Account Open)" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold" required>
+            <input type="number" id="step1Payout" placeholder="Payout ₹ (e.g. 20)" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-emerald-700" required>
+        </div>
+        <div class="bg-white p-3 rounded-lg border border-blue-100 space-y-2">
+            <span class="text-[10px] font-bold text-indigo-600 uppercase">Step 2 (Optional)</span>
+            <input type="text" id="step2Name" value="First Trade Complete" placeholder="Event Name (e.g. First Trade)" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold">
+            <input type="number" id="step2Payout" placeholder="Payout ₹ (e.g. 300)" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-emerald-700">
+        </div>
+        <div class="bg-white p-3 rounded-lg border border-blue-100 space-y-2">
+            <span class="text-[10px] font-bold text-purple-600 uppercase">Step 3 (Optional)</span>
+            <input type="text" id="step3Name" placeholder="Event Name (e.g. 2nd Trade / Hold)" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold">
+            <input type="number" id="step3Payout" placeholder="Payout ₹ (Optional)" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-emerald-700">
+        </div>
+    </div>
+</div>
+
 <div class="sm:col-span-2">
 <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Advertiser Tracking URL *</label>
 <input type="url" id="offerUrl" required placeholder="https://..." class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-mono outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition">
@@ -781,10 +862,6 @@ window.logout = () => {
 <div>
 <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Logo Image URL (Optional)</label>
 <input type="url" id="offerLogo" placeholder="https://.../logo.png" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition">
-</div>
-<div>
-<label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Category</label>
-<input type="text" id="offerCat" required value="DEMAT / FINANCE" placeholder="e.g. DEMAT / MUTUAL FUND" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition">
 </div>
 <div>
 <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Visibility (Offer Type)</label>
@@ -797,10 +874,6 @@ window.logout = () => {
 <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Daily Capping</label>
 <input type="text" id="offerCapping" value="None" placeholder="e.g. None or 50/day" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition">
 </div>
-<div class="sm:col-span-2">
-<label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Profit Details 💰</label>
-<input type="text" id="offerGeo" value="Available for all states (India)" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition">
-</div>
 <div>
 <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Offer Status</label>
 <select id="offerStatus" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-bold outline-none focus:border-blue-600">
@@ -809,8 +882,16 @@ window.logout = () => {
 </select>
 </div>
 <div class="sm:col-span-2 lg:col-span-3">
-<label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Description & Validation Criteria (KPIs)</label>
-<textarea id="offerDesc" rows="3" required placeholder="Enter campaign validation rules, KPIs, hold period..." class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition"></textarea>
+<label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Profit Details 💰</label>
+<input type="text" id="offerGeo" value="Available for all states (India)" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition">
+</div>
+<div class="sm:col-span-2 lg:col-span-3">
+<label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">KPI & Traffic Rules (Mandatory Conditions) *</label>
+<textarea id="offerKpi" rows="2" placeholder="e.g. Min ₹100 NSE Cash Trade mandatory within 7 days. Allowed: WhatsApp, Telecalling, YouTube. Prohibited: Fake/Incentive/Duplicate leads." class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition"></textarea>
+</div>
+<div class="sm:col-span-2 lg:col-span-3">
+<label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Campaign Description & Step Flow *</label>
+<textarea id="offerDesc" rows="2" required placeholder="e.g. 1. Click link -> 2. Complete Aadhaar/PAN KYC (₹20) -> 3. Complete First Trade (₹300)." class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition"></textarea>
 </div>
 <div class="sm:col-span-2 lg:col-span-3 flex justify-end">
 <button type="submit" id="saveOfferSubmitBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm shadow-sm transition cursor-pointer">+ Save Campaign</button>
@@ -823,10 +904,10 @@ window.logout = () => {
 <thead class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200/80 sticky top-0">
 <tr>
 <th class="p-4">Offer ID</th>
-<th class="p-4">Name & URL</th>
+<th class="p-4">Name & Steps</th>
 <th class="p-4">Logo</th>
 <th class="p-4">Type</th>
-<th class="p-4">Payout</th>
+<th class="p-4">Total Payout</th>
 <th class="p-4">Status</th>
 <th class="p-4 text-right">Actions</th>
 </tr>
@@ -842,7 +923,7 @@ window.logout = () => {
 <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap justify-between items-center gap-3 bg-slate-50/50">
 <div>
 <h2 class="text-sm font-extrabold text-slate-900">Leads & Click Conversions</h2>
-<p class="text-xs text-slate-500">Verify leads with Sub1, Sub2, Sub3, Custom Click ID & credit 10% referral bonus</p>
+<p class="text-xs text-slate-500">Approve leads step-by-step (e.g. Account Open ₹20, First Trade ₹300) & auto-credit 10% referral bonus</p>
 </div>
 <div class="flex items-center gap-2">
 <input type="text" onkeyup="filterLeadsTable(this.value)" placeholder="Search Pub ID, Sub1, Sub2, Click ID..." class="text-xs bg-white border border-slate-300 rounded-xl px-3.5 py-2 outline-none focus:border-blue-600 w-48 sm:w-64">
@@ -863,7 +944,7 @@ window.logout = () => {
 <th class="p-4">Sub 3</th>
 <th class="p-4">Customer Details</th>
 <th class="p-4">Status</th>
-<th class="p-4">Action</th>
+<th class="p-4">Step Action</th>
 </tr>
 </thead>
 <tbody id="clicksTable"></tbody>
