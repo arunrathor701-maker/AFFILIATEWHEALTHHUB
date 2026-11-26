@@ -225,7 +225,7 @@ window.deleteOffer = async (oid) => {
     }
 };
 
-// 2. Payout Requests
+// 2. Payout Requests (Structured Bank + UPI + Mobile View)
 async function loadPayouts() {
     const tbody = document.getElementById('payoutsAdminTable');
     tbody.innerHTML = "<tr><td colspan='6' class='p-8 text-center text-slate-400 text-xs'>Fetching withdrawal requests...</td></tr>";
@@ -235,13 +235,29 @@ async function loadPayouts() {
     let pendingCount = 0;
     let totalPaidAmount = 0;
 
+    const rawPayouts = [];
     snap.forEach((docSnap) => {
-        const p = docSnap.data();
-        loadedPayoutsList.push({ id: docSnap.id, ...p });
+        rawPayouts.push({ id: docSnap.id, ...docSnap.data() });
+    });
+
+    // Latest withdrawal requests on top
+    rawPayouts.sort((a, b) => new Date(b.requestedAt || 0) - new Date(a.requestedAt || 0));
+
+    rawPayouts.forEach((p) => {
+        loadedPayoutsList.push(p);
         const isPaid = (p.status || '').toLowerCase() === 'paid';
         if (!isPaid) pendingCount++;
         else totalPaidAmount += Number(p.amount || 0);
         const dStr = p.requestedAt ? new Date(p.requestedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+
+        const hasStructuredData = p.holderName || p.upiId || p.accountNumber;
+        const payoutDetailsHtml = hasStructuredData
+            ? `
+                ${p.holderName ? `<div class="font-bold text-slate-900">${p.holderName} ${p.mobile ? `<span class="text-slate-500 font-mono font-normal">(${p.mobile})</span>` : ''}</div>` : ''}
+                ${p.upiId ? `<div class="font-mono text-indigo-700 font-bold">UPI: ${p.upiId}</div>` : ''}
+                ${p.accountNumber ? `<div class="font-mono text-slate-700">A/C: <span class="font-bold text-slate-900">${p.accountNumber}</span> | IFSC: <span class="font-bold text-slate-900">${p.ifscCode || '-'}</span></div>` : ''}
+              `
+            : `<div class="font-mono">${p.method || 'N/A'}</div>`;
 
         tbody.innerHTML += `
             <tr class="border-b border-slate-100 hover:bg-slate-50/80 text-xs transition">
@@ -251,7 +267,7 @@ async function loadPayouts() {
                     <span class="font-semibold text-slate-800">${p.publisherName || 'User'}</span>
                 </td>
                 <td class="p-4 whitespace-nowrap font-extrabold text-slate-900 text-sm">₹${p.amount || 0}</td>
-                <td class="p-4 font-mono text-slate-700 bg-slate-50/50">${p.method || 'N/A'}</td>
+                <td class="p-4 text-xs text-slate-700 bg-slate-50/50 space-y-0.5">${payoutDetailsHtml}</td>
                 <td class="p-4 whitespace-nowrap">
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${isPaid ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">
                         <span class="w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-amber-500'}"></span>
@@ -259,7 +275,7 @@ async function loadPayouts() {
                     </span>
                 </td>
                 <td class="p-4 whitespace-nowrap">
-                    ${!isPaid ? `<button type="button" onclick="approvePayout('${docSnap.id}', '${p.uid || ''}', '${p.publisherId || ''}', ${Number(p.amount || 0)})" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-xl font-semibold shadow-sm transition cursor-pointer">Mark Paid</button>` : '<span class="text-slate-400 font-semibold">✓ Settled</span>'}
+                    ${!isPaid ? `<button type="button" onclick="approvePayout('${p.id}', '${p.uid || ''}', '${p.publisherId || ''}', ${Number(p.amount || 0)})" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-xl font-semibold shadow-sm transition cursor-pointer">Mark Paid</button>` : '<span class="text-slate-400 font-semibold">✓ Settled</span>'}
                 </td>
             </tr>
         `;
@@ -437,7 +453,7 @@ window.approveClick = async (clickDocId, offerId, publisherId) => {
 
 window.rejectClick = async (clickDocId, publisherId) => {
     const remark = prompt(`Reject lead ${clickDocId} for Publisher #${publisherId}?\nEnter Rejection Remark / Reason (Optional):`);
-    if (remark === null) return; // User clicked Cancel
+    if (remark === null) return;
 
     try {
         await updateDoc(doc(db, "clicks", clickDocId), {
@@ -601,9 +617,21 @@ window.exportLeadsCSV = () => {
 
 window.exportPayoutsCSV = () => {
     if (!loadedPayoutsList.length) { showToast("No payouts data to export!", true); return; }
-    const headers = ["Request Date", "Publisher ID", "Publisher Name", "Amount (INR)", "UPI / Bank Details", "Status", "Paid Date"];
+    const headers = ["Request Date", "Publisher ID", "Publisher Name", "Account Holder", "Mobile", "UPI ID", "Account Number", "IFSC Code", "Amount (INR)", "Status", "Paid Date"];
     const rows = loadedPayoutsList.map(p => {
-        return [escapeCSV(p.requestedAt ? new Date(p.requestedAt).toLocaleString('en-IN') : '-'), escapeCSV(p.publisherId || ''), escapeCSV(p.publisherName || 'User'), escapeCSV(p.amount || 0), escapeCSV(p.method || ''), escapeCSV((p.status || 'PENDING').toUpperCase()), escapeCSV(p.paidAt ? new Date(p.paidAt).toLocaleString('en-IN') : '-')].join(",");
+        return [
+            escapeCSV(p.requestedAt ? new Date(p.requestedAt).toLocaleString('en-IN') : '-'),
+            escapeCSV(p.publisherId || ''),
+            escapeCSV(p.publisherName || 'User'),
+            escapeCSV(p.holderName || p.publisherName || '-'),
+            escapeCSV(p.mobile || '-'),
+            escapeCSV(p.upiId || '-'),
+            escapeCSV(p.accountNumber || '-'),
+            escapeCSV(p.ifscCode || '-'),
+            escapeCSV(p.amount || 0),
+            escapeCSV((p.status || 'PENDING').toUpperCase()),
+            escapeCSV(p.paidAt ? new Date(p.paidAt).toLocaleString('en-IN') : '-')
+        ].join(",");
     });
     downloadCSVFile([headers.join(","), ...rows].join("\n"), `AWH_Payouts_Report_${new Date().toISOString().slice(0, 10)}.csv`);
     showToast("Payouts CSV Report Downloaded");
@@ -862,7 +890,7 @@ window.logout = () => {
 <th class="p-4">Date</th>
 <th class="p-4">Publisher</th>
 <th class="p-4">Amount</th>
-<th class="p-4">UPI / Bank Details</th>
+<th class="p-4">Bank / UPI Payout Details</th>
 <th class="p-4">Status</th>
 <th class="p-4">Action</th>
 </tr>
