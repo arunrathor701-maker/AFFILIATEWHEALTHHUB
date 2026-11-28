@@ -158,32 +158,11 @@ footer{border-color:var(--awh-line)!important;color:#8490a5!important;padding-bo
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}}
 </style>
-const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbybYbgB8mkWOOawgwfdEhigvB1iZXcigSLQsVKN1QjW0Mz3Q2yHoDAFFvY8zf_uFA1Jjg/exec";
 
-async function uploadToGoogleSheetAndDrive(payload, fileObj) {
-    if (fileObj) {
-        const base64 = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result.split(',')[1]);
-            reader.onerror = reject;
-            reader.readAsDataURL(fileObj);
-        });
-        payload.fileBase64 = base64;
-        payload.fileName = `${Date.now()}_${fileObj.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-        payload.mimeType = fileObj.type;
-    }
-
-    const res = await fetch(GOOGLE_SCRIPT_URL, {
-        method: "POST",
-        body: JSON.stringify(payload)
-    });
-    return await res.json();
-}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getFirestore, doc, collection, getDocs, query, where, updateDoc, addDoc, onSnapshot, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDO06SrF0Y15lFcFhXwJIyDbGFsTuxoswY",
@@ -194,10 +173,11 @@ const firebaseConfig = {
     appId: "1:1088047960863:web:bd7fe0e8e0404fdf9bb562a"
 };
 
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbybYbgB8mkWOOawgwfdEhigvB1iZXcigSLQsVKN1QjW0Mz3Q2yHoDAFFvY8zf_uFA1Jjg/exec";
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
 let currentUser = null;
 try {
@@ -218,6 +198,26 @@ function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 }
 function escapeAttr(value) { return escapeHtml(value); }
+
+async function uploadToGoogleSheetAndDrive(payload, fileObj) {
+    if (fileObj) {
+        const base64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(fileObj);
+        });
+        payload.fileBase64 = base64;
+        payload.fileName = `${Date.now()}_${fileObj.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        payload.mimeType = fileObj.type;
+    }
+
+    const res = await fetch(GOOGLE_SCRIPT_URL, {
+        method: "POST",
+        body: JSON.stringify(payload)
+    });
+    return await res.json();
+}
 
 function safeSetText(id, text) {
     const el = document.getElementById(id);
@@ -822,15 +822,27 @@ window.submitLeadProof = async (e) => {
     const consent = document.getElementById("leadConsent")?.checked;
     if (!consent) { showToast("Customer data share karne ki permission confirm karein.", true); return; }
 
-    if (button) { button.disabled = true; button.dataset.originalText = button.innerText; button.innerText = "Uploading proof..."; }
+    if (button) { button.disabled = true; button.dataset.originalText = button.innerText; button.innerText = "Uploading to Sheet..."; }
     try {
         const offer = allOffersMap[offerId] || {};
+        const gsRes = await uploadToGoogleSheetAndDrive({
+            type: "lead_proof",
+            publisherId: String(currentUser.publisherId || "662"),
+            publisherName: currentUser.name || "Publisher",
+            campaignName: offer.name || `Campaign #${offerId}`,
+            clickId: clickId,
+            customerName: customerName,
+            customerPhone: customerPhone,
+            notes: notes
+        }, file);
+
+        if (gsRes.status !== "success") {
+            throw new Error(gsRes.message || "Google Sheet upload failed");
+        }
+
+        const proofUrl = gsRes.fileUrl || "";
         const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 100);
-        const uniqueId = (globalThis.crypto?.randomUUID?.() || `${Date.now()}_${Math.random().toString(36).slice(2)}`);
-        const filePath = `leadProofs/${currentUser.uid}/${uniqueId}_${safeFileName}`;
-        const fileRef = storageRef(storage, filePath);
-        await uploadBytes(fileRef, file, { contentType: file.type, customMetadata: { publisherUid: currentUser.uid, offerId: offerId } });
-        const proofUrl = await getDownloadURL(fileRef);
+
         await addDoc(collection(db, "leadSubmissions"), {
             publisherUid: currentUser.uid,
             publisherId: String(currentUser.publisherId || "662"),
@@ -842,7 +854,6 @@ window.submitLeadProof = async (e) => {
             customerPhone: customerPhone,
             sub1: sub1, sub2: sub2, sub3: sub3,
             publisherNotes: notes,
-            proofPath: filePath,
             proofUrl: proofUrl,
             proofFileName: safeFileName,
             proofContentType: file.type,
@@ -853,7 +864,7 @@ window.submitLeadProof = async (e) => {
             updatedAt: serverTimestamp()
         });
         form.reset();
-        showToast("Lead aur proof successfully submit ho gaye. Verification pending hai.");
+        showToast("Lead aur proof successfully Google Sheet mein submit ho gaye!");
     } catch (err) {
         console.error("Lead proof submission failed:", err);
         showToast("Lead submit nahi hui: " + (err.message || "Unknown error"), true);
