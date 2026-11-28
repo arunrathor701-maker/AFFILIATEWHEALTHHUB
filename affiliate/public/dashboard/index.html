@@ -162,7 +162,8 @@ footer{border-color:var(--awh-line)!important;color:#8490a5!important;padding-bo
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, doc, collection, getDocs, query, where, updateDoc, addDoc, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, doc, collection, getDocs, query, where, updateDoc, addDoc, onSnapshot, runTransaction, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDO06SrF0Y15lFcFhXwJIyDbGFsTuxoswY",
@@ -176,6 +177,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 let currentUser = null;
 try {
@@ -191,6 +193,11 @@ let cachedPayouts = [];
 let allOffersMap = {};
 let activeOfferId = null;
 let myChart = null;
+
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+}
+function escapeAttr(value) { return escapeHtml(value); }
 
 function safeSetText(id, text) {
     const el = document.getElementById(id);
@@ -373,6 +380,21 @@ function setupRealtimeListeners() {
         updateChart(totalClicks, approvedCount);
     });
 
+    // Publisher-owned lead submissions: live status/proof history.
+    const leadSubmissionsQuery = query(collection(db, "leadSubmissions"), where("publisherUid", "==", currentUser.uid));
+    onSnapshot(leadSubmissionsQuery, (snapshot) => {
+        const rows = [];
+        snapshot.forEach((leadDoc) => {
+            const lead = leadDoc.data();
+            const status = String(lead.status || "submitted").toLowerCase();
+            const tone = status === "approved" ? "bg-green-100 text-green-800" : status === "rejected" ? "bg-red-100 text-red-800" : status === "proof_required" ? "bg-orange-100 text-orange-800" : "bg-blue-100 text-blue-800";
+            const date = lead.createdAt?.toDate ? lead.createdAt.toDate().toLocaleString("en-IN") : (lead.createdAt ? new Date(lead.createdAt).toLocaleString("en-IN") : "Just now");
+            rows.push(`<tr class="border-b border-gray-100"><td class="p-3 text-xs">${escapeHtml(date)}</td><td class="p-3 text-xs font-semibold">${escapeHtml(lead.campaignName || lead.offerId || "-")}</td><td class="p-3 text-xs font-mono">${escapeHtml(lead.clickId || "-")}</td><td class="p-3 text-xs"><span class="px-2 py-1 rounded ${tone}">${escapeHtml(status.replaceAll("_", " "))}</span>${lead.adminRemark ? `<div class="mt-1 text-[10px] text-gray-500">${escapeHtml(lead.adminRemark)}</div>` : ""}</td><td class="p-3 text-xs">${lead.proofUrl ? `<a class="text-blue-600 underline font-semibold" href="${escapeAttr(lead.proofUrl)}" target="_blank" rel="noopener">View proof</a>` : "-"}</td></tr>`);
+        });
+        const body = document.getElementById("myLeadSubmissionsBody");
+        if (body) body.innerHTML = rows.join("") || `<tr><td colspan="5" class="p-6 text-center text-xs text-gray-400">Abhi koi lead proof submit nahi hua.</td></tr>`;
+    }, (err) => { console.error("Lead submissions listener:", err); });
+
     const payoutsQuery = query(collection(db, "payouts"), where("publisherId", "==", pubId));
     onSnapshot(payoutsQuery, (snapshot) => {
         const rows = [];
@@ -471,6 +493,13 @@ async function loadOffers() {
             const o = docSnap.data();
             const oid = docSnap.id;
             allOffersMap[oid] = { id: oid, ...o };
+            const leadOfferSelect = document.getElementById("leadOfferId");
+            if (leadOfferSelect) {
+                const opt = document.createElement("option");
+                opt.value = oid;
+                opt.textContent = `${o.name || "Campaign"} (#${oid})`;
+                leadOfferSelect.appendChild(opt);
+            }
 
             const logoHtml = o.logoUrl 
                 ? `<img src="${o.logoUrl}" alt="${o.name}" class="w-10 h-10 rounded-xl object-contain border border-gray-200 bg-white p-1 shadow-sm">`
@@ -725,6 +754,74 @@ window.submitPayoutRequest = async (e) => {
     }
 };
 
+window.submitLeadProof = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const button = form.querySelector('button[type="submit"]');
+    if (button?.disabled) return;
+    const offerId = document.getElementById("leadOfferId")?.value || "";
+    const clickId = document.getElementById("leadClickId")?.value.trim() || "";
+    const customerName = document.getElementById("leadCustomerName")?.value.trim() || "";
+    const customerPhone = document.getElementById("leadCustomerPhone")?.value.trim() || "";
+    const sub1 = document.getElementById("leadSub1")?.value.trim() || "";
+    const sub2 = document.getElementById("leadSub2")?.value.trim() || "";
+    const sub3 = document.getElementById("leadSub3")?.value.trim() || "";
+    const notes = document.getElementById("leadNotes")?.value.trim() || "";
+    const file = document.getElementById("leadProofFile")?.files?.[0];
+    if (!offerId || !customerName || !customerPhone || !file) {
+        showToast("Campaign, customer name, mobile aur proof file required hain.", true); return;
+    }
+    if (!/^[0-9+()\-\s]{8,16}$/.test(customerPhone)) {
+        showToast("Valid customer mobile number dalein.", true); return;
+    }
+    const allowed = ["image/jpeg", "image/png", "application/pdf"];
+    if (!allowed.includes(file.type) || file.size > 5 * 1024 * 1024) {
+        showToast("Sirf JPG, PNG ya PDF (maximum 5 MB) upload karein.", true); return;
+    }
+    if (!currentUser?.uid) { showToast("Session expire. Dobara login karein.", true); return; }
+    const consent = document.getElementById("leadConsent")?.checked;
+    if (!consent) { showToast("Customer data share karne ki permission confirm karein.", true); return; }
+
+    if (button) { button.disabled = true; button.dataset.originalText = button.innerText; button.innerText = "Uploading proof..."; }
+    try {
+        const offer = allOffersMap[offerId] || {};
+        const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 100);
+        const uniqueId = (globalThis.crypto?.randomUUID?.() || `${Date.now()}_${Math.random().toString(36).slice(2)}`);
+        const filePath = `leadProofs/${currentUser.uid}/${uniqueId}_${safeFileName}`;
+        const fileRef = storageRef(storage, filePath);
+        await uploadBytes(fileRef, file, { contentType: file.type, customMetadata: { publisherUid: currentUser.uid, offerId: offerId } });
+        const proofUrl = await getDownloadURL(fileRef);
+        await addDoc(collection(db, "leadSubmissions"), {
+            publisherUid: currentUser.uid,
+            publisherId: String(currentUser.publisherId || "662"),
+            publisherName: currentUser.name || "Publisher",
+            offerId: offerId,
+            campaignName: offer.name || `Campaign #${offerId}`,
+            clickId: clickId,
+            customerName: customerName,
+            customerPhone: customerPhone,
+            sub1: sub1, sub2: sub2, sub3: sub3,
+            publisherNotes: notes,
+            proofPath: filePath,
+            proofUrl: proofUrl,
+            proofFileName: safeFileName,
+            proofContentType: file.type,
+            proofSize: file.size,
+            status: "submitted",
+            adminRemark: "",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        });
+        form.reset();
+        showToast("Lead aur proof successfully submit ho gaye. Verification pending hai.");
+    } catch (err) {
+        console.error("Lead proof submission failed:", err);
+        showToast("Lead submit nahi hui: " + (err.message || "Unknown error"), true);
+    } finally {
+        if (button) { button.disabled = false; button.innerText = button.dataset.originalText || "Submit Lead & Proof"; }
+    }
+};
+
 window.saveProfile = async (e) => {
     e.preventDefault();
     const nameInput = document.getElementById('profileName');
@@ -868,6 +965,10 @@ document.addEventListener('DOMContentLoaded', initDashboard);
 <button type="button" onclick="switchTab('tab-clicks', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
 <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
 <span>Conversion Reports</span>
+</button>
+<button type="button" onclick="switchTab('tab-lead-submit', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
+<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h6l5 5v11a2 2 0 01-2 2z"></path></svg>
+<span>Submit Lead Proof</span>
 </button>
 <button type="button" onclick="switchTab('tab-earnings', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
 <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
@@ -1164,6 +1265,31 @@ Export CSV
 <tbody id="clicksTableBody"></tbody>
 </table>
 </div>
+</div>
+
+<!-- Publisher lead data + proof submission -->
+<div id="tab-lead-submit" class="tab-content hidden space-y-6">
+  <div class="bg-white p-5 sm:p-6 rounded-2xl border border-gray-200 shadow-sm space-y-2">
+    <h2 class="font-extrabold text-lg text-gray-900">Submit Lead & Verification Proof</h2>
+    <p class="text-xs text-gray-500">Campaign ke liye customer details aur JPG/PNG/PDF proof submit karein. Status yahin real-time update hoga.</p>
+    <form id="leadSubmissionForm" onsubmit="submitLeadProof(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3">
+      <label class="text-xs font-bold text-gray-700">Campaign <select id="leadOfferId" required class="mt-1 w-full border rounded-lg p-3"><option value="">Select campaign</option></select></label>
+      <label class="text-xs font-bold text-gray-700">System / Custom Click ID (if available) <input id="leadClickId" class="mt-1 w-full border rounded-lg p-3" maxlength="100" placeholder="Click ID"></label>
+      <label class="text-xs font-bold text-gray-700">Customer name <input id="leadCustomerName" required maxlength="100" class="mt-1 w-full border rounded-lg p-3" placeholder="Customer full name"></label>
+      <label class="text-xs font-bold text-gray-700">Customer mobile <input id="leadCustomerPhone" required maxlength="16" inputmode="tel" class="mt-1 w-full border rounded-lg p-3" placeholder="Mobile number"></label>
+      <label class="text-xs font-bold text-gray-700">Sub ID 1 <input id="leadSub1" maxlength="100" class="mt-1 w-full border rounded-lg p-3" placeholder="Optional"></label>
+      <label class="text-xs font-bold text-gray-700">Sub ID 2 <input id="leadSub2" maxlength="100" class="mt-1 w-full border rounded-lg p-3" placeholder="Optional"></label>
+      <label class="text-xs font-bold text-gray-700">Sub ID 3 <input id="leadSub3" maxlength="100" class="mt-1 w-full border rounded-lg p-3" placeholder="Optional"></label>
+      <label class="text-xs font-bold text-gray-700">Proof screenshot / PDF <input id="leadProofFile" type="file" required accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf" class="mt-1 w-full border rounded-lg p-2.5"><span class="block text-[10px] text-gray-400 mt-1">JPG, PNG or PDF • Max 5 MB</span></label>
+      <label class="text-xs font-bold text-gray-700 md:col-span-2">Additional details / advertiser requirement <textarea id="leadNotes" maxlength="1000" rows="3" class="mt-1 w-full border rounded-lg p-3" placeholder="Required campaign-specific details (avoid unnecessary sensitive data)"></textarea></label>
+      <label class="md:col-span-2 flex items-start gap-2 text-[11px] text-gray-600"><input id="leadConsent" type="checkbox" required class="mt-0.5"><span>I confirm that I have the customer's permission to share these details and proof for this campaign's verification. I will not upload passwords, OTPs, full card details or unrelated identity documents.</span></label>
+      <div class="md:col-span-2 flex flex-wrap items-center justify-between gap-3"><p class="text-[10px] text-gray-500">Lead status starts as <b>Submitted</b>. Approval/rejection and admin remarks will appear below.</p><button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl text-xs font-bold">Submit Lead & Proof</button></div>
+    </form>
+  </div>
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-x-auto">
+    <div class="p-4 border-b border-gray-100"><h3 class="font-extrabold text-sm">My Submitted Leads</h3></div>
+    <table class="w-full text-left"><thead><tr class="bg-gray-50 text-[10px] uppercase text-gray-500"><th class="p-3">Submitted</th><th class="p-3">Campaign</th><th class="p-3">Click ID</th><th class="p-3">Status / Admin Remark</th><th class="p-3">Proof</th></tr></thead><tbody id="myLeadSubmissionsBody"><tr><td colspan="5" class="p-5 text-center text-xs text-gray-400">Loading submissions...</td></tr></tbody></table>
+  </div>
 </div>
 
 <!-- 4. MY EARNINGS -->
