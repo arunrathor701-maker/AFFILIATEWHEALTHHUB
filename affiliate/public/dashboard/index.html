@@ -65,7 +65,7 @@ main>.bg-gradient-to-r button{color:#c7e5ff!important}
 #tab-dashboard>.grid>div:nth-child(3)>div[id]{color:#6953cb!important}
 #tab-dashboard>.grid>div:nth-child(4)>div[id]{color:#fff!important}
 #tab-dashboard>.grid>div>button{position:relative;z-index:1;background:rgba(255,255,255,.17)!important;border:1px solid rgba(255,255,255,.16);padding:7px 11px!important;border-radius:8px!important}
-#tab-dashboard>.bg-white,#tab-offers .bg-white,#tab-clicks .bg-white,#tab-earnings .bg-white,#tab-payouts .bg-white,#tab-referrals .bg-white,#tab-profile .bg-white,#offerDetailView>.bg-white{background:#fff!important;border:1px solid var(--awh-line)!important;border-radius:17px!important;box-shadow:var(--awh-shadow)!important}
+#tab-dashboard>.bg-white,#tab-offers .bg-white,#tab-clicks .bg-white,#tab-lead-submit .bg-white,#tab-earnings .bg-white,#tab-payouts .bg-white,#tab-referrals .bg-white,#tab-profile .bg-white,#offerDetailView>.bg-white{background:#fff!important;border:1px solid var(--awh-line)!important;border-radius:17px!important;box-shadow:var(--awh-shadow)!important}
 #tab-dashboard>.bg-white{padding:22px!important}
 #tab-dashboard>.bg-white h3{font-size:14px!important}
 #tab-dashboard canvas{max-width:100%}
@@ -126,7 +126,7 @@ footer{border-color:var(--awh-line)!important;color:#8490a5!important;padding-bo
   #tab-dashboard .h-64{height:215px!important}
   .tab-content h2{font-size:17px!important}
   .tab-content .bg-white{border-radius:14px!important}
-  #tab-offers .overflow-x-auto,#tab-clicks .overflow-x-auto,#tab-payouts .overflow-x-auto,#tab-referrals .overflow-x-auto{max-width:calc(100vw - 30px)}
+  #tab-offers .overflow-x-auto,#tab-clicks .overflow-x-auto,#tab-lead-submit .overflow-x-auto,#tab-payouts .overflow-x-auto,#tab-referrals .overflow-x-auto{max-width:calc(100vw - 30px)}
   #tab-clicks>.flex{align-items:stretch}
   #tab-clicks>.flex>.flex{width:100%;flex-wrap:wrap}
   #tab-clicks input[placeholder]{width:100%!important;min-width:0}
@@ -344,23 +344,23 @@ function setupRealtimeListeners() {
             });
 
             const remarkHtml = (isRejected && data.remark)
-                ? `<div class="text-[10px] text-red-600 font-semibold mt-0.5 max-w-[140px] truncate" title="${data.remark}">${data.remark}</div>`
-                : ((isApproved || isPartial) && data.lastApprovedStep ? `<div class="text-[10px] text-green-700 font-semibold mt-0.5">✓ ${data.lastApprovedStep} (₹${data.payoutCredited || 0})</div>` : '');
+                ? `<div class="text-[10px] text-red-600 font-semibold mt-0.5 max-w-[140px] truncate" title="${escapeAttr(data.remark)}">${escapeHtml(data.remark)}</div>`
+                : ((isApproved || isPartial) && data.lastApprovedStep ? `<div class="text-[10px] text-green-700 font-semibold mt-0.5">✓ ${escapeHtml(data.lastApprovedStep)} (₹${data.payoutCredited || 0})</div>` : '');
 
             clicksListHtml.push(`
                 <tr class="border-b border-gray-100 hover:bg-gray-50 whitespace-nowrap report-row transition">
                     <td class="p-3.5 text-xs text-gray-600">${dateStr}</td>
-                    <td class="p-3.5 text-xs font-mono text-gray-500">${sysClickId}</td>
-                    <td class="p-3.5 text-xs font-mono text-indigo-600 font-semibold">${custClickId}</td>
-                    <td class="p-3.5 text-xs font-bold text-gray-900">Offer #${data.offerId || '1'}</td>
-                    <td class="p-3.5 text-xs font-mono font-bold text-blue-600">${s1}</td>
-                    <td class="p-3.5 text-xs font-mono text-gray-700">${s2}</td>
-                    <td class="p-3.5 text-xs font-mono text-gray-700">${s3}</td>
-                    <td class="p-3.5 text-xs font-semibold text-gray-800">${data.customerName || '-'}</td>
-                    <td class="p-3.5 text-xs font-mono text-gray-600">${data.customerPhone || '-'}</td>
-                    <td class="p-3.5 text-xs font-mono uppercase text-indigo-600">${data.customerPan || '-'}</td>
+                    <td class="p-3.5 text-xs font-mono text-gray-500">${escapeHtml(sysClickId)}</td>
+                    <td class="p-3.5 text-xs font-mono text-indigo-600 font-semibold">${escapeHtml(custClickId)}</td>
+                    <td class="p-3.5 text-xs font-bold text-gray-900">Offer #${escapeHtml(data.offerId || '1')}</td>
+                    <td class="p-3.5 text-xs font-mono font-bold text-blue-600">${escapeHtml(s1)}</td>
+                    <td class="p-3.5 text-xs font-mono text-gray-700">${escapeHtml(s2)}</td>
+                    <td class="p-3.5 text-xs font-mono text-gray-700">${escapeHtml(s3)}</td>
+                    <td class="p-3.5 text-xs font-semibold text-gray-800">${escapeHtml(data.customerName || '-')}</td>
+                    <td class="p-3.5 text-xs font-mono text-gray-600">${escapeHtml(data.customerPhone || '-')}</td>
+                    <td class="p-3.5 text-xs font-mono uppercase text-indigo-600">${escapeHtml(data.customerPan || '-')}</td>
                     <td class="p-3.5 text-xs">
-                        <span class="px-2.5 py-1 ${badgeClass} rounded-md text-[10px] font-bold uppercase tracking-wide">${data.status || 'Recorded'}</span>
+                        <span class="px-2.5 py-1 ${badgeClass} rounded-md text-[10px] font-bold uppercase tracking-wide">${escapeHtml(data.status || 'Recorded')}</span>
                         ${remarkHtml}
                     </td>
                 </tr>
@@ -395,28 +395,46 @@ function setupRealtimeListeners() {
         if (body) body.innerHTML = rows.join("") || `<tr><td colspan="5" class="p-6 text-center text-xs text-gray-400">Abhi koi lead proof submit nahi hua.</td></tr>`;
     }, (err) => { console.error("Lead submissions listener:", err); });
 
+    // Payouts History with UTR, Payment Proof Receipt & Rejection Reason
     const payoutsQuery = query(collection(db, "payouts"), where("publisherId", "==", pubId));
     onSnapshot(payoutsQuery, (snapshot) => {
         const rows = [];
         cachedPayouts = [];
-        snapshot.forEach(docSnap => {
-            const p = docSnap.data();
+        const rawPayouts = [];
+        snapshot.forEach(docSnap => rawPayouts.push(docSnap.data()));
+        rawPayouts.sort((a, b) => new Date(b.requestedAt || 0) - new Date(a.requestedAt || 0));
+
+        rawPayouts.forEach(p => {
             const dStr = p.requestedAt ? new Date(p.requestedAt).toLocaleDateString('en-IN') : 'N/A';
-            const stColor = p.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
+            const st = (p.status || 'pending').toLowerCase();
+            let stColor = 'bg-yellow-100 text-yellow-800';
+            if (st === 'paid') stColor = 'bg-green-100 text-green-800';
+            else if (st === 'rejected') stColor = 'bg-red-100 text-red-800';
 
             cachedPayouts.push({
                 Date: dStr,
                 Amount: p.amount || 0,
                 Method: p.method || 'N/A',
+                UTR: p.utrNumber || '-',
                 Status: p.status || 'Pending'
             });
 
+            const proofOrReasonHtml = st === 'paid'
+                ? `<div class="mt-1.5 text-[11px] font-mono text-green-700 font-bold">✓ UTR: ${escapeHtml(p.utrNumber || 'Settled')}</div>
+                   ${p.paymentProofUrl ? `<a href="${escapeAttr(p.paymentProofUrl)}" target="_blank" rel="noopener" class="inline-block mt-1 text-[11px] bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded font-bold hover:bg-blue-100">View Payment Receipt ↗</a>` : ''}`
+                : (st === 'rejected'
+                    ? `<div class="mt-1.5 text-[11px] text-red-600 font-semibold">✕ ${escapeHtml(p.rejectReason || 'Rejected')} (Amount Refunded)</div>`
+                    : '');
+
             rows.push(`
                 <tr class="border-b border-gray-100 hover:bg-gray-50 transition">
-                    <td class="p-3.5 text-xs text-gray-600">${dStr}</td>
-                    <td class="p-3.5 text-xs font-extrabold text-gray-900">₹${p.amount || 0}</td>
-                    <td class="p-3.5 text-xs font-mono text-gray-700">${p.method || 'N/A'}</td>
-                    <td class="p-3.5 text-xs"><span class="px-2.5 py-1 ${stColor} rounded-md text-[10px] font-bold uppercase">${p.status || 'Pending'}</span></td>
+                    <td class="p-3.5 text-xs text-gray-600 whitespace-nowrap">${dStr}</td>
+                    <td class="p-3.5 text-xs font-extrabold text-gray-900 whitespace-nowrap">₹${p.amount || 0}</td>
+                    <td class="p-3.5 text-xs font-mono text-gray-700">${escapeHtml(p.method || 'N/A')}</td>
+                    <td class="p-3.5 text-xs">
+                        <span class="px-2.5 py-1 ${stColor} rounded-md text-[10px] font-bold uppercase">${escapeHtml(p.status || 'Pending')}</span>
+                        ${proofOrReasonHtml}
+                    </td>
                 </tr>
             `);
         });
@@ -449,8 +467,8 @@ function loadMyReferrals() {
             rows.push(`
                 <tr class="hover:bg-gray-50 transition">
                     <td class="p-3.5 text-xs text-gray-500 whitespace-nowrap">${jDate}</td>
-                    <td class="p-3.5 text-xs font-mono font-bold text-indigo-600">#${m.publisherId || '-'}</td>
-                    <td class="p-3.5 text-xs font-bold text-gray-900">${m.name || 'Partner'}</td>
+                    <td class="p-3.5 text-xs font-mono font-bold text-indigo-600">#${escapeHtml(m.publisherId || '-')}</td>
+                    <td class="p-3.5 text-xs font-bold text-gray-900">${escapeHtml(m.name || 'Partner')}</td>
                     <td class="p-3.5 text-xs"><span class="px-2.5 py-1 bg-green-100 text-green-700 rounded-md font-bold uppercase text-[10px]">Active • 10% Commission</span></td>
                 </tr>
             `);
@@ -484,6 +502,11 @@ async function loadOffers() {
         tbody.innerHTML = "";
         allOffersMap = {};
 
+        const leadOfferSelect = document.getElementById("leadOfferId");
+        if (leadOfferSelect) {
+            leadOfferSelect.innerHTML = `<option value="">Select campaign</option>`;
+        }
+
         if (snap.empty) {
             tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-gray-400 text-xs">No active offers available right now.</td></tr>`;
             return;
@@ -493,7 +516,6 @@ async function loadOffers() {
             const o = docSnap.data();
             const oid = docSnap.id;
             allOffersMap[oid] = { id: oid, ...o };
-            const leadOfferSelect = document.getElementById("leadOfferId");
             if (leadOfferSelect) {
                 const opt = document.createElement("option");
                 opt.value = oid;
@@ -502,21 +524,21 @@ async function loadOffers() {
             }
 
             const logoHtml = o.logoUrl 
-                ? `<img src="${o.logoUrl}" alt="${o.name}" class="w-10 h-10 rounded-xl object-contain border border-gray-200 bg-white p-1 shadow-sm">`
-                : `<div class="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center font-extrabold text-xs uppercase">${(o.name || 'OF').substring(0, 2)}</div>`;
+                ? `<img src="${escapeAttr(o.logoUrl)}" alt="${escapeAttr(o.name)}" class="w-10 h-10 rounded-xl object-contain border border-gray-200 bg-white p-1 shadow-sm">`
+                : `<div class="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center font-extrabold text-xs uppercase">${escapeHtml((o.name || 'OF').substring(0, 2))}</div>`;
 
             const offerType = (o.visibility || o.type || 'public').toLowerCase();
             const isApproved = (o.offerStatus || 'approved').toLowerCase() === 'approved';
 
             tbody.innerHTML += `
-                <tr class="border-b border-gray-100 hover:bg-blue-50/40 transition offer-row" data-name="${(o.name || '').toLowerCase()}" data-visibility="${offerType}">
-                    <td class="p-4 font-mono text-xs font-bold text-gray-500">#${oid}</td>
+                <tr class="border-b border-gray-100 hover:bg-blue-50/40 transition offer-row" data-name="${escapeAttr((o.name || '').toLowerCase())}" data-visibility="${escapeAttr(offerType)}">
+                    <td class="p-4 font-mono text-xs font-bold text-gray-500">#${escapeHtml(oid)}</td>
                     <td class="p-4">${logoHtml}</td>
                     <td class="p-4">
-                        <div class="font-bold text-gray-900 text-xs sm:text-sm">${o.name || 'Campaign'}</div>
-                        <div class="text-[11px] text-gray-400 font-medium mt-0.5">${o.category || 'Financial / CPA'}</div>
+                        <div class="font-bold text-gray-900 text-xs sm:text-sm">${escapeHtml(o.name || 'Campaign')}</div>
+                        <div class="text-[11px] text-gray-400 font-medium mt-0.5">${escapeHtml(o.category || 'Financial / CPA')}</div>
                     </td>
-                    <td class="p-4 text-xs text-gray-600 capitalize font-semibold">${offerType}</td>
+                    <td class="p-4 text-xs text-gray-600 capitalize font-semibold">${escapeHtml(offerType)}</td>
                     <td class="p-4 font-extrabold text-sm text-green-600">₹${o.payout || 0}</td>
                     <td class="p-4">
                         <span class="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide ${isApproved ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">
@@ -532,7 +554,7 @@ async function loadOffers() {
             `;
         });
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500 text-xs">Error loading offers: ${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-500 text-xs">Error loading offers: ${escapeHtml(e.message)}</td></tr>`;
     }
 }
 
@@ -566,8 +588,8 @@ window.openOfferDetails = function(oid) {
     const logoContainer = document.getElementById('detOfferLogo');
     if (logoContainer) {
         logoContainer.innerHTML = o.logoUrl 
-            ? `<img src="${o.logoUrl}" class="w-12 h-12 rounded-xl object-contain border border-gray-200 p-1 bg-white shadow-sm">`
-            : `<div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-base uppercase">${(o.name || 'OF').substring(0, 2)}</div>`;
+            ? `<img src="${escapeAttr(o.logoUrl)}" class="w-12 h-12 rounded-xl object-contain border border-gray-200 p-1 bg-white shadow-sm">`
+            : `<div class="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-base uppercase">${escapeHtml((o.name || 'OF').substring(0, 2))}</div>`;
     }
 
     const eventsTbody = document.getElementById('detEventsTableBody');
@@ -578,8 +600,8 @@ window.openOfferDetails = function(oid) {
 
         eventsTbody.innerHTML = eventsList.map(ev => `
             <tr class="border-b border-gray-100">
-                <td class="p-4 font-mono font-bold text-gray-500">${ev.id}</td>
-                <td class="p-4 font-bold text-gray-900">${ev.name}</td>
+                <td class="p-4 font-mono font-bold text-gray-500">${escapeHtml(ev.id)}</td>
+                <td class="p-4 font-bold text-gray-900">${escapeHtml(ev.name)}</td>
                 <td class="p-4 font-black text-green-600">₹${ev.payout}</td>
                 <td class="p-4"><span class="px-2.5 py-1 bg-green-100 text-green-700 rounded-md font-bold uppercase text-[10px]">Active</span></td>
             </tr>
@@ -670,7 +692,7 @@ window.submitPayoutRequest = async (e) => {
     e.preventDefault();
     const form = e.target;
     const submitBtn = form.querySelector('button[type="submit"]');
-    if (submitBtn?.disabled) return; // prevent rapid double-clicks
+    if (submitBtn?.disabled) return;
 
     const amount = Number(document.getElementById('withdrawAmount').value);
     const holderName = document.getElementById('withdrawHolderName').value.trim();
@@ -710,8 +732,6 @@ window.submitPayoutRequest = async (e) => {
         const userRef = doc(db, "users", currentUser.uid);
         const payoutRef = doc(collection(db, "payouts"));
 
-        // Atomic operation: wallet deduction and payout creation succeed together,
-        // or neither change is saved. This prevents two requests spending the same balance.
         await runTransaction(db, async (transaction) => {
             const userSnap = await transaction.get(userRef);
             if (!userSnap.exists()) throw new Error("Publisher account nahi mila.");
@@ -1319,14 +1339,14 @@ Export CSV
 </button>
 </div>
 </div>
-<div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+<div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-x-auto">
 <table class="w-full text-left text-xs">
 <thead>
 <tr class="border-b border-gray-200 bg-gray-50 text-gray-500 font-extrabold uppercase text-[10px]">
 <th class="p-3.5">Date</th>
 <th class="p-3.5">Amount</th>
 <th class="p-3.5">Payment Details</th>
-<th class="p-3.5">Status</th>
+<th class="p-3.5">Status & Proof / UTR</th>
 </tr>
 </thead>
 <tbody id="payoutsTableBody"></tbody>
@@ -1445,7 +1465,6 @@ window.openPolicyModal = function(type) {
 </script>
 
 <script>
-/* Responsive navigation enhancement; Firebase data/auth logic remains in the original module. */
 (function(){
   const sidebar = document.getElementById('sidebar');
   const backdrop = document.getElementById('awhMobileBackdrop');
