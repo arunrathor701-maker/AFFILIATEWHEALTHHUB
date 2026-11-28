@@ -14,7 +14,35 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 .nav-active { background: linear-gradient(90deg, rgba(59,130,246,0.18) 0%, rgba(59,130,246,0.02) 100%); border-left: 3px solid #3b82f6; color: #ffffff; }
 </style>
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbybYbgB8mkWOOawgwfdEhigvB1iZXcigSLQsVKN1QjW0Mz3Q2yHoDAFFvY8zf_uFA1Jjg/exec";
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, orderBy, limit, increment, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
+    authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
+    projectId: "affiliatewealthhub-542e0",
+    storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
+    messagingSenderId: "1088047960863",
+    appId: "1:1088047960863:web:bd7fe0e8e0404fdf9bb562a",
+    measurementId: "G-PX59VJN9TK"
+};
+
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbybYbgB8mkWOOawgwfdEhigvB1iZXcigSLQsVKN1QjW0Mz3Q2yHoDAFFvY8zf_uFA1Jjg/exec";
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let allOffersMap = {};
+let allUsersMap = {};
+let loadedClicksList = [];
+let loadedPayoutsList = [];
+
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+}
 
 async function uploadToGoogleSheetAndDrive(payload, fileObj) {
     if (fileObj) {
@@ -34,35 +62,6 @@ async function uploadToGoogleSheetAndDrive(payload, fileObj) {
         body: JSON.stringify(payload)
     });
     return await res.json();
-}
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, orderBy, limit, increment, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
-
-const firebaseConfig = {
-    apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
-    authDomain: "affiliatewealthhub-542e0.firebaseapp.com",
-    projectId: "affiliatewealthhub-542e0",
-    storageBucket: "affiliatewealthhub-542e0.firebasestorage.app",
-    messagingSenderId: "1088047960863",
-    appId: "1:1088047960863:web:bd7fe0e8e0404fdf9bb562a",
-    measurementId: "G-PX59VJN9TK"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
-
-let allOffersMap = {};
-let allUsersMap = {};
-let loadedClicksList = [];
-let loadedPayoutsList = [];
-
-function escapeHtml(value) {
-    return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 }
 
 function showToast(msg, isError = false) {
@@ -116,7 +115,7 @@ if (!savedUser) {
     window.loadAllData();
 }
 
-// 1. Add / Update Offer (With 1-3 Multi-Step Events & KPIs)
+// 1. Add / Update Offer
 document.getElementById('offerForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const oid = document.getElementById('offerId').value.trim();
@@ -282,7 +281,7 @@ window.deleteOffer = async (oid) => {
     }
 };
 
-// 2. Payout Requests (Mark Paid with UTR + Receipt Upload & Reject + Auto Wallet Refund)
+// 2. Payout Requests (Mark Paid with UTR + Google Sheet/Drive Receipt & Reject + Auto Wallet Refund)
 async function loadPayouts() {
     const tbody = document.getElementById('payoutsAdminTable');
     tbody.innerHTML = "<tr><td colspan='6' class='p-8 text-center text-slate-400 text-xs'>Fetching withdrawal requests...</td></tr>";
@@ -391,14 +390,19 @@ window.submitSettlePayout = async (e) => {
 
     if (!utrNumber) { showToast("UTR / Transaction ID zaroori hai.", true); return; }
 
-    if (btn) { btn.disabled = true; btn.innerText = "Saving..."; }
+    if (btn) { btn.disabled = true; btn.innerText = "Saving to Sheet..."; }
     try {
         let paymentProofUrl = "";
-        if (proofFile) {
-            const safeName = proofFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-            const fRef = storageRef(storage, `payoutProofs/${payoutDocId}_${Date.now()}_${safeName}`);
-            await uploadBytes(fRef, proofFile, { contentType: proofFile.type });
-            paymentProofUrl = await getDownloadURL(fRef);
+        const gsRes = await uploadToGoogleSheetAndDrive({
+            type: "payout_proof",
+            payoutId: payoutDocId,
+            publisherId: pubId,
+            amount: amount,
+            utrNumber: utrNumber
+        }, proofFile);
+
+        if (gsRes && gsRes.fileUrl) {
+            paymentProofUrl = gsRes.fileUrl;
         }
 
         await updateDoc(doc(db, "payouts", payoutDocId), {
@@ -420,7 +424,7 @@ window.submitSettlePayout = async (e) => {
 
         document.getElementById('settlePayoutModal').classList.add('hidden');
         form.reset();
-        showToast(`₹${amount} marked Paid with UTR: ${utrNumber}`);
+        showToast(`₹${amount} marked Paid & logged in Google Sheet (UTR: ${utrNumber})`);
         window.loadAllData();
     } catch (err) {
         showToast("Error: " + err.message, true);
@@ -457,7 +461,7 @@ window.rejectPayout = async (payoutDocId, uid, pubId, amount, walletDeducted) =>
     }
 };
 
-// 3. Clicks & Leads (Multi-Step Approve + Reject)
+// 3. Clicks & Leads
 async function loadClicks() {
     const tbody = document.getElementById('clicksTable');
     tbody.innerHTML = `<tr><td colspan="11" class="p-8 text-center text-slate-400 text-xs">Loading tracking logs...</td></tr>`;
@@ -682,7 +686,7 @@ async function loadLeadSubmissions() {
                 <td class="p-4 font-bold text-blue-600">#${escapeHtml(l.publisherId || '-')} <span class="text-slate-800 font-semibold">${escapeHtml(l.publisherName || '')}</span></td>
                 <td class="p-4 font-bold text-slate-900">${escapeHtml(l.campaignName || 'Offer #' + l.offerId)}<div class="text-[10px] font-mono text-slate-400">Click: ${escapeHtml(l.clickId || '-')}</div></td>
                 <td class="p-4"><div class="font-bold text-slate-800">${escapeHtml(l.customerName || '-')}</div><div class="font-mono text-[11px] text-slate-500">${escapeHtml(l.customerPhone || '-')}</div>${l.publisherNotes ? `<div class="text-[10px] text-slate-500 max-w-[160px] truncate" title="${escapeHtml(l.publisherNotes)}">${escapeHtml(l.publisherNotes)}</div>` : ''}</td>
-                <td class="p-4">${l.proofUrl ? `<a href="${escapeHtml(l.proofUrl)}" target="_blank" rel="noopener" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-lg font-bold hover:bg-indigo-100">View Proof ↗</a>` : '-'}</td>
+                <td class="p-4">${l.proofUrl ? `<a href="${escapeHtml(l.proofUrl)}" target="_blank" rel="noopener" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-lg font-bold hover:bg-indigo-100">View Drive Proof ↗</a>` : '-'}</td>
                 <td class="p-4">${badge}${l.adminRemark ? `<div class="text-[10px] text-slate-500 mt-0.5">${escapeHtml(l.adminRemark)}</div>` : ''}</td>
                 <td class="p-4">${actions}</td>
             </tr>
@@ -1185,7 +1189,7 @@ window.logout = () => {
 <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap justify-between items-center gap-3 bg-slate-50/50">
 <div>
 <h2 class="text-sm font-extrabold text-slate-900">📎 Publisher Submitted Lead Proofs</h2>
-<p class="text-xs text-slate-500">Verify customer screenshots/PDFs uploaded by publishers before crediting wallet</p>
+<p class="text-xs text-slate-500">Verify customer screenshots/PDFs saved in Google Drive before crediting wallet</p>
 </div>
 <span id="pendingProofsBadge" class="bg-blue-100 text-blue-800 text-xs font-extrabold px-3 py-1 rounded-full">0 Pending</span>
 </div>
