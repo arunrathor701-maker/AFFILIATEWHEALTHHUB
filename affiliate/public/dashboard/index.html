@@ -158,7 +158,27 @@ footer{border-color:var(--awh-line)!important;color:#8490a5!important;padding-bo
 }
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}}
 </style>
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbybYbgB8mkWOOawgwfdEhigvB1iZXcigSLQsVKN1QjW0Mz3Q2yHoDAFFvY8zf_uFA1Jjg/exec";
 
+async function uploadToGoogleSheetAndDrive(payload, fileObj) {
+    if (fileObj) {
+        const base64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(fileObj);
+        });
+        payload.fileBase64 = base64;
+        payload.fileName = `${Date.now()}_${fileObj.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+        payload.mimeType = fileObj.type;
+    }
+
+    const res = await fetch(GOOGLE_SCRIPT_URL, {
+        method: "POST",
+        body: JSON.stringify(payload)
+    });
+    return await res.json();
+}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
