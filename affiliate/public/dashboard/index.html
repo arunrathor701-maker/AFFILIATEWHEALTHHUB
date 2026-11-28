@@ -162,7 +162,7 @@ footer{border-color:var(--awh-line)!important;color:#8490a5!important;padding-bo
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, doc, collection, getDocs, query, where, updateDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, doc, collection, getDocs, query, where, updateDoc, addDoc, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDO06SrF0Y15lFcFhXwJIyDbGFsTuxoswY",
@@ -639,6 +639,10 @@ window.closePayoutModal = () => {
 
 window.submitPayoutRequest = async (e) => {
     e.preventDefault();
+    const form = e.target;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn?.disabled) return; // prevent rapid double-clicks
+
     const amount = Number(document.getElementById('withdrawAmount').value);
     const holderName = document.getElementById('withdrawHolderName').value.trim();
     const mobile = document.getElementById('withdrawMobile').value.trim();
@@ -646,12 +650,16 @@ window.submitPayoutRequest = async (e) => {
     const ifscCode = document.getElementById('withdrawIfsc').value.trim().toUpperCase();
     const upiId = document.getElementById('withdrawUpi').value.trim();
 
-    if (amount < 100 || amount > currentBalance) {
+    if (!Number.isFinite(amount) || amount < 100 || amount > currentBalance) {
         showToast("Valid withdrawal amount dalein (Min ₹100).", true);
         return;
     }
     if (!upiId && (!accountNumber || !ifscCode)) {
         showToast("Kripya UPI ID ya Bank Account Number + IFSC Code dalein.", true);
+        return;
+    }
+    if (!currentUser?.uid) {
+        showToast("Session expire ho gaya. Dobara login karein.", true);
         return;
     }
 
@@ -662,26 +670,58 @@ window.submitPayoutRequest = async (e) => {
         accountNumber ? `A/C: ${accountNumber} (${ifscCode})` : ''
     ].filter(Boolean).join(' | ');
 
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.dataset.originalText = submitBtn.innerText;
+        submitBtn.innerText = 'Submitting...';
+        submitBtn.classList.add('opacity-60');
+    }
+
     try {
-        await addDoc(collection(db, "payouts"), {
-            publisherId: String(currentUser.publisherId || "662"),
-            publisherName: currentUser.name || holderName || "Publisher",
-            uid: currentUser.uid || "",
-            amount: amount,
-            holderName: holderName,
-            mobile: mobile,
-            accountNumber: accountNumber,
-            ifscCode: ifscCode,
-            upiId: upiId,
-            method: summaryText,
-            status: "pending",
-            requestedAt: new Date().toISOString()
+        const userRef = doc(db, "users", currentUser.uid);
+        const payoutRef = doc(collection(db, "payouts"));
+
+        // Atomic operation: wallet deduction and payout creation succeed together,
+        // or neither change is saved. This prevents two requests spending the same balance.
+        await runTransaction(db, async (transaction) => {
+            const userSnap = await transaction.get(userRef);
+            if (!userSnap.exists()) throw new Error("Publisher account nahi mila.");
+
+            const latestBalance = Number(userSnap.data().balance || 0);
+            if (amount > latestBalance) {
+                throw new Error("Insufficient wallet balance. Latest balance: ₹" + latestBalance);
+            }
+
+            transaction.update(userRef, { balance: latestBalance - amount });
+            transaction.set(payoutRef, {
+                publisherId: String(currentUser.publisherId || "662"),
+                publisherName: currentUser.name || holderName || "Publisher",
+                uid: currentUser.uid,
+                amount: amount,
+                holderName: holderName,
+                mobile: mobile,
+                accountNumber: accountNumber,
+                ifscCode: ifscCode,
+                upiId: upiId,
+                method: summaryText,
+                status: "pending",
+                requestedAt: new Date().toISOString(),
+                walletDeducted: true
+            });
         });
+
         closePayoutModal();
-        e.target.reset();
-        showToast("Withdrawal request submitted successfully");
+        form.reset();
+        showToast("Request submitted. ₹" + amount.toLocaleString('en-IN') + " wallet se reserve/deduct ho gaye.");
     } catch (err) {
-        showToast("Error: " + err.message, true);
+        console.error("Payout request failed:", err);
+        showToast(err.message || "Withdrawal request submit nahi ho payi.", true);
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerText = submitBtn.dataset.originalText || 'Submit Request';
+            submitBtn.classList.remove('opacity-60');
+        }
     }
 };
 
