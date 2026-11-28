@@ -17,7 +17,8 @@ body { font-family: 'Plus Jakarta Sans', sans-serif; }
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, orderBy, limit, increment, where } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, orderBy, limit, increment, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDO65rF0YI5ifcFnXEwJIy8bGFeSTuxosw",
@@ -32,11 +33,16 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 let allOffersMap = {};
 let allUsersMap = {};
 let loadedClicksList = [];
 let loadedPayoutsList = [];
+
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+}
 
 function showToast(msg, isError = false) {
     const t = document.getElementById('adminToast');
@@ -52,7 +58,7 @@ function showToast(msg, isError = false) {
 }
 
 window.switchTab = function(tabName) {
-    const allTabs = ['offers', 'payouts', 'leads', 'publishers', 'referrals'];
+    const allTabs = ['offers', 'payouts', 'leads', 'lead-proofs', 'publishers', 'referrals'];
     ['overview', ...allTabs].forEach(t => {
         const sec = document.getElementById('sec-' + t);
         const btn = document.getElementById('nav-' + t);
@@ -75,7 +81,7 @@ window.switchTab = function(tabName) {
 window.loadAllData = async function() {
     await loadOffers();
     await loadPublishers();
-    await Promise.all([loadPayouts(), loadClicks()]);
+    await Promise.all([loadPayouts(), loadClicks(), loadLeadSubmissions()]);
     showToast("Dashboard synced with live database");
 };
 
@@ -104,7 +110,6 @@ document.getElementById('offerForm').addEventListener('submit', async (e) => {
     const kpiRules = document.getElementById('offerKpi').value.trim();
     const desc = document.getElementById('offerDesc').value.trim();
 
-    // Multi-step events
     const step1Name = document.getElementById('step1Name').value.trim() || "Account Open / KYC";
     const step1Payout = Number(document.getElementById('step1Payout').value || 0);
     const step2Name = document.getElementById('step2Name').value.trim();
@@ -180,12 +185,12 @@ async function loadOffers() {
             <tr class="border-b border-slate-100 hover:bg-slate-50/80 transition text-xs">
                 <td class="p-4 font-mono font-bold text-indigo-600 whitespace-nowrap">#${oid}</td>
                 <td class="p-4">
-                    <div class="font-bold text-slate-900">${o.name || 'Campaign'}</div>
-                    <div class="text-[11px] text-indigo-600 font-semibold mt-0.5">${stepsSummary}</div>
-                    <div class="text-[10px] font-mono text-slate-400 truncate max-w-xs">${o.targetUrl || o.url || ''}</div>
+                    <div class="font-bold text-slate-900">${escapeHtml(o.name || 'Campaign')}</div>
+                    <div class="text-[11px] text-indigo-600 font-semibold mt-0.5">${escapeHtml(stepsSummary)}</div>
+                    <div class="text-[10px] font-mono text-slate-400 truncate max-w-xs">${escapeHtml(o.targetUrl || o.url || '')}</div>
                 </td>
                 <td class="p-4">${logoHtml}</td>
-                <td class="p-4 capitalize font-semibold text-slate-600">${vis}</td>
+                <td class="p-4 capitalize font-semibold text-slate-600">${escapeHtml(vis)}</td>
                 <td class="p-4 font-extrabold text-emerald-600 whitespace-nowrap">₹${o.payout || 0}</td>
                 <td class="p-4 whitespace-nowrap">
                     <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${isLive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">
@@ -256,7 +261,7 @@ window.deleteOffer = async (oid) => {
     }
 };
 
-// 2. Payout Requests
+// 2. Payout Requests (Mark Paid with UTR + Receipt Upload & Reject + Auto Wallet Refund)
 async function loadPayouts() {
     const tbody = document.getElementById('payoutsAdminTable');
     tbody.innerHTML = "<tr><td colspan='6' class='p-8 text-center text-slate-400 text-xs'>Fetching withdrawal requests...</td></tr>";
@@ -275,65 +280,156 @@ async function loadPayouts() {
 
     rawPayouts.forEach((p) => {
         loadedPayoutsList.push(p);
-        const isPaid = (p.status || '').toLowerCase() === 'paid';
-        if (!isPaid) pendingCount++;
-        else totalPaidAmount += Number(p.amount || 0);
+        const st = (p.status || 'pending').toLowerCase();
+        const isPaid = st === 'paid';
+        const isRejected = st === 'rejected';
+        if (!isPaid && !isRejected) pendingCount++;
+        if (isPaid) totalPaidAmount += Number(p.amount || 0);
+
         const dStr = p.requestedAt ? new Date(p.requestedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 
         const hasStructuredData = p.holderName || p.upiId || p.accountNumber;
         const payoutDetailsHtml = hasStructuredData
             ? `
-                ${p.holderName ? `<div class="font-bold text-slate-900">${p.holderName} ${p.mobile ? `<span class="text-slate-500 font-mono font-normal">(${p.mobile})</span>` : ''}</div>` : ''}
-                ${p.upiId ? `<div class="font-mono text-indigo-700 font-bold">UPI: ${p.upiId}</div>` : ''}
-                ${p.accountNumber ? `<div class="font-mono text-slate-700">A/C: <span class="font-bold text-slate-900">${p.accountNumber}</span> | IFSC: <span class="font-bold text-slate-900">${p.ifscCode || '-'}</span></div>` : ''}
+                ${p.holderName ? `<div class="font-bold text-slate-900">${escapeHtml(p.holderName)} ${p.mobile ? `<span class="text-slate-500 font-mono font-normal">(${escapeHtml(p.mobile)})</span>` : ''}</div>` : ''}
+                ${p.upiId ? `<div class="font-mono text-indigo-700 font-bold">UPI: ${escapeHtml(p.upiId)}</div>` : ''}
+                ${p.accountNumber ? `<div class="font-mono text-slate-700">A/C: <span class="font-bold text-slate-900">${escapeHtml(p.accountNumber)}</span> | IFSC: <span class="font-bold text-slate-900">${escapeHtml(p.ifscCode || '-')}</span></div>` : ''}
               `
-            : `<div class="font-mono">${p.method || 'N/A'}</div>`;
+            : `<div class="font-mono">${escapeHtml(p.method || 'N/A')}</div>`;
+
+        let statusBadge = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>PENDING</span>`;
+        if (isPaid) {
+            statusBadge = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>PAID</span>`;
+        } else if (isRejected) {
+            statusBadge = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-50 text-red-700 border border-red-200"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>REJECTED</span>`;
+        }
+
+        let actionCol = '';
+        if (!isPaid && !isRejected) {
+            actionCol = `
+                <div class="flex items-center gap-1.5">
+                    <button type="button" onclick="openSettlePayoutModal('${p.id}', '${p.uid || ''}', '${p.publisherId || ''}', ${Number(p.amount || 0)}, ${Boolean(p.walletDeducted)})" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl font-semibold shadow-sm transition cursor-pointer">Mark Paid</button>
+                    <button type="button" onclick="rejectPayout('${p.id}', '${p.uid || ''}', '${p.publisherId || ''}', ${Number(p.amount || 0)}, ${Boolean(p.walletDeducted)})" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-xl font-semibold shadow-sm transition cursor-pointer">Reject</button>
+                </div>
+            `;
+        } else if (isPaid) {
+            actionCol = `
+                <div class="text-[11px] space-y-0.5">
+                    <div class="text-emerald-700 font-bold">✓ UTR: ${escapeHtml(p.utrNumber || 'Settled')}</div>
+                    ${p.paymentProofUrl ? `<a href="${escapeHtml(p.paymentProofUrl)}" target="_blank" rel="noopener" class="text-blue-600 underline font-semibold">View Receipt ↗</a>` : ''}
+                </div>
+            `;
+        } else {
+            actionCol = `<div class="text-[11px] text-red-600 font-semibold max-w-[180px] truncate" title="${escapeHtml(p.rejectReason || '')}">✕ ${escapeHtml(p.rejectReason || 'Rejected & Refunded')}</div>`;
+        }
 
         tbody.innerHTML += `
             <tr class="border-b border-slate-100 hover:bg-slate-50/80 text-xs transition">
                 <td class="p-4 whitespace-nowrap text-slate-500 font-medium">${dStr}</td>
                 <td class="p-4 whitespace-nowrap">
-                    <span class="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md mr-1.5">#${p.publisherId || 'N/A'}</span>
-                    <span class="font-semibold text-slate-800">${p.publisherName || 'User'}</span>
+                    <span class="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md mr-1.5">#${escapeHtml(p.publisherId || 'N/A')}</span>
+                    <span class="font-semibold text-slate-800">${escapeHtml(p.publisherName || 'User')}</span>
                 </td>
                 <td class="p-4 whitespace-nowrap font-extrabold text-slate-900 text-sm">₹${p.amount || 0}</td>
                 <td class="p-4 text-xs text-slate-700 bg-slate-50/50 space-y-0.5">${payoutDetailsHtml}</td>
-                <td class="p-4 whitespace-nowrap">
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${isPaid ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}">
-                        <span class="w-1.5 h-1.5 rounded-full ${isPaid ? 'bg-emerald-500' : 'bg-amber-500'}"></span>
-                        ${(p.status || 'PENDING').toUpperCase()}
-                    </span>
-                </td>
-                <td class="p-4 whitespace-nowrap">
-                    ${!isPaid ? `<button type="button" onclick="approvePayout('${p.id}', '${p.uid || ''}', '${p.publisherId || ''}', ${Number(p.amount || 0)})" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-xl font-semibold shadow-sm transition cursor-pointer">Mark Paid</button>` : '<span class="text-slate-400 font-semibold">✓ Settled</span>'}
-                </td>
+                <td class="p-4 whitespace-nowrap">${statusBadge}</td>
+                <td class="p-4 whitespace-nowrap">${actionCol}</td>
             </tr>
         `;
     });
+
     document.getElementById('pendingPayoutBadge').innerText = `${pendingCount} Pending`;
     document.getElementById('statPayouts').innerText = pendingCount;
     document.getElementById('statTotalPaid').innerText = '₹' + totalPaidAmount.toLocaleString('en-IN');
     if (snap.empty) tbody.innerHTML = "<tr><td colspan='6' class='p-8 text-center text-slate-400 text-xs'>No withdrawal requests found.</td></tr>";
 }
 
-window.approvePayout = async (payoutDocId, uid, pubId, amount) => {
-    if (!confirm(`Confirm ₹${amount} paid to Publisher #${pubId}? This will deduct ₹${amount} from their wallet.`)) return;
+window.openSettlePayoutModal = (payoutDocId, uid, pubId, amount, walletDeducted) => {
+    document.getElementById('settlePayoutDocId').value = payoutDocId;
+    document.getElementById('settlePayoutUid').value = uid;
+    document.getElementById('settlePayoutPubId').value = pubId;
+    document.getElementById('settlePayoutAmount').value = amount;
+    document.getElementById('settleWalletDeducted').value = walletDeducted ? '1' : '0';
+    document.getElementById('settleInfoText').innerText = `Publisher #${pubId} • Amount: ₹${amount}`;
+    document.getElementById('settlePayoutModal').classList.remove('hidden');
+};
+
+window.submitSettlePayout = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const btn = form.querySelector('button[type="submit"]');
+    if (btn?.disabled) return;
+
+    const payoutDocId = document.getElementById('settlePayoutDocId').value;
+    const uid = document.getElementById('settlePayoutUid').value;
+    const pubId = document.getElementById('settlePayoutPubId').value;
+    const amount = Number(document.getElementById('settlePayoutAmount').value);
+    const alreadyDeducted = document.getElementById('settleWalletDeducted').value === '1';
+    const utrNumber = document.getElementById('settleUtrInput').value.trim();
+    const proofFile = document.getElementById('settleProofFile').files?.[0];
+
+    if (!utrNumber) { showToast("UTR / Transaction ID zaroori hai.", true); return; }
+
+    if (btn) { btn.disabled = true; btn.innerText = "Saving..."; }
     try {
+        let paymentProofUrl = "";
+        if (proofFile) {
+            const safeName = proofFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+            const fRef = storageRef(storage, `payoutProofs/${payoutDocId}_${Date.now()}_${safeName}`);
+            await uploadBytes(fRef, proofFile, { contentType: proofFile.type });
+            paymentProofUrl = await getDownloadURL(fRef);
+        }
+
         await updateDoc(doc(db, "payouts", payoutDocId), {
             status: "paid",
+            utrNumber: utrNumber,
+            paymentProofUrl: paymentProofUrl,
             paidAt: new Date().toISOString()
         });
 
-        if (uid) {
-            await updateDoc(doc(db, "users", uid), { balance: increment(-amount) });
-        } else if (pubId) {
-            const uQuery = query(collection(db, "users"), where("publisherId", "==", Number(pubId)));
-            const uSnap = await getDocs(uQuery);
-            if (!uSnap.empty) {
-                await updateDoc(doc(db, "users", uSnap.docs[0].id), { balance: increment(-amount) });
+        if (!alreadyDeducted) {
+            if (uid) {
+                await updateDoc(doc(db, "users", uid), { balance: increment(-amount) });
+            } else if (pubId) {
+                let uSnap = await getDocs(query(collection(db, "users"), where("publisherId", "==", String(pubId))));
+                if (uSnap.empty) uSnap = await getDocs(query(collection(db, "users"), where("publisherId", "==", Number(pubId))));
+                if (!uSnap.empty) await updateDoc(doc(db, "users", uSnap.docs[0].id), { balance: increment(-amount) });
             }
         }
-        showToast(`₹${amount} marked Paid & wallet updated`);
+
+        document.getElementById('settlePayoutModal').classList.add('hidden');
+        form.reset();
+        showToast(`₹${amount} marked Paid with UTR: ${utrNumber}`);
+        window.loadAllData();
+    } catch (err) {
+        showToast("Error: " + err.message, true);
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerText = "Mark Paid & Send Proof"; }
+    }
+};
+
+window.rejectPayout = async (payoutDocId, uid, pubId, amount, walletDeducted) => {
+    const reason = prompt(`Reject withdrawal of ₹${amount} for Publisher #${pubId}?\nEnter Rejection Reason (e.g. Invalid IFSC / Wrong UPI):`);
+    if (reason === null) return;
+
+    try {
+        await updateDoc(doc(db, "payouts", payoutDocId), {
+            status: "rejected",
+            rejectReason: reason.trim() || "Rejected by Admin",
+            rejectedAt: new Date().toISOString()
+        });
+
+        if (walletDeducted && amount > 0) {
+            if (uid) {
+                await updateDoc(doc(db, "users", uid), { balance: increment(amount) });
+            } else if (pubId) {
+                let uSnap = await getDocs(query(collection(db, "users"), where("publisherId", "==", String(pubId))));
+                if (uSnap.empty) uSnap = await getDocs(query(collection(db, "users"), where("publisherId", "==", Number(pubId))));
+                if (!uSnap.empty) await updateDoc(doc(db, "users", uSnap.docs[0].id), { balance: increment(amount) });
+            }
+        }
+
+        showToast(`Withdrawal Rejected & ₹${amount} refunded to wallet`, true);
         window.loadAllData();
     } catch (err) {
         showToast("Error: " + err.message, true);
@@ -360,9 +456,9 @@ async function loadClicks() {
         if (!isApproved && !isRejected) pendingLeads++;
 
         const custInfo = (c.customerName || c.customerPhone || c.customerPan)
-            ? `<div class="font-bold text-slate-800">${c.customerName || '-'}</div>
-               <div class="text-slate-500 font-mono text-[11px]">${c.customerPhone || ''}</div>
-               <div class="text-indigo-600 font-mono font-bold text-[11px] uppercase">${c.customerPan || ''}</div>`
+            ? `<div class="font-bold text-slate-800">${escapeHtml(c.customerName || '-')}</div>
+               <div class="text-slate-500 font-mono text-[11px]">${escapeHtml(c.customerPhone || '')}</div>
+               <div class="text-indigo-600 font-mono font-bold text-[11px] uppercase">${escapeHtml(c.customerPan || '')}</div>`
             : '<span class="text-slate-400">-</span>';
 
         const dateStr = c.createdAt 
@@ -391,15 +487,15 @@ async function loadClicks() {
         if (isApproved) {
             actionHtml = `<span class="text-emerald-600 text-xs font-bold">✓ Full Approved (₹${c.payoutCredited || offerObj.payout || 0})</span>`;
         } else if (isRejected) {
-            actionHtml = `<div><span class="text-red-600 text-xs font-bold">✕ Rejected</span>${c.remark ? `<div class="text-[10px] text-slate-500 max-w-[140px] truncate" title="${c.remark}">Note: ${c.remark}</div>` : ''}</div>`;
+            actionHtml = `<div><span class="text-red-600 text-xs font-bold">✕ Rejected</span>${c.remark ? `<div class="text-[10px] text-slate-500 max-w-[140px] truncate" title="${escapeHtml(c.remark)}">Note: ${escapeHtml(c.remark)}</div>` : ''}</div>`;
         } else {
             const stepBtns = offerEvents.map((ev, idx) => {
                 const alreadyDone = approvedSteps.includes(ev.id);
                 const isFinalStep = (idx === offerEvents.length - 1);
                 if (alreadyDone) {
-                    return `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-[10px] font-bold">✓ ${ev.name}</span>`;
+                    return `<span class="bg-emerald-100 text-emerald-700 px-2 py-1 rounded text-[10px] font-bold">✓ ${escapeHtml(ev.name)}</span>`;
                 }
-                return `<button type="button" onclick="approveLeadStep('${docSnap.id}', '${c.publisherId || ''}', '${ev.id}', '${ev.name.replace(/'/g, "\\'")}', ${Number(ev.payout || 0)}, ${isFinalStep})" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer">+ ${ev.name} (₹${ev.payout})</button>`;
+                return `<button type="button" onclick="approveLeadStep('${docSnap.id}', '${c.publisherId || ''}', '${ev.id}', '${ev.name.replace(/'/g, "\\'")}', ${Number(ev.payout || 0)}, ${isFinalStep})" class="bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1 rounded text-[11px] font-bold transition cursor-pointer">+ ${escapeHtml(ev.name)} (₹${ev.payout})</button>`;
             }).join(' ');
 
             actionHtml = `
@@ -413,17 +509,17 @@ async function loadClicks() {
         tbody.innerHTML += `
             <tr class="border-b border-slate-100 hover:bg-slate-50/80 transition text-sm lead-row whitespace-nowrap">
                 <td class="p-4 text-xs text-slate-600">${dateStr}</td>
-                <td class="p-4 font-mono text-xs text-indigo-600 font-semibold">${sysClickId}</td>
-                <td class="p-4 font-mono text-xs text-purple-600 font-semibold">${custClickId}</td>
-                <td class="p-4 font-bold text-slate-800">Offer #${c.offerId || '1'}</td>
-                <td class="p-4 font-bold text-slate-800">#${c.publisherId || 'N/A'}</td>
-                <td class="p-4"><span class="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md text-xs">${c.sub1 || 'Direct'}</span></td>
-                <td class="p-4 font-mono text-xs text-slate-600">${c.sub2 || '-'}</td>
-                <td class="p-4 font-mono text-xs text-slate-600">${c.sub3 || '-'}</td>
+                <td class="p-4 font-mono text-xs text-indigo-600 font-semibold">${escapeHtml(sysClickId)}</td>
+                <td class="p-4 font-mono text-xs text-purple-600 font-semibold">${escapeHtml(custClickId)}</td>
+                <td class="p-4 font-bold text-slate-800">Offer #${escapeHtml(c.offerId || '1')}</td>
+                <td class="p-4 font-bold text-slate-800">#${escapeHtml(c.publisherId || 'N/A')}</td>
+                <td class="p-4"><span class="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md text-xs">${escapeHtml(c.sub1 || 'Direct')}</span></td>
+                <td class="p-4 font-mono text-xs text-slate-600">${escapeHtml(c.sub2 || '-')}</td>
+                <td class="p-4 font-mono text-xs text-slate-600">${escapeHtml(c.sub3 || '-')}</td>
                 <td class="p-4">${custInfo}</td>
                 <td class="p-4">
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold ${badgeClass} uppercase">
-                        ${(c.status || 'recorded').toUpperCase()}
+                        ${escapeHtml((c.status || 'recorded').toUpperCase())}
                     </span>
                     ${c.payoutCredited ? `<div class="text-[10px] font-bold text-emerald-700 mt-0.5">Paid: ₹${c.payoutCredited}</div>` : ''}
                 </td>
@@ -527,6 +623,86 @@ window.rejectClick = async (clickDocId, publisherId) => {
     }
 };
 
+// 3B. Publisher Submitted Lead Proofs
+async function loadLeadSubmissions() {
+    const tbody = document.getElementById('adminLeadSubmissionsTable');
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400 text-xs">Loading submitted lead proofs...</td></tr>`;
+
+    const q = query(collection(db, "leadSubmissions"), orderBy("createdAt", "desc"), limit(100));
+    const snap = await getDocs(q);
+    tbody.innerHTML = "";
+    let pendingProofCount = 0;
+
+    snap.forEach((docSnap) => {
+        const l = docSnap.data();
+        const st = (l.status || 'submitted').toLowerCase();
+        if (st === 'submitted' || st === 'proof_required') pendingProofCount++;
+
+        const dStr = l.createdAt?.toDate ? l.createdAt.toDate().toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-';
+
+        let badge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 uppercase">${escapeHtml(st)}</span>`;
+        if (st === 'approved') badge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase">APPROVED</span>`;
+        if (st === 'rejected') badge = `<span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-50 text-red-700 border border-red-200 uppercase">REJECTED</span>`;
+
+        const offerObj = allOffersMap[String(l.offerId)] || {};
+        const defaultPayout = Number(offerObj.payout || 0);
+
+        const actions = st === 'approved'
+            ? `<span class="text-emerald-600 font-bold text-xs">✓ Credited ₹${l.payoutCredited || defaultPayout}</span>`
+            : `<div class="flex items-center gap-1.5">
+                <button type="button" onclick="reviewLeadSubmission('${docSnap.id}', 'approved', '${l.publisherUid || ''}', '${l.publisherId || ''}', ${defaultPayout})" class="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer">Approve</button>
+                <button type="button" onclick="reviewLeadSubmission('${docSnap.id}', 'rejected', '${l.publisherUid || ''}', '${l.publisherId || ''}', 0)" class="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer">Reject</button>
+               </div>`;
+
+        tbody.innerHTML += `
+            <tr class="border-b border-slate-100 hover:bg-slate-50/80 text-xs whitespace-nowrap">
+                <td class="p-4 text-slate-500">${dStr}</td>
+                <td class="p-4 font-bold text-blue-600">#${escapeHtml(l.publisherId || '-')} <span class="text-slate-800 font-semibold">${escapeHtml(l.publisherName || '')}</span></td>
+                <td class="p-4 font-bold text-slate-900">${escapeHtml(l.campaignName || 'Offer #' + l.offerId)}<div class="text-[10px] font-mono text-slate-400">Click: ${escapeHtml(l.clickId || '-')}</div></td>
+                <td class="p-4"><div class="font-bold text-slate-800">${escapeHtml(l.customerName || '-')}</div><div class="font-mono text-[11px] text-slate-500">${escapeHtml(l.customerPhone || '-')}</div>${l.publisherNotes ? `<div class="text-[10px] text-slate-500 max-w-[160px] truncate" title="${escapeHtml(l.publisherNotes)}">${escapeHtml(l.publisherNotes)}</div>` : ''}</td>
+                <td class="p-4">${l.proofUrl ? `<a href="${escapeHtml(l.proofUrl)}" target="_blank" rel="noopener" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1 rounded-lg font-bold hover:bg-indigo-100">View Proof ↗</a>` : '-'}</td>
+                <td class="p-4">${badge}${l.adminRemark ? `<div class="text-[10px] text-slate-500 mt-0.5">${escapeHtml(l.adminRemark)}</div>` : ''}</td>
+                <td class="p-4">${actions}</td>
+            </tr>
+        `;
+    });
+
+    const proofBadge = document.getElementById('pendingProofsBadge');
+    if (proofBadge) proofBadge.innerText = `${pendingProofCount} Pending`;
+    if (snap.empty) tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400 text-xs">No manual lead proofs submitted yet.</td></tr>`;
+}
+
+window.reviewLeadSubmission = async (docId, newStatus, pubUid, pubId, defaultPayout) => {
+    if (newStatus === 'approved') {
+        const payStr = prompt(`Approve Lead Proof for Publisher #${pubId}?\nEnter Payout Amount to credit (₹):`, defaultPayout);
+        if (payStr === null) return;
+        const payoutAmt = Number(payStr || 0);
+
+        await updateDoc(doc(db, "leadSubmissions", docId), {
+            status: "approved",
+            payoutCredited: payoutAmt,
+            adminRemark: payoutAmt > 0 ? `Approved & ₹${payoutAmt} credited` : "Approved",
+            updatedAt: serverTimestamp()
+        });
+
+        if (payoutAmt > 0 && pubUid) {
+            await updateDoc(doc(db, "users", pubUid), { balance: increment(payoutAmt) });
+        }
+        showToast(`Lead proof approved & ₹${payoutAmt} credited`);
+    } else {
+        const remark = prompt("Enter Rejection Reason for Publisher:");
+        if (remark === null) return;
+        await updateDoc(doc(db, "leadSubmissions", docId), {
+            status: "rejected",
+            adminRemark: remark.trim() || "Proof rejected by Admin",
+            updatedAt: serverTimestamp()
+        });
+        showToast("Lead proof rejected", true);
+    }
+    loadLeadSubmissions();
+};
+
 // 4. Publishers & Referral Network Section
 async function loadPublishers() {
     const tbody = document.getElementById('pubsTable');
@@ -554,9 +730,9 @@ async function loadPublishers() {
         tbody.innerHTML += `
             <tr class="border-b border-slate-100 text-xs hover:bg-slate-50/80 transition">
                 <td class="p-4 whitespace-nowrap"><span class="font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">#${u.publisherId || '-'}</span></td>
-                <td class="p-4 font-bold text-slate-800 whitespace-nowrap">${u.name || 'User'}</td>
-                <td class="p-4 text-slate-500 whitespace-nowrap">${u.email || 'N/A'}</td>
-                <td class="p-4 font-mono font-bold text-slate-700 whitespace-nowrap">${u.phone || 'N/A'}</td>
+                <td class="p-4 font-bold text-slate-800 whitespace-nowrap">${escapeHtml(u.name || 'User')}</td>
+                <td class="p-4 text-slate-500 whitespace-nowrap">${escapeHtml(u.email || 'N/A')}</td>
+                <td class="p-4 font-mono font-bold text-slate-700 whitespace-nowrap">${escapeHtml(u.phone || 'N/A')}</td>
                 <td class="p-4 whitespace-nowrap">${refByBadge}</td>
                 <td class="p-4 font-bold text-indigo-600 whitespace-nowrap">₹${u.referralEarnings || 0}</td>
                 <td class="p-4 font-extrabold text-emerald-600 whitespace-nowrap text-sm">₹${u.balance || 0}</td>
@@ -576,11 +752,11 @@ async function loadPublishers() {
                     <td class="p-4 text-slate-500 whitespace-nowrap">${jDate}</td>
                     <td class="p-4 font-bold text-slate-900 whitespace-nowrap">
                         <span class="font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded mr-1">#${u.publisherId || '-'}</span>
-                        ${u.name || 'User'}
+                        ${escapeHtml(u.name || 'User')}
                     </td>
                     <td class="p-4 font-bold text-indigo-700 whitespace-nowrap">
                         <span class="font-mono bg-indigo-50 px-2 py-0.5 rounded mr-1">#${u.referredBy}</span>
-                        ${upline.name || 'Upline Partner'}
+                        ${escapeHtml(upline.name || 'Upline Partner')}
                     </td>
                     <td class="p-4 font-extrabold text-emerald-600 whitespace-nowrap">₹${u.balance || 0}</td>
                     <td class="p-4 whitespace-nowrap">
@@ -675,7 +851,7 @@ window.exportLeadsCSV = () => {
 
 window.exportPayoutsCSV = () => {
     if (!loadedPayoutsList.length) { showToast("No payouts data to export!", true); return; }
-    const headers = ["Request Date", "Publisher ID", "Publisher Name", "Account Holder", "Mobile", "UPI ID", "Account Number", "IFSC Code", "Amount (INR)", "Status", "Paid Date"];
+    const headers = ["Request Date", "Publisher ID", "Publisher Name", "Account Holder", "Mobile", "UPI ID", "Account Number", "IFSC Code", "Amount (INR)", "Status", "UTR / Reason", "Settled Date"];
     const rows = loadedPayoutsList.map(p => {
         return [
             escapeCSV(p.requestedAt ? new Date(p.requestedAt).toLocaleString('en-IN') : '-'),
@@ -688,7 +864,8 @@ window.exportPayoutsCSV = () => {
             escapeCSV(p.ifscCode || '-'),
             escapeCSV(p.amount || 0),
             escapeCSV((p.status || 'PENDING').toUpperCase()),
-            escapeCSV(p.paidAt ? new Date(p.paidAt).toLocaleString('en-IN') : '-')
+            escapeCSV(p.utrNumber || p.rejectReason || '-'),
+            escapeCSV(p.paidAt || p.rejectedAt || '-')
         ].join(",");
     });
     downloadCSVFile([headers.join(","), ...rows].join("\n"), `AWH_Payouts_Report_${new Date().toISOString().slice(0, 10)}.csv`);
@@ -703,6 +880,36 @@ window.logout = () => {
 </head>
 <body id="adminBody" class="bg-slate-100/80 text-slate-800 min-h-screen hidden flex">
 <div id="adminToast" style="opacity:0; transform: translateY(12px);" class="fixed bottom-6 right-6 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl text-xs font-bold z-50 transition-all pointer-events-none"></div>
+
+<!-- Settle Payout + UTR & Proof Modal -->
+<div id="settlePayoutModal" class="hidden fixed inset-0 bg-slate-900/60 flex items-center justify-center z-50 p-4">
+  <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+    <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+      <h3 class="font-extrabold text-base text-slate-900">Confirm Payment & Send Proof</h3>
+      <button type="button" onclick="document.getElementById('settlePayoutModal').classList.add('hidden')" class="text-slate-400 hover:text-slate-700 font-bold text-xl cursor-pointer">&times;</button>
+    </div>
+    <p id="settleInfoText" class="text-xs font-bold text-blue-700 bg-blue-50 p-3 rounded-xl mb-4"></p>
+    <form onsubmit="submitSettlePayout(event)" class="space-y-3.5 text-xs">
+      <input type="hidden" id="settlePayoutDocId">
+      <input type="hidden" id="settlePayoutUid">
+      <input type="hidden" id="settlePayoutPubId">
+      <input type="hidden" id="settlePayoutAmount">
+      <input type="hidden" id="settleWalletDeducted">
+      <div>
+        <label class="block font-bold text-slate-600 uppercase mb-1">UTR / Bank Reference Number *</label>
+        <input type="text" id="settleUtrInput" required placeholder="e.g. 433219876543" class="w-full border border-slate-300 rounded-xl p-2.5 font-mono font-bold outline-none focus:border-blue-600">
+      </div>
+      <div>
+        <label class="block font-bold text-slate-600 uppercase mb-1">Payment Screenshot / Receipt (Optional)</label>
+        <input type="file" id="settleProofFile" accept=".jpg,.jpeg,.png,.pdf" class="w-full border border-slate-300 rounded-xl p-2">
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="document.getElementById('settlePayoutModal').classList.add('hidden')" class="px-4 py-2 rounded-xl font-bold text-slate-600 hover:bg-slate-100 cursor-pointer">Cancel</button>
+        <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-xl font-bold shadow cursor-pointer">Mark Paid & Send Proof</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <!-- Desktop Dark Sidebar -->
 <aside class="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-slate-950 text-slate-300 border-r border-slate-800/80 z-30">
@@ -724,6 +931,9 @@ window.logout = () => {
 <button type="button" id="nav-leads" onclick="switchTab('leads')" class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-left hover:bg-slate-900 hover:text-white transition cursor-pointer">
 <span>⚡</span> <span>Leads & Conversions</span>
 </button>
+<button type="button" id="nav-lead-proofs" onclick="switchTab('lead-proofs')" class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-left hover:bg-slate-900 hover:text-white transition cursor-pointer">
+<span>📎</span> <span>Submitted Lead Proofs</span>
+</button>
 <button type="button" id="nav-payouts" onclick="switchTab('payouts')" class="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-left hover:bg-slate-900 hover:text-white transition cursor-pointer">
 <span>💸</span> <span>Payout Requests</span>
 </button>
@@ -743,7 +953,6 @@ window.logout = () => {
 
 <!-- Main Content Area -->
 <div class="flex-1 lg:pl-64 flex flex-col min-w-0">
-<!-- Top Header -->
 <header class="bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-20">
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex justify-between items-center gap-4">
 <div class="flex items-center gap-3">
@@ -760,11 +969,11 @@ window.logout = () => {
 <button type="button" onclick="loadAllData()" class="text-xs bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-xl font-bold shadow-sm transition cursor-pointer">↻ Sync</button>
 </div>
 </div>
-<!-- Mobile Nav Bar -->
 <div id="mobileSidebar" class="hidden lg:hidden bg-slate-900 text-white px-4 py-3 space-y-1 text-xs font-semibold border-t border-slate-800">
 <button type="button" onclick="switchTab('overview')" class="block w-full text-left py-2 px-3 rounded-lg hover:bg-slate-800">📊 Dashboard Overview</button>
 <button type="button" onclick="switchTab('offers')" class="block w-full text-left py-2 px-3 rounded-lg hover:bg-slate-800">🎯 Manage Campaigns</button>
 <button type="button" onclick="switchTab('leads')" class="block w-full text-left py-2 px-3 rounded-lg hover:bg-slate-800">⚡ Leads & Conversions</button>
+<button type="button" onclick="switchTab('lead-proofs')" class="block w-full text-left py-2 px-3 rounded-lg hover:bg-slate-800">📎 Submitted Lead Proofs</button>
 <button type="button" onclick="switchTab('payouts')" class="block w-full text-left py-2 px-3 rounded-lg hover:bg-slate-800">💸 Payout Requests</button>
 <button type="button" onclick="switchTab('referrals')" class="block w-full text-left py-2 px-3 rounded-lg hover:bg-slate-800">🤝 Referral Network (10%)</button>
 <button type="button" onclick="switchTab('publishers')" class="block w-full text-left py-2 px-3 rounded-lg hover:bg-slate-800">👥 Publishers & Wallets</button>
@@ -822,34 +1031,33 @@ window.logout = () => {
 <form id="offerForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/60">
 <div>
 <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Offer ID *</label>
-<input type="text" id="offerId" required placeholder="e.g. 12283" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition">
+<input type="text" id="offerId" required placeholder="e.g. 12283" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold outline-none focus:border-blue-600">
 </div>
 <div>
 <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Campaign Name *</label>
-<input type="text" id="offerName" required placeholder="e.g. Angel One Demat CPA" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition">
+<input type="text" id="offerName" required placeholder="e.g. Angel One Demat CPA" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600">
 </div>
 <div>
 <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Category</label>
-<input type="text" id="offerCat" required value="DEMAT / FINANCE" placeholder="e.g. DEMAT / MUTUAL FUND" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition">
+<input type="text" id="offerCat" required value="DEMAT / FINANCE" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600">
 </div>
 
-<!-- Multi-Step Payout Structure (1 to 3 Steps) -->
 <div class="sm:col-span-2 lg:col-span-3 bg-blue-50/70 border border-blue-200/80 rounded-xl p-4 space-y-3">
     <div class="text-xs font-extrabold text-blue-900 uppercase">💰 Multi-Step Payout Events (Set Step 1, Step 2 & Optional Step 3)</div>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div class="bg-white p-3 rounded-lg border border-blue-100 space-y-2">
             <span class="text-[10px] font-bold text-blue-600 uppercase">Step 1 (Mandatory) *</span>
-            <input type="text" id="step1Name" value="Account Open / KYC" placeholder="Event Name (e.g. Account Open)" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold" required>
+            <input type="text" id="step1Name" value="Account Open / KYC" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold" required>
             <input type="number" id="step1Payout" placeholder="Payout ₹ (e.g. 20)" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-emerald-700" required>
         </div>
         <div class="bg-white p-3 rounded-lg border border-blue-100 space-y-2">
             <span class="text-[10px] font-bold text-indigo-600 uppercase">Step 2 (Optional)</span>
-            <input type="text" id="step2Name" value="First Trade Complete" placeholder="Event Name (e.g. First Trade)" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold">
+            <input type="text" id="step2Name" value="First Trade Complete" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold">
             <input type="number" id="step2Payout" placeholder="Payout ₹ (e.g. 300)" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-emerald-700">
         </div>
         <div class="bg-white p-3 rounded-lg border border-blue-100 space-y-2">
             <span class="text-[10px] font-bold text-purple-600 uppercase">Step 3 (Optional)</span>
-            <input type="text" id="step3Name" placeholder="Event Name (e.g. 2nd Trade / Hold)" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold">
+            <input type="text" id="step3Name" placeholder="Event Name (e.g. 2nd Trade)" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold">
             <input type="number" id="step3Payout" placeholder="Payout ₹ (Optional)" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-bold text-emerald-700">
         </div>
     </div>
@@ -857,14 +1065,14 @@ window.logout = () => {
 
 <div class="sm:col-span-2">
 <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Advertiser Tracking URL *</label>
-<input type="url" id="offerUrl" required placeholder="https://..." class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-mono outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition">
+<input type="url" id="offerUrl" required placeholder="https://..." class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-mono outline-none focus:border-blue-600">
 </div>
 <div>
 <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Logo Image URL (Optional)</label>
-<input type="url" id="offerLogo" placeholder="https://.../logo.png" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition">
+<input type="url" id="offerLogo" placeholder="https://.../logo.png" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600">
 </div>
 <div>
-<label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Visibility (Offer Type)</label>
+<label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Visibility</label>
 <select id="offerVisibility" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm font-semibold outline-none focus:border-blue-600">
 <option value="public">Public</option>
 <option value="private">Private</option>
@@ -872,7 +1080,7 @@ window.logout = () => {
 </div>
 <div>
 <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Daily Capping</label>
-<input type="text" id="offerCapping" value="None" placeholder="e.g. None or 50/day" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition">
+<input type="text" id="offerCapping" value="None" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600">
 </div>
 <div>
 <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Offer Status</label>
@@ -883,22 +1091,21 @@ window.logout = () => {
 </div>
 <div class="sm:col-span-2 lg:col-span-3">
 <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Profit Details 💰</label>
-<input type="text" id="offerGeo" value="Available for all states (India)" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition">
+<input type="text" id="offerGeo" value="Available for all states (India)" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600">
 </div>
 <div class="sm:col-span-2 lg:col-span-3">
-<label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">KPI & Traffic Rules (Mandatory Conditions) *</label>
-<textarea id="offerKpi" rows="2" placeholder="e.g. Min ₹100 NSE Cash Trade mandatory within 7 days. Allowed: WhatsApp, Telecalling, YouTube. Prohibited: Fake/Incentive/Duplicate leads." class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition"></textarea>
+<label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">KPI & Traffic Rules *</label>
+<textarea id="offerKpi" rows="2" class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600"></textarea>
 </div>
 <div class="sm:col-span-2 lg:col-span-3">
 <label class="block text-[11px] font-bold text-slate-600 uppercase mb-1.5">Campaign Description & Step Flow *</label>
-<textarea id="offerDesc" rows="2" required placeholder="e.g. 1. Click link -> 2. Complete Aadhaar/PAN KYC (₹20) -> 3. Complete First Trade (₹300)." class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 transition"></textarea>
+<textarea id="offerDesc" rows="2" required class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-blue-600"></textarea>
 </div>
 <div class="sm:col-span-2 lg:col-span-3 flex justify-end">
 <button type="submit" id="saveOfferSubmitBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 px-6 rounded-xl text-sm shadow-sm transition cursor-pointer">+ Save Campaign</button>
 </div>
 </form>
 
-<!-- Offers Management Table -->
 <div class="mt-6 border border-slate-200/80 rounded-2xl overflow-x-auto max-h-96">
 <table class="w-full text-left border-collapse">
 <thead class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200/80 sticky top-0">
@@ -923,10 +1130,10 @@ window.logout = () => {
 <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap justify-between items-center gap-3 bg-slate-50/50">
 <div>
 <h2 class="text-sm font-extrabold text-slate-900">Leads & Click Conversions</h2>
-<p class="text-xs text-slate-500">Approve leads step-by-step (e.g. Account Open ₹20, First Trade ₹300) & auto-credit 10% referral bonus</p>
+<p class="text-xs text-slate-500">Approve leads step-by-step & auto-credit 10% referral bonus</p>
 </div>
 <div class="flex items-center gap-2">
-<input type="text" onkeyup="filterLeadsTable(this.value)" placeholder="Search Pub ID, Sub1, Sub2, Click ID..." class="text-xs bg-white border border-slate-300 rounded-xl px-3.5 py-2 outline-none focus:border-blue-600 w-48 sm:w-64">
+<input type="text" onkeyup="filterLeadsTable(this.value)" placeholder="Search Pub ID, Sub1, Click ID..." class="text-xs bg-white border border-slate-300 rounded-xl px-3.5 py-2 outline-none focus:border-blue-600 w-48 sm:w-64">
 <button type="button" onclick="exportLeadsCSV()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl font-bold transition cursor-pointer">⬇ Leads CSV</button>
 </div>
 </div>
@@ -952,13 +1159,40 @@ window.logout = () => {
 </div>
 </section>
 
+<!-- Section 2B: Publisher Submitted Lead Proofs -->
+<section id="sec-lead-proofs" class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-100 flex flex-wrap justify-between items-center gap-3 bg-slate-50/50">
+<div>
+<h2 class="text-sm font-extrabold text-slate-900">📎 Publisher Submitted Lead Proofs</h2>
+<p class="text-xs text-slate-500">Verify customer screenshots/PDFs uploaded by publishers before crediting wallet</p>
+</div>
+<span id="pendingProofsBadge" class="bg-blue-100 text-blue-800 text-xs font-extrabold px-3 py-1 rounded-full">0 Pending</span>
+</div>
+<div class="overflow-x-auto max-h-96">
+<table class="w-full text-left border-collapse">
+<thead class="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200/80 sticky top-0 whitespace-nowrap">
+<tr>
+<th class="p-4">Date</th>
+<th class="p-4">Publisher</th>
+<th class="p-4">Campaign / Click</th>
+<th class="p-4">Customer</th>
+<th class="p-4">Proof File</th>
+<th class="p-4">Status</th>
+<th class="p-4">Action</th>
+</tr>
+</thead>
+<tbody id="adminLeadSubmissionsTable"></tbody>
+</table>
+</div>
+</section>
+
 <!-- Section 3: Payout Requests -->
 <section id="sec-payouts" class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
 <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap justify-between items-center gap-3 bg-slate-50/50">
 <div class="flex items-center gap-3">
 <div>
 <h2 class="text-sm font-extrabold text-slate-900">Publisher Withdrawal Requests</h2>
-<p class="text-xs text-slate-500">Approve UPI/Bank payouts and auto-deduct wallet balance</p>
+<p class="text-xs text-slate-500">Mark Paid with UTR/Receipt or Reject to auto-refund wallet</p>
 </div>
 <span id="pendingPayoutBadge" class="bg-amber-100 text-amber-800 text-xs font-extrabold px-3 py-1 rounded-full">0 Pending</span>
 </div>
@@ -981,7 +1215,7 @@ window.logout = () => {
 </div>
 </section>
 
-<!-- Section 4: Referral Network & 10% Commission Overview -->
+<!-- Section 4: Referral Network -->
 <section id="sec-referrals" class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
 <div class="px-6 py-4 border-b border-slate-100 flex flex-wrap justify-between items-center gap-3 bg-slate-50/50">
 <div>
