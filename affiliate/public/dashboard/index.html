@@ -2,18 +2,23 @@
 <html lang="en" class="h-full bg-slate-50">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>AffiliateWealthHub - Partner Portal</title>
 <link rel="icon" href="logo.jpg" type="image/jpeg">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-body { font-family: 'Plus Jakarta Sans', sans-serif; }
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #f8fafc; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  body { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: #f8fafc; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  .glass-header { background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+  .card-modern { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 1.25rem; box-shadow: 0 4px 20px -4px rgba(15, 23, 42, 0.05); }
+  .wallet-gradient { background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 55%, #2563eb 100%); }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 </style>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -57,7 +62,7 @@ function showToast(message, isError = false) {
     const toast = document.getElementById('fixedToast');
     if (!toast) return;
     toast.innerText = message;
-    toast.className = `fixed bottom-6 right-6 px-5 py-3 rounded-xl shadow-2xl text-xs font-bold transition-all duration-300 z-50 text-white pointer-events-none ${isError ? 'bg-red-600' : 'bg-gray-900'}`;
+    toast.className = `fixed bottom-20 md:bottom-6 right-4 left-4 md:left-auto md:right-6 px-5 py-3.5 rounded-2xl shadow-2xl text-xs font-bold transition-all duration-300 z-50 text-white text-center md:text-left pointer-events-none ${isError ? 'bg-red-600' : 'bg-gray-900'}`;
     toast.style.opacity = '1';
     toast.style.transform = 'translateY(0)';
     setTimeout(() => {
@@ -65,6 +70,20 @@ function showToast(message, isError = false) {
         toast.style.transform = 'translateY(20px)';
     }, 3000);
 }
+
+window.toggleMobileSidebar = function(forceClose = false) {
+    const sidebar = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    if (!sidebar) return;
+
+    if (forceClose || !sidebar.classList.contains('-translate-x-full')) {
+        sidebar.classList.add('-translate-x-full');
+        if (backdrop) backdrop.classList.add('hidden');
+    } else {
+        sidebar.classList.remove('-translate-x-full');
+        if (backdrop) backdrop.classList.remove('hidden');
+    }
+};
 
 window.switchTab = function(tabId, btnEl) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -75,19 +94,34 @@ window.switchTab = function(tabId, btnEl) {
         closeOfferDetails();
     }
 
+    // Update Sidebar Active State
     document.querySelectorAll('.nav-link').forEach(el => {
-        el.classList.remove('bg-blue-600', 'text-white', 'shadow-sm');
-        el.classList.add('text-gray-600', 'hover:bg-gray-100');
+        const isMatch = el.dataset.tab === tabId;
+        if (isMatch) {
+            el.classList.remove('text-gray-600', 'hover:bg-gray-100');
+            el.classList.add('bg-blue-600', 'text-white', 'shadow-sm');
+        } else {
+            el.classList.remove('bg-blue-600', 'text-white', 'shadow-sm');
+            el.classList.add('text-gray-600', 'hover:bg-gray-100');
+        }
     });
-    if (btnEl) {
-        btnEl.classList.remove('text-gray-600', 'hover:bg-gray-100');
-        btnEl.classList.add('bg-blue-600', 'text-white', 'shadow-sm');
-    }
 
-    const sidebar = document.getElementById('sidebar');
-    if (sidebar && window.innerWidth < 768) {
-        sidebar.classList.add('-translate-x-full');
+    // Update Mobile Bottom Nav Active State
+    document.querySelectorAll('.mobile-nav-btn').forEach(el => {
+        const isMatch = el.dataset.tab === tabId;
+        if (isMatch) {
+            el.classList.remove('text-gray-400');
+            el.classList.add('text-blue-600');
+        } else {
+            el.classList.remove('text-blue-600');
+            el.classList.add('text-gray-400');
+        }
+    });
+
+    if (window.innerWidth < 768) {
+        toggleMobileSidebar(true);
     }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 async function initDashboard() {
@@ -197,7 +231,7 @@ function setupRealtimeListeners() {
                 : ((isApproved || isPartial) && data.lastApprovedStep ? `<div class="text-[10px] text-green-700 font-semibold mt-0.5">✓ ${data.lastApprovedStep} (₹${data.payoutCredited || 0})</div>` : '');
 
             clicksListHtml.push(`
-                <tr class="border-b border-gray-100 hover:bg-gray-50 whitespace-nowrap report-row transition">
+                <tr class="border-b border-gray-100 hover:bg-blue-50/30 whitespace-nowrap report-row transition">
                     <td class="p-3.5 text-xs text-gray-600">${dateStr}</td>
                     <td class="p-3.5 text-xs font-mono text-gray-500">${sysClickId}</td>
                     <td class="p-3.5 text-xs font-mono text-indigo-600 font-semibold">${custClickId}</td>
@@ -209,7 +243,7 @@ function setupRealtimeListeners() {
                     <td class="p-3.5 text-xs font-mono text-gray-600">${data.customerPhone || '-'}</td>
                     <td class="p-3.5 text-xs font-mono uppercase text-indigo-600">${data.customerPan || '-'}</td>
                     <td class="p-3.5 text-xs">
-                        <span class="px-2.5 py-1 ${badgeClass} rounded-md text-[10px] font-bold uppercase tracking-wide">${data.status || 'Recorded'}</span>
+                        <span class="px-2.5 py-1 ${badgeClass} rounded-lg text-[10px] font-bold uppercase tracking-wide">${data.status || 'Recorded'}</span>
                         ${remarkHtml}
                     </td>
                 </tr>
@@ -246,11 +280,11 @@ function setupRealtimeListeners() {
             });
 
             rows.push(`
-                <tr class="border-b border-gray-100 hover:bg-gray-50 transition">
+                <tr class="border-b border-gray-100 hover:bg-gray-50 transition whitespace-nowrap">
                     <td class="p-3.5 text-xs text-gray-600">${dStr}</td>
                     <td class="p-3.5 text-xs font-extrabold text-gray-900">₹${p.amount || 0}</td>
                     <td class="p-3.5 text-xs font-mono text-gray-700">${p.method || 'N/A'}</td>
-                    <td class="p-3.5 text-xs"><span class="px-2.5 py-1 ${stColor} rounded-md text-[10px] font-bold uppercase">${p.status || 'Pending'}</span></td>
+                    <td class="p-3.5 text-xs"><span class="px-2.5 py-1 ${stColor} rounded-lg text-[10px] font-bold uppercase">${p.status || 'Pending'}</span></td>
                 </tr>
             `);
         });
@@ -281,11 +315,11 @@ function loadMyReferrals() {
             const m = docSnap.data();
             const jDate = m.createdAt ? new Date(m.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Active';
             rows.push(`
-                <tr class="hover:bg-gray-50 transition">
-                    <td class="p-3.5 text-xs text-gray-500 whitespace-nowrap">${jDate}</td>
+                <tr class="hover:bg-gray-50 transition whitespace-nowrap">
+                    <td class="p-3.5 text-xs text-gray-500">${jDate}</td>
                     <td class="p-3.5 text-xs font-mono font-bold text-indigo-600">#${m.publisherId || '-'}</td>
                     <td class="p-3.5 text-xs font-bold text-gray-900">${m.name || 'Partner'}</td>
-                    <td class="p-3.5 text-xs"><span class="px-2.5 py-1 bg-green-100 text-green-700 rounded-md font-bold uppercase text-[10px]">Active • 10% Commission</span></td>
+                    <td class="p-3.5 text-xs"><span class="px-2.5 py-1 bg-green-100 text-green-700 rounded-lg font-bold uppercase text-[10px]">Active • 10% Commission</span></td>
                 </tr>
             `);
         });
@@ -329,14 +363,14 @@ async function loadOffers() {
             allOffersMap[oid] = { id: oid, ...o };
 
             const logoHtml = o.logoUrl 
-                ? `<img src="${o.logoUrl}" alt="${o.name}" class="w-10 h-10 rounded-xl object-contain border border-gray-200 bg-white p-1 shadow-sm">`
-                : `<div class="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center font-extrabold text-xs uppercase">${(o.name || 'OF').substring(0, 2)}</div>`;
+                ? `<img src="${o.logoUrl}" alt="${o.name}" class="w-10 h-10 rounded-xl object-contain border border-gray-200 bg-white p-1 shadow-sm shrink-0">`
+                : `<div class="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center font-extrabold text-xs uppercase shrink-0">${(o.name || 'OF').substring(0, 2)}</div>`;
 
             const offerType = (o.visibility || o.type || 'public').toLowerCase();
             const isApproved = (o.offerStatus || 'approved').toLowerCase() === 'approved';
 
             tbody.innerHTML += `
-                <tr class="border-b border-gray-100 hover:bg-blue-50/40 transition offer-row" data-name="${(o.name || '').toLowerCase()}" data-visibility="${offerType}">
+                <tr class="border-b border-gray-100 hover:bg-blue-50/40 transition offer-row whitespace-nowrap" data-name="${(o.name || '').toLowerCase()}" data-visibility="${offerType}">
                     <td class="p-4 font-mono text-xs font-bold text-gray-500">#${oid}</td>
                     <td class="p-4">${logoHtml}</td>
                     <td class="p-4">
@@ -346,12 +380,12 @@ async function loadOffers() {
                     <td class="p-4 text-xs text-gray-600 capitalize font-semibold">${offerType}</td>
                     <td class="p-4 font-extrabold text-sm text-green-600">₹${o.payout || 0}</td>
                     <td class="p-4">
-                        <span class="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide ${isApproved ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">
+                        <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide ${isApproved ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}">
                             ${isApproved ? 'Approved' : 'Request'}
                         </span>
                     </td>
                     <td class="p-4 text-right">
-                        <button type="button" onclick="openOfferDetails('${oid}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-sm transition cursor-pointer">
+                        <button type="button" onclick="openOfferDetails('${oid}')" class="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition cursor-pointer">
                             Get Link
                         </button>
                     </td>
@@ -404,17 +438,18 @@ window.openOfferDetails = function(oid) {
             : [{ id: "EVT_01", name: "Approved Conversion / KYC Verified", payout: o.payout || 0 }];
 
         eventsTbody.innerHTML = eventsList.map(ev => `
-            <tr class="border-b border-gray-100">
+            <tr class="border-b border-gray-100 whitespace-nowrap">
                 <td class="p-4 font-mono font-bold text-gray-500">${ev.id}</td>
                 <td class="p-4 font-bold text-gray-900">${ev.name}</td>
                 <td class="p-4 font-black text-green-600">₹${ev.payout}</td>
-                <td class="p-4"><span class="px-2.5 py-1 bg-green-100 text-green-700 rounded-md font-bold uppercase text-[10px]">Active</span></td>
+                <td class="p-4"><span class="px-2.5 py-1 bg-green-100 text-green-700 rounded-lg font-bold uppercase text-[10px]">Active</span></td>
             </tr>
         `).join('');
     }
 
     document.querySelectorAll('.sub-param-input').forEach(inp => inp.value = '');
     updateGeneratedTrackingLink();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 window.closeOfferDetails = function() {
@@ -576,8 +611,8 @@ function updateChart(clicks, convs) {
                 label: 'Count',
                 data: [clicks, convs],
                 backgroundColor: ['#2563eb', '#10b981'],
-                borderRadius: 8,
-                barThickness: 50
+                borderRadius: 10,
+                barThickness: 44
             }]
         },
         options: {
@@ -595,512 +630,562 @@ function updateChart(clicks, convs) {
 document.addEventListener('DOMContentLoaded', initDashboard);
 </script>
 </head>
-<body class="h-full bg-slate-50 text-gray-800">
-<!-- Toast Notification -->
-<div id="fixedToast" style="opacity:0; transform:translateY(20px);" class="fixed bottom-6 right-6 bg-gray-900 text-white px-5 py-3 rounded-xl shadow-2xl text-xs font-bold transition-all duration-300 z-50 pointer-events-none"></div>
+<body class="h-full bg-slate-50 text-gray-800 antialiased">
 
-<!-- Custom Withdrawal Modal -->
-<div id="payoutModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
-<div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-200 max-h-[90vh] overflow-y-auto">
-<div class="flex justify-between items-center border-b border-gray-100 pb-3 mb-4">
-<h3 class="font-extrabold text-base text-gray-900">Request Withdrawal</h3>
-<button type="button" onclick="closePayoutModal()" class="text-gray-400 hover:text-gray-700 font-bold text-lg cursor-pointer">&times;</button>
-</div>
-<form onsubmit="submitPayoutRequest(event)" class="space-y-3 text-xs">
-    <div class="bg-blue-50 p-3.5 rounded-xl flex justify-between items-center border border-blue-100">
+<!-- Toast Notification -->
+<div id="fixedToast" style="opacity:0; transform:translateY(20px);" class="fixed bottom-20 md:bottom-6 right-4 left-4 md:left-auto md:right-6 bg-gray-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl text-xs font-bold transition-all duration-300 z-50 pointer-events-none"></div>
+
+<!-- Mobile Sidebar Backdrop -->
+<div id="sidebarBackdrop" onclick="toggleMobileSidebar(true)" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-40 md:hidden transition-opacity"></div>
+
+<!-- Custom Withdrawal Modal (Bottom Sheet on Mobile, Centered on Desktop) -->
+<div id="payoutModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+  <div class="bg-white rounded-t-3xl sm:rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-200 max-h-[92vh] overflow-y-auto">
+    <div class="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4 sm:hidden"></div>
+    <div class="flex justify-between items-center border-b border-gray-100 pb-3.5 mb-4">
+      <h3 class="font-extrabold text-base text-gray-900">Request Withdrawal</h3>
+      <button type="button" onclick="closePayoutModal()" class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:text-gray-800 font-bold text-lg flex items-center justify-center cursor-pointer">&times;</button>
+    </div>
+    <form onsubmit="submitPayoutRequest(event)" class="space-y-3.5 text-xs">
+      <div class="bg-blue-50 p-3.5 rounded-2xl flex justify-between items-center border border-blue-100">
         <span class="font-bold text-gray-700">Available Wallet Balance</span>
         <span id="modalAvailBal" class="font-black text-base text-blue-700">₹0</span>
-    </div>
-    <div>
-        <label class="block font-bold text-gray-600 mb-1 uppercase text-[11px]">Withdrawal Amount (₹) *</label>
-        <input type="number" id="withdrawAmount" min="100" class="w-full border border-gray-300 p-2.5 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500" required>
-    </div>
-    <div>
-        <label class="block font-bold text-gray-600 mb-1 uppercase text-[11px]">Account Holder Name *</label>
-        <input type="text" id="withdrawHolderName" placeholder="Name as per Bank / UPI" class="w-full border border-gray-300 p-2.5 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-blue-500" required>
-    </div>
-    <div>
-        <label class="block font-bold text-gray-600 mb-1 uppercase text-[11px]">Registered Mobile Number *</label>
-        <input type="tel" id="withdrawMobile" maxlength="10" placeholder="10-digit Mobile Number" class="w-full border border-gray-300 p-2.5 rounded-xl font-mono font-semibold outline-none focus:ring-2 focus:ring-blue-500" required>
-    </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      </div>
+      <div>
+        <label class="block font-bold text-gray-600 mb-1.5 uppercase text-[11px]">Withdrawal Amount (₹) *</label>
+        <input type="number" id="withdrawAmount" min="100" class="w-full h-11 border border-gray-300 px-3.5 rounded-xl font-bold text-sm outline-none focus:ring-2 focus:ring-blue-500" required>
+      </div>
+      <div>
+        <label class="block font-bold text-gray-600 mb-1.5 uppercase text-[11px]">Account Holder Name *</label>
+        <input type="text" id="withdrawHolderName" placeholder="Name as per Bank / UPI" class="w-full h-11 border border-gray-300 px-3.5 rounded-xl font-semibold outline-none focus:ring-2 focus:ring-blue-500" required>
+      </div>
+      <div>
+        <label class="block font-bold text-gray-600 mb-1.5 uppercase text-[11px]">Registered Mobile Number *</label>
+        <input type="tel" id="withdrawMobile" maxlength="10" placeholder="10-digit Mobile Number" class="w-full h-11 border border-gray-300 px-3.5 rounded-xl font-mono font-semibold outline-none focus:ring-2 focus:ring-blue-500" required>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-            <label class="block font-bold text-gray-600 mb-1 uppercase text-[11px]">Bank Account Number</label>
-            <input type="text" id="withdrawAccNo" placeholder="e.g. 123456789012" class="w-full border border-gray-300 p-2.5 rounded-xl font-mono outline-none focus:ring-2 focus:ring-blue-500">
+          <label class="block font-bold text-gray-600 mb-1.5 uppercase text-[11px]">Bank Account Number</label>
+          <input type="text" id="withdrawAccNo" placeholder="e.g. 123456789012" class="w-full h-11 border border-gray-300 px-3.5 rounded-xl font-mono outline-none focus:ring-2 focus:ring-blue-500">
         </div>
         <div>
-            <label class="block font-bold text-gray-600 mb-1 uppercase text-[11px]">IFSC Code</label>
-            <input type="text" id="withdrawIfsc" placeholder="e.g. SBIN0001234" class="w-full border border-gray-300 p-2.5 rounded-xl font-mono uppercase outline-none focus:ring-2 focus:ring-blue-500">
+          <label class="block font-bold text-gray-600 mb-1.5 uppercase text-[11px]">IFSC Code</label>
+          <input type="text" id="withdrawIfsc" placeholder="e.g. SBIN0001234" class="w-full h-11 border border-gray-300 px-3.5 rounded-xl font-mono uppercase outline-none focus:ring-2 focus:ring-blue-500">
         </div>
-    </div>
-    <div>
-        <label class="block font-bold text-gray-600 mb-1 uppercase text-[11px]">UPI ID (PhonePe / GPay / Paytm)</label>
-        <input type="text" id="withdrawUpi" placeholder="e.g. 9479532362@ybl" class="w-full border border-gray-300 p-2.5 rounded-xl font-mono outline-none focus:ring-2 focus:ring-blue-500">
-    </div>
-    <div class="flex justify-end gap-2 pt-2">
-        <button type="button" onclick="closePayoutModal()" class="px-4 py-2.5 rounded-xl font-bold text-gray-600 hover:bg-gray-100 cursor-pointer">Cancel</button>
-        <button type="submit" class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl font-bold shadow cursor-pointer">Submit Request</button>
-    </div>
-</form>
-</div>
+      </div>
+      <div>
+        <label class="block font-bold text-gray-600 mb-1.5 uppercase text-[11px]">UPI ID (PhonePe / GPay / Paytm)</label>
+        <input type="text" id="withdrawUpi" placeholder="e.g. 9479532362@ybl" class="w-full h-11 border border-gray-300 px-3.5 rounded-xl font-mono outline-none focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div class="flex gap-2.5 pt-3">
+        <button type="button" onclick="closePayoutModal()" class="flex-1 h-11 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 cursor-pointer">Cancel</button>
+        <button type="submit" class="flex-1 h-11 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold shadow cursor-pointer">Submit Request</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- Legal & MIS Policy Modal -->
-<div id="policyModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-200 max-h-[85vh] overflow-y-auto space-y-4">
-        <div class="flex justify-between items-center border-b border-gray-100 pb-3">
-            <h3 id="policyModalTitle" class="font-extrabold text-base text-gray-900">Policy</h3>
-            <button type="button" onclick="document.getElementById('policyModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-700 font-bold text-xl cursor-pointer">&times;</button>
-        </div>
-        <div id="policyModalBody" class="text-xs text-gray-600 space-y-2.5 leading-relaxed"></div>
-        <div class="pt-2 text-right">
-            <button type="button" onclick="document.getElementById('policyModal').classList.add('hidden')" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-xs font-bold cursor-pointer">I Understand</button>
-        </div>
+<div id="policyModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+  <div class="bg-white rounded-t-3xl sm:rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-gray-200 max-h-[85vh] overflow-y-auto space-y-4">
+    <div class="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-2 sm:hidden"></div>
+    <div class="flex justify-between items-center border-b border-gray-100 pb-3">
+      <h3 id="policyModalTitle" class="font-extrabold text-base text-gray-900">Policy</h3>
+      <button type="button" onclick="document.getElementById('policyModal').classList.add('hidden')" class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:text-gray-800 font-bold text-lg flex items-center justify-center cursor-pointer">&times;</button>
     </div>
+    <div id="policyModalBody" class="text-xs text-gray-600 space-y-2.5 leading-relaxed"></div>
+    <div class="pt-2">
+      <button type="button" onclick="document.getElementById('policyModal').classList.add('hidden')" class="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold cursor-pointer">I Understand</button>
+    </div>
+  </div>
 </div>
 
 <div class="flex h-screen overflow-hidden">
-<!-- Clean Corporate Sidebar -->
-<aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform -translate-x-full md:translate-x-0 md:static transition-transform duration-300 ease-in-out flex flex-col justify-between overflow-y-auto">
-<div>
-<div class="p-5 border-b border-gray-100 flex items-center space-x-3">
-<img src="logo.jpg" alt="AffiliateWealthHub Logo" class="w-11 h-11 rounded-full object-cover border border-gray-200 shadow-sm shrink-0">
-<div>
-<h2 class="font-extrabold text-gray-900 text-sm tracking-tight">AffiliateWealthHub</h2>
-<span class="text-[10px] text-blue-600 block font-bold uppercase tracking-wider">Partner Network</span>
-</div>
-</div>
+  <!-- Clean Corporate Sidebar -->
+  <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-72 md:w-64 bg-white border-r border-gray-200 transform -translate-x-full md:translate-x-0 md:static transition-transform duration-300 ease-in-out flex flex-col justify-between overflow-y-auto">
+    <div>
+      <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <img src="logo.jpg" alt="AffiliateWealthHub Logo" class="w-10 h-10 rounded-xl object-cover border border-gray-200 shadow-sm shrink-0">
+          <div>
+            <h2 class="font-extrabold text-gray-900 text-sm tracking-tight">AffiliateWealthHub</h2>
+            <span class="text-[10px] text-blue-600 block font-bold uppercase tracking-wider">Partner Network</span>
+          </div>
+        </div>
+        <button type="button" onclick="toggleMobileSidebar(true)" class="md:hidden w-8 h-8 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center font-bold">&times;</button>
+      </div>
 
-<div class="py-4 px-3 space-y-1 text-xs font-semibold">
-<button type="button" onclick="switchTab('tab-dashboard', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-2.5 bg-blue-600 text-white rounded-xl transition text-left shadow-sm cursor-pointer">
-<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-<span>Dashboard</span>
-</button>
-<button type="button" onclick="switchTab('tab-offers', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
-<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-<span>Live Campaigns</span>
-</button>
-<button type="button" onclick="switchTab('tab-clicks', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
-<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-<span>Conversion Reports</span>
-</button>
-<button type="button" onclick="switchTab('tab-earnings', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
-<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-<span>Wallet & Earnings</span>
-</button>
-<button type="button" onclick="switchTab('tab-payouts', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
-<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-<span>Payout History</span>
-</button>
-<button type="button" onclick="switchTab('tab-referrals', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
-<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-<span>Refer & Earn (10%)</span>
-</button>
-<button type="button" onclick="switchTab('tab-profile', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-2.5 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
-<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-<span>Account Settings</span>
-</button>
-</div>
-</div>
-
-<div>
-<!-- Dedicated Manager Card -->
-<div class="p-4 m-3 bg-gray-900 text-white rounded-2xl text-xs space-y-2.5 shadow-md">
-<div class="flex items-center justify-between">
-<span class="font-bold text-blue-400 text-[10px] uppercase tracking-wider">Dedicated Manager</span>
-<span class="flex items-center gap-1 text-[10px] text-green-400 font-semibold"><span class="h-2 w-2 rounded-full bg-green-500"></span> Online</span>
-</div>
-<div>
-<p class="font-bold text-sm text-white">Arun Rathore</p>
-<p class="text-gray-300 text-xs mt-1 font-mono">+91 9479532362</p>
-<p class="text-gray-400 text-[11px] truncate">arunrathor701@gmail.com</p>
-</div>
-<a href="https://wa.me/919479532362" target="_blank" class="w-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-1.5 py-2 rounded-xl font-bold transition shadow-sm">
-<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.1.824z"/></svg>
-<span>WhatsApp Support</span>
-</a>
-</div>
-
-<div class="p-3 border-t border-gray-100">
-<button type="button" onclick="logout()" class="w-full flex items-center space-x-2 px-3.5 py-2 text-red-600 hover:bg-red-50 rounded-xl transition text-xs font-bold text-left cursor-pointer">
-<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-<span>Sign Out</span>
-</button>
-</div>
-</div>
-</aside>
-
-<!-- Main Content -->
-<div class="flex-1 flex flex-col overflow-y-auto">
-<header class="bg-white border-b border-gray-200 px-6 md:px-8 py-4 flex items-center justify-between sticky top-0 z-10">
-<div>
-<h1 class="text-base sm:text-lg font-extrabold text-gray-900 tracking-tight">Partner Dashboard</h1>
-<p class="text-xs text-gray-500">Welcome back, <span class="pubNameDisplay font-bold text-gray-800">Arun Rathore</span></p>
-</div>
-<div class="flex items-center gap-3">
-<div class="text-right bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl">
-<span class="block text-[10px] text-gray-400 font-bold uppercase tracking-wider">Publisher ID</span>
-<span id="pubIdDisplay" class="font-extrabold text-blue-600 font-mono text-xs sm:text-sm">#662</span>
-</div>
-</div>
-</header>
-
-<main class="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full flex-1">
-<div class="md:hidden flex items-center justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-4">
-  <span class="font-extrabold text-sm text-gray-900">AffiliateWealthHub</span>
-  <button type="button" onclick="document.getElementById('sidebar').classList.toggle('-translate-x-full')" class="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-bold">
-    Menu
-  </button>
-</div>
-
-<!-- Network Announcement Banner -->
-<div class="bg-gradient-to-r from-blue-900 to-indigo-900 text-white px-5 py-3.5 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-    <div class="flex items-center gap-2.5">
-        <span class="bg-blue-500/30 border border-blue-400/40 text-blue-200 px-2 py-0.5 rounded-md font-extrabold text-[10px] uppercase tracking-wider shrink-0">Notice</span>
-        <span class="font-medium text-blue-50">All Demat & Fintech campaigns are validated strictly via official Client MIS Reports. Minimum payout threshold is ₹100.</span>
+      <div class="py-4 px-3 space-y-1.5 text-xs font-semibold">
+        <button type="button" data-tab="tab-dashboard" onclick="switchTab('tab-dashboard', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-3 bg-blue-600 text-white rounded-xl transition text-left shadow-sm cursor-pointer">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+          <span>Dashboard</span>
+        </button>
+        <button type="button" data-tab="tab-offers" onclick="switchTab('tab-offers', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-3 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+          <span>Live Campaigns</span>
+        </button>
+        <button type="button" data-tab="tab-clicks" onclick="switchTab('tab-clicks', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-3 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+          <span>Conversion Reports</span>
+        </button>
+        <button type="button" data-tab="tab-earnings" onclick="switchTab('tab-earnings', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-3 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span>Wallet & Earnings</span>
+        </button>
+        <button type="button" data-tab="tab-payouts" onclick="switchTab('tab-payouts', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-3 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+          <span>Payout History</span>
+        </button>
+        <button type="button" data-tab="tab-referrals" onclick="switchTab('tab-referrals', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-3 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+          <span>Refer & Earn (10%)</span>
+        </button>
+        <button type="button" data-tab="tab-profile" onclick="switchTab('tab-profile', this)" class="nav-link w-full flex items-center space-x-3 px-3.5 py-3 text-gray-600 hover:bg-gray-100 rounded-xl transition text-left cursor-pointer">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+          <span>Account Settings</span>
+        </button>
+      </div>
     </div>
-    <button type="button" onclick="switchTab('tab-offers')" class="text-blue-300 hover:text-white font-bold underline text-left sm:text-right shrink-0 cursor-pointer">Explore Campaigns →</button>
-</div>
 
-<!-- 1. DASHBOARD -->
-<div id="tab-dashboard" class="tab-content space-y-6">
-<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-<div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-<span class="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Total Clicks</span>
-<div id="totalClicksDisplay" class="text-3xl font-black text-gray-900 mt-1">0</div>
-<span class="text-[11px] text-gray-400 font-medium mt-1 block">Real-time tracked clicks</span>
-</div>
-<div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-<span class="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Approved Leads</span>
-<div id="totalConvDisplay" class="text-3xl font-black text-green-600 mt-1">0</div>
-<span class="text-[11px] text-green-600 font-semibold mt-1 block">MIS confirmed conversions</span>
-</div>
-<div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-<span class="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Approval Rate</span>
-<div id="conversionRateDisplay" class="text-3xl font-black text-indigo-600 mt-1">0.0%</div>
-<span class="text-[11px] text-gray-400 font-medium mt-1 block">Clicks to conversion ratio</span>
-</div>
-<div class="bg-blue-600 text-white p-5 rounded-2xl shadow-md">
-<span class="text-[11px] font-bold text-blue-200 uppercase tracking-wider block">Available Wallet</span>
-<div id="walletBalance" class="text-3xl font-black mt-1">₹0</div>
-<button type="button" onclick="openPayoutModal()" class="mt-2 bg-white/15 hover:bg-white/25 text-white text-[11px] font-bold px-3 py-1 rounded-lg transition cursor-pointer">Withdraw Funds →</button>
-</div>
-</div>
+    <div>
+      <!-- Dedicated Manager Card -->
+      <div class="p-4 m-3 bg-gray-900 text-white rounded-2xl text-xs space-y-2.5 shadow-md">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-blue-400 text-[10px] uppercase tracking-wider">Dedicated Manager</span>
+          <span class="flex items-center gap-1 text-[10px] text-green-400 font-semibold"><span class="h-2 w-2 rounded-full bg-green-500"></span> Online</span>
+        </div>
+        <div>
+          <p class="font-bold text-sm text-white">Arun Rathore</p>
+          <p class="text-gray-300 text-xs mt-1 font-mono">+91 9479532362</p>
+          <p class="text-gray-400 text-[11px] truncate">arunrathor701@gmail.com</p>
+        </div>
+        <a href="https://wa.me/919479532362" target="_blank" class="w-full bg-green-600 hover:bg-green-700 text-white flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-bold transition shadow-sm">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.1.824z"/></svg>
+          <span>WhatsApp Support</span>
+        </a>
+      </div>
 
-<div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-<div class="flex items-center justify-between mb-4">
-    <h3 class="font-extrabold text-sm text-gray-900">Traffic & Conversion Performance</h3>
-    <span class="text-[11px] font-semibold text-gray-400">Live Account Overview</span>
-</div>
-<div class="h-64 w-full"><canvas id="perfChart"></canvas></div>
-</div>
-</div>
+      <div class="p-3 border-t border-gray-100">
+        <button type="button" onclick="logout()" class="w-full flex items-center space-x-2 px-3.5 py-2.5 text-red-600 hover:bg-red-50 rounded-xl transition text-xs font-bold text-left cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+          <span>Sign Out</span>
+        </button>
+      </div>
+    </div>
+  </aside>
 
-<!-- 2. OFFERS -->
-<div id="tab-offers" class="tab-content hidden space-y-5">
-    <div id="offersListView" class="space-y-4">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-                <h2 class="font-extrabold text-lg text-gray-900">Live Campaigns</h2>
-                <p class="text-xs text-gray-500">Select any campaign to generate your custom Sub-ID tracking link and view KPIs.</p>
+  <!-- Main Content -->
+  <div class="flex-1 flex flex-col overflow-y-auto pb-20 md:pb-0">
+    <!-- Modern Sticky Glass Header -->
+    <header class="glass-header border-b border-gray-200/80 px-4 md:px-8 py-3.5 flex items-center justify-between sticky top-0 z-20">
+      <div class="flex items-center gap-3">
+        <button type="button" onclick="toggleMobileSidebar()" class="md:hidden w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-700 active:scale-95 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </button>
+        <div>
+          <h1 class="text-sm sm:text-lg font-extrabold text-gray-900 tracking-tight leading-tight">AffiliateWealthHub</h1>
+          <p class="text-[11px] sm:text-xs text-gray-500">Hi, <span class="pubNameDisplay font-bold text-gray-800">Arun Rathore</span></p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2.5">
+        <div class="text-right bg-blue-50/70 border border-blue-100 px-3 py-1.5 rounded-xl">
+          <span class="block text-[9px] text-gray-500 font-bold uppercase tracking-wider">Partner ID</span>
+          <span id="pubIdDisplay" class="font-extrabold text-blue-600 font-mono text-xs sm:text-sm">#662</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="p-4 md:p-8 space-y-5 md:space-y-6 max-w-7xl mx-auto w-full flex-1">
+      <!-- Network Announcement Banner -->
+      <div class="bg-gradient-to-r from-slate-900 via-blue-950 to-indigo-900 text-white p-4 rounded-2xl shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+        <div class="flex items-start sm:items-center gap-2.5">
+          <span class="bg-blue-500/30 border border-blue-400/40 text-blue-200 px-2 py-0.5 rounded-md font-extrabold text-[10px] uppercase tracking-wider shrink-0 mt-0.5 sm:mt-0">MIS Info</span>
+          <span class="font-medium text-blue-50 leading-relaxed">Demat & Fintech leads validate via official Client MIS Reports. Min withdrawal: ₹100.</span>
+        </div>
+        <button type="button" onclick="switchTab('tab-offers')" class="text-blue-300 hover:text-white font-bold underline text-left sm:text-right shrink-0 cursor-pointer">View Offers →</button>
+      </div>
+
+      <!-- 1. DASHBOARD -->
+      <div id="tab-dashboard" class="tab-content space-y-5 md:space-y-6">
+        <!-- Mobile-First Hero Wallet + Stats Grid -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5 md:gap-4">
+          <!-- Featured Wallet Card (Full width on mobile, 1 col on desktop) -->
+          <div class="col-span-2 lg:col-span-1 wallet-gradient text-white p-5 rounded-2xl shadow-lg flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-bold text-blue-200 uppercase tracking-wider">Available Wallet</span>
+              <span class="px-2 py-0.5 bg-white/10 rounded-md text-[10px] font-semibold text-blue-100">INR</span>
             </div>
+            <div id="walletBalance" class="text-3xl font-black mt-2 tracking-tight">₹0</div>
+            <button type="button" onclick="openPayoutModal()" class="mt-3.5 w-full sm:w-auto bg-white text-blue-900 hover:bg-blue-50 text-xs font-extrabold px-4 py-2.5 rounded-xl shadow-sm active:scale-95 transition cursor-pointer text-center">
+              Withdraw Funds →
+            </button>
+          </div>
+
+          <div class="card-modern p-4 sm:p-5 flex flex-col justify-between">
+            <span class="text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Total Clicks</span>
+            <div id="totalClicksDisplay" class="text-2xl sm:text-3xl font-black text-gray-900 mt-1">0</div>
+            <span class="text-[10px] sm:text-[11px] text-gray-400 font-medium mt-1 block">Real-time tracked</span>
+          </div>
+
+          <div class="card-modern p-4 sm:p-5 flex flex-col justify-between">
+            <span class="text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Approved Leads</span>
+            <div id="totalConvDisplay" class="text-2xl sm:text-3xl font-black text-green-600 mt-1">0</div>
+            <span class="text-[10px] sm:text-[11px] text-green-600 font-semibold mt-1 block">MIS confirmed</span>
+          </div>
+
+          <div class="col-span-2 sm:col-span-1 card-modern p-4 sm:p-5 flex flex-col justify-between">
+            <span class="text-[10px] sm:text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Approval Rate</span>
+            <div id="conversionRateDisplay" class="text-2xl sm:text-3xl font-black text-indigo-600 mt-1">0.0%</div>
+            <span class="text-[10px] sm:text-[11px] text-gray-400 font-medium mt-1 block">Clicks to conversion</span>
+          </div>
         </div>
 
-        <div class="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="card-modern p-5 sm:p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-extrabold text-sm text-gray-900">Traffic & Conversion Performance</h3>
+            <span class="text-[11px] font-semibold text-gray-400 bg-gray-100 px-2.5 py-1 rounded-lg">Live Overview</span>
+          </div>
+          <div class="h-56 sm:h-64 w-full"><canvas id="perfChart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- 2. OFFERS -->
+      <div id="tab-offers" class="tab-content hidden space-y-4 sm:space-y-5">
+        <div id="offersListView" class="space-y-4">
+          <div>
+            <h2 class="font-extrabold text-lg text-gray-900">Live Campaigns</h2>
+            <p class="text-xs text-gray-500">Tap "Get Link" on any campaign to generate your custom Sub-ID tracking URL.</p>
+          </div>
+
+          <div class="card-modern p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div class="w-full sm:w-80">
-                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Search Campaign</label>
-                <input type="text" id="offerSearchInput" onkeyup="filterOffersTable()" placeholder="Search by campaign name..." class="w-full border border-gray-300 rounded-xl px-3.5 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+              <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Search Campaign</label>
+              <input type="text" id="offerSearchInput" onkeyup="filterOffersTable()" placeholder="Search by campaign name..." class="w-full h-10 border border-gray-300 rounded-xl px-3.5 text-xs outline-none focus:ring-2 focus:ring-blue-500">
             </div>
             <div class="w-full sm:w-48">
-                <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Visibility</label>
-                <select id="offerVisibilityFilter" onchange="filterOffersTable()" class="w-full border border-gray-300 rounded-xl px-3.5 py-2 text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                    <option value="all">All Visibility</option>
-                    <option value="public">Public</option>
-                    <option value="private">Private</option>
-                </select>
+              <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Visibility</label>
+              <select id="offerVisibilityFilter" onchange="filterOffersTable()" class="w-full h-10 border border-gray-300 rounded-xl px-3.5 text-xs font-semibold outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                <option value="all">All Visibility</option>
+                <option value="public">Public</option>
+                <option value="private">Private</option>
+              </select>
             </div>
-        </div>
+          </div>
 
-        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-x-auto">
-            <table class="w-full text-left border-collapse">
+          <div class="card-modern overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
                 <thead>
-                    <tr class="border-b border-gray-200 bg-gray-50 text-gray-500 text-[10px] font-extrabold uppercase tracking-wider">
-                        <th class="p-4">Offer ID</th>
-                        <th class="p-4">Brand</th>
-                        <th class="p-4">Campaign Name</th>
-                        <th class="p-4">Access</th>
-                        <th class="p-4">Total Payout</th>
-                        <th class="p-4">Status</th>
-                        <th class="p-4 text-right">Action</th>
-                    </tr>
+                  <tr class="border-b border-gray-200 bg-gray-50 text-gray-500 text-[10px] font-extrabold uppercase tracking-wider whitespace-nowrap">
+                    <th class="p-4">Offer ID</th>
+                    <th class="p-4">Brand</th>
+                    <th class="p-4">Campaign Name</th>
+                    <th class="p-4">Access</th>
+                    <th class="p-4">Total Payout</th>
+                    <th class="p-4">Status</th>
+                    <th class="p-4 text-right">Action</th>
+                  </tr>
                 </thead>
                 <tbody id="offersTableBody" class="divide-y divide-gray-100"></tbody>
-            </table>
+              </table>
+            </div>
+          </div>
         </div>
-    </div>
 
-    <!-- SINGLE OFFER DETAILS VIEW -->
-    <div id="offerDetailView" class="hidden space-y-5">
-        <div class="flex items-center justify-between">
+        <!-- SINGLE OFFER DETAILS VIEW -->
+        <div id="offerDetailView" class="hidden space-y-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-                <h2 class="font-extrabold text-lg text-gray-900">Campaign Details & Link Builder</h2>
-                <p class="text-xs text-gray-500">Review payout milestones, KPI rules, and generate your tracking URL.</p>
+              <h2 class="font-extrabold text-lg text-gray-900">Campaign Link Builder</h2>
+              <p class="text-xs text-gray-500">Review payout milestones, KPI rules, and copy your tracking URL.</p>
             </div>
-            <button type="button" onclick="closeOfferDetails()" class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer">
-                ← Back to Campaigns
+            <button type="button" onclick="closeOfferDetails()" class="self-start sm:self-auto bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer">
+              ← Back to Campaigns
             </button>
-        </div>
+          </div>
 
-        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-6">
+          <div class="card-modern p-5 sm:p-6 space-y-6">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-5">
-                <div class="flex items-center gap-4">
-                    <div id="detOfferLogo"></div>
-                    <div>
-                        <h3 id="detOfferName" class="text-lg font-extrabold text-gray-900">Campaign Name</h3>
-                        <div class="flex items-center gap-2 mt-1">
-                            <span class="px-2.5 py-0.5 bg-green-100 text-green-700 rounded-md text-[10px] font-bold uppercase">Active</span>
-                            <span id="detOfferVisibility" class="px-2.5 py-0.5 bg-gray-100 text-gray-600 rounded-md text-[10px] font-bold capitalize">Public</span>
-                        </div>
-                    </div>
+              <div class="flex items-center gap-3.5">
+                <div id="detOfferLogo"></div>
+                <div>
+                  <h3 id="detOfferName" class="text-base sm:text-lg font-extrabold text-gray-900">Campaign Name</h3>
+                  <div class="flex items-center gap-2 mt-1">
+                    <span class="px-2.5 py-0.5 bg-green-100 text-green-700 rounded-md text-[10px] font-bold uppercase">Active</span>
+                    <span id="detOfferVisibility" class="px-2.5 py-0.5 bg-gray-100 text-gray-600 rounded-md text-[10px] font-bold capitalize">Public</span>
+                  </div>
                 </div>
-                <div class="text-left sm:text-right">
-                    <span class="text-[10px] text-gray-400 font-bold uppercase block">Total Campaign Payout</span>
-                    <span id="detOfferPayout" class="text-2xl font-black text-green-600">₹0</span>
-                </div>
+              </div>
+              <div class="bg-green-50 sm:bg-transparent p-3 sm:p-0 rounded-xl text-left sm:text-right border border-green-100 sm:border-0">
+                <span class="text-[10px] text-gray-500 font-bold uppercase block">Total Campaign Payout</span>
+                <span id="detOfferPayout" class="text-2xl font-black text-green-600">₹0</span>
+              </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div class="border border-gray-200 rounded-xl p-4 bg-gray-50/60">
-                    <span class="text-[10px] font-bold text-gray-400 uppercase block">Campaign ID</span>
-                    <span id="detOfferId" class="text-base font-extrabold text-gray-900 font-mono mt-1 block">#1</span>
-                </div>
-                <div class="border border-gray-200 rounded-xl p-4 bg-gray-50/60">
-                    <span class="text-[10px] font-bold text-gray-400 uppercase block">Daily Capping</span>
-                    <span id="detOfferCapping" class="text-base font-extrabold text-gray-900 mt-1 block">None</span>
-                </div>
-                <div class="border border-gray-200 rounded-xl p-4 bg-gray-50/60">
-                    <span class="text-[10px] font-bold text-gray-400 uppercase block">Currency / Model</span>
-                    <span class="text-base font-extrabold text-gray-900 mt-1 block">INR (CPA / Multi-Step)</span>
-                </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              <div class="border border-gray-200 rounded-xl p-3.5 bg-gray-50/60">
+                <span class="text-[10px] font-bold text-gray-400 uppercase block">Campaign ID</span>
+                <span id="detOfferId" class="text-sm sm:text-base font-extrabold text-gray-900 font-mono mt-1 block">#1</span>
+              </div>
+              <div class="border border-gray-200 rounded-xl p-3.5 bg-gray-50/60">
+                <span class="text-[10px] font-bold text-gray-400 uppercase block">Daily Capping</span>
+                <span id="detOfferCapping" class="text-sm sm:text-base font-extrabold text-gray-900 mt-1 block">None</span>
+              </div>
+              <div class="border border-gray-200 rounded-xl p-3.5 bg-gray-50/60">
+                <span class="text-[10px] font-bold text-gray-400 uppercase block">Currency / Model</span>
+                <span class="text-sm sm:text-base font-extrabold text-gray-900 mt-1 block">INR (CPA / Multi-Step)</span>
+              </div>
             </div>
 
             <div class="space-y-3 border-t border-gray-100 pt-5">
-                <label class="block text-xs font-extrabold text-gray-700 uppercase">Your Tracking URL</label>
-                <div class="flex flex-col sm:flex-row gap-2">
-                    <input type="text" id="detTrackingUrl" readonly class="flex-1 bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2.5 text-xs font-mono text-blue-700 font-semibold outline-none">
-                    <button type="button" onclick="copyDetailTrackingUrl()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow transition cursor-pointer whitespace-nowrap">
-                        Copy Tracking Link
-                    </button>
-                </div>
+              <label class="block text-xs font-extrabold text-gray-700 uppercase">Your Tracking URL</label>
+              <div class="flex flex-col sm:flex-row gap-2.5">
+                <input type="text" id="detTrackingUrl" readonly class="flex-1 h-11 bg-gray-50 border border-gray-300 rounded-xl px-3.5 text-xs font-mono text-blue-700 font-semibold outline-none">
+                <button type="button" onclick="copyDetailTrackingUrl()" class="h-11 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white px-5 rounded-xl text-xs font-bold shadow transition cursor-pointer whitespace-nowrap">
+                  Copy Tracking Link
+                </button>
+              </div>
 
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                    <div>
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sub-Affiliate 1 (sub1)</label>
-                        <input type="text" id="paramSub1" onkeyup="updateGeneratedTrackingLink()" placeholder="e.g. Team1" class="sub-param-input w-full border border-gray-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sub-Affiliate 2 (sub2)</label>
-                        <input type="text" id="paramSub2" onkeyup="updateGeneratedTrackingLink()" placeholder="e.g. WhatsApp" class="sub-param-input w-full border border-gray-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sub-Affiliate 3 (sub3)</label>
-                        <input type="text" id="paramSub3" onkeyup="updateGeneratedTrackingLink()" placeholder="e.g. SourceA" class="sub-param-input w-full border border-gray-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Custom Click ID</label>
-                        <input type="text" id="paramClickId" onkeyup="updateGeneratedTrackingLink()" placeholder="Optional" class="sub-param-input w-full border border-gray-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-100 pt-5 text-xs">
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
                 <div>
-                    <h4 class="font-extrabold text-gray-900 uppercase mb-1.5">Allowed Geo & Payout Terms</h4>
-                    <p id="detOfferGeo" class="text-gray-600 bg-gray-50 p-3.5 rounded-xl border border-gray-200">Available for all states (India)</p>
+                  <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sub-Affiliate 1 (sub1)</label>
+                  <input type="text" id="paramSub1" onkeyup="updateGeneratedTrackingLink()" placeholder="e.g. Team1" class="sub-param-input w-full h-10 border border-gray-300 rounded-xl px-3 text-xs outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
-                    <h4 class="font-extrabold text-gray-900 uppercase mb-1.5">KPIs, Traffic Rules & Step Flow</h4>
-                    <div id="detOfferDesc" class="text-gray-600 bg-gray-50 p-3.5 rounded-xl border border-gray-200 whitespace-pre-line leading-relaxed"></div>
+                  <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sub-Affiliate 2 (sub2)</label>
+                  <input type="text" id="paramSub2" onkeyup="updateGeneratedTrackingLink()" placeholder="e.g. WhatsApp" class="sub-param-input w-full h-10 border border-gray-300 rounded-xl px-3 text-xs outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
+                <div>
+                  <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Sub-Affiliate 3 (sub3)</label>
+                  <input type="text" id="paramSub3" onkeyup="updateGeneratedTrackingLink()" placeholder="e.g. SourceA" class="sub-param-input w-full h-10 border border-gray-300 rounded-xl px-3 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                  <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Custom Click ID</label>
+                  <input type="text" id="paramClickId" onkeyup="updateGeneratedTrackingLink()" placeholder="Optional" class="sub-param-input w-full h-10 border border-gray-300 rounded-xl px-3 text-xs outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+              </div>
             </div>
-        </div>
 
-        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 border-t border-gray-100 pt-5 text-xs">
+              <div>
+                <h4 class="font-extrabold text-gray-900 uppercase mb-1.5">Allowed Geo & Payout Terms</h4>
+                <p id="detOfferGeo" class="text-gray-600 bg-gray-50 p-3.5 rounded-xl border border-gray-200">Available for all states (India)</p>
+              </div>
+              <div>
+                <h4 class="font-extrabold text-gray-900 uppercase mb-1.5">KPIs, Traffic Rules & Step Flow</h4>
+                <div id="detOfferDesc" class="text-gray-600 bg-gray-50 p-3.5 rounded-xl border border-gray-200 whitespace-pre-line leading-relaxed"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-modern overflow-hidden">
             <div class="p-4 border-b border-gray-100 bg-gray-50">
-                <h4 class="font-extrabold text-sm text-gray-900">Conversion Events & Milestone Payouts</h4>
+              <h4 class="font-extrabold text-sm text-gray-900">Conversion Events & Milestone Payouts</h4>
             </div>
-            <table class="w-full text-left text-xs">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
                 <thead>
-                    <tr class="border-b border-gray-200 text-gray-500 font-bold uppercase text-[10px]">
-                        <th class="p-4">Event ID</th>
-                        <th class="p-4">Milestone / Event Name</th>
-                        <th class="p-4">Payout</th>
-                        <th class="p-4">Status</th>
-                    </tr>
+                  <tr class="border-b border-gray-200 text-gray-500 font-bold uppercase text-[10px] whitespace-nowrap">
+                    <th class="p-4">Event ID</th>
+                    <th class="p-4">Milestone / Event Name</th>
+                    <th class="p-4">Payout</th>
+                    <th class="p-4">Status</th>
+                  </tr>
                 </thead>
                 <tbody id="detEventsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. CLICKS & LEAD REPORTS -->
+      <div id="tab-clicks" class="tab-content hidden space-y-4 sm:space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="font-extrabold text-base text-gray-900">Conversion & Click Reports</h2>
+            <p class="text-xs text-gray-500">Track System Click ID, Sub-IDs, Customer Details, and step-wise approval status.</p>
+          </div>
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            <input type="text" onkeyup="filterPartnerReports(this.value)" placeholder="Filter Sub1, Click ID, Name..." class="flex-1 sm:w-64 h-10 border border-gray-300 rounded-xl px-3.5 text-xs outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <button type="button" onclick="exportCSV('clicks_report.csv', cachedClicks)" class="h-10 bg-gray-900 hover:bg-gray-800 text-white px-4 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer whitespace-nowrap">
+              Export CSV
+            </button>
+          </div>
+        </div>
+        <div class="card-modern overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="border-b border-gray-200 bg-gray-50 text-gray-500 font-extrabold uppercase text-[10px] whitespace-nowrap">
+                  <th class="p-3.5">Date & Time</th>
+                  <th class="p-3.5">System Click ID</th>
+                  <th class="p-3.5">Custom Click ID</th>
+                  <th class="p-3.5">Offer</th>
+                  <th class="p-3.5">Sub 1</th>
+                  <th class="p-3.5">Sub 2</th>
+                  <th class="p-3.5">Sub 3</th>
+                  <th class="p-3.5">Customer Name</th>
+                  <th class="p-3.5">Mobile</th>
+                  <th class="p-3.5">PAN</th>
+                  <th class="p-3.5">Status</th>
+                </tr>
+              </thead>
+              <tbody id="clicksTableBody"></tbody>
             </table>
+          </div>
         </div>
-    </div>
-</div>
+      </div>
 
-<!-- 3. CLICKS & LEAD REPORTS -->
-<div id="tab-clicks" class="tab-content hidden space-y-6">
-<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-<div>
-<h2 class="font-extrabold text-base text-gray-900">Conversion & Click Reports</h2>
-<p class="text-xs text-gray-500">Track System Click ID, Sub-IDs, Customer Details, and step-wise approval status.</p>
-</div>
-<div class="flex items-center gap-2">
-<input type="text" onkeyup="filterPartnerReports(this.value)" placeholder="Filter Sub1, Sub2, Click ID, Name..." class="border border-gray-300 rounded-xl px-3.5 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500 bg-white w-48 sm:w-64">
-<button type="button" onclick="exportCSV('clicks_report.csv', cachedClicks)" class="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer whitespace-nowrap">
-Export CSV
-</button>
-</div>
-</div>
-<div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-x-auto">
-<table class="w-full text-left text-xs">
-<thead>
-<tr class="border-b border-gray-200 bg-gray-50 text-gray-500 font-extrabold uppercase text-[10px] whitespace-nowrap">
-<th class="p-3.5">Date & Time</th>
-<th class="p-3.5">System Click ID</th>
-<th class="p-3.5">Custom Click ID</th>
-<th class="p-3.5">Offer</th>
-<th class="p-3.5">Sub 1</th>
-<th class="p-3.5">Sub 2</th>
-<th class="p-3.5">Sub 3</th>
-<th class="p-3.5">Customer Name</th>
-<th class="p-3.5">Mobile</th>
-<th class="p-3.5">PAN</th>
-<th class="p-3.5">Status</th>
-</tr>
-</thead>
-<tbody id="clicksTableBody"></tbody>
-</table>
-</div>
-</div>
+      <!-- 4. MY EARNINGS -->
+      <div id="tab-earnings" class="tab-content hidden space-y-4">
+        <div class="card-modern p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <span class="text-xs font-bold text-gray-400 block uppercase tracking-wider">Available Withdrawable Balance</span>
+            <div id="totalEarnings" class="text-4xl font-black text-green-600 mt-1">₹0</div>
+            <span class="text-xs text-gray-500 mt-1 block">Minimum withdrawal amount is ₹100 via Bank Transfer or UPI.</span>
+          </div>
+          <button type="button" onclick="openPayoutModal()" class="w-full sm:w-auto h-11 bg-green-600 hover:bg-green-700 text-white px-6 rounded-xl text-xs font-bold shadow transition cursor-pointer">
+            Request Withdrawal
+          </button>
+        </div>
+      </div>
 
-<!-- 4. MY EARNINGS -->
-<div id="tab-earnings" class="tab-content hidden space-y-4">
-<div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-<div>
-<span class="text-xs font-bold text-gray-400 block uppercase tracking-wider">Available Withdrawable Balance</span>
-<div id="totalEarnings" class="text-4xl font-black text-green-600 mt-1">₹0</div>
-<span class="text-xs text-gray-500 mt-1 block">Minimum withdrawal amount is ₹100 via Bank Transfer or UPI.</span>
-</div>
-<button type="button" onclick="openPayoutModal()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl text-xs font-bold shadow transition cursor-pointer">
-Request Withdrawal
-</button>
-</div>
-</div>
+      <!-- 5. MY PAYOUTS -->
+      <div id="tab-payouts" class="tab-content hidden space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h2 class="font-extrabold text-base text-gray-900">Payout History</h2>
+          <div class="flex gap-2">
+            <button type="button" onclick="openPayoutModal()" class="flex-1 sm:flex-none h-10 bg-green-600 hover:bg-green-700 text-white px-4 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer">
+              + Withdraw
+            </button>
+            <button type="button" onclick="exportCSV('payouts_report.csv', cachedPayouts)" class="flex-1 sm:flex-none h-10 bg-gray-900 hover:bg-gray-800 text-white px-4 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer">
+              Export CSV
+            </button>
+          </div>
+        </div>
+        <div class="card-modern overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="border-b border-gray-200 bg-gray-50 text-gray-500 font-extrabold uppercase text-[10px] whitespace-nowrap">
+                  <th class="p-3.5">Date</th>
+                  <th class="p-3.5">Amount</th>
+                  <th class="p-3.5">Payment Details</th>
+                  <th class="p-3.5">Status</th>
+                </tr>
+              </thead>
+              <tbody id="payoutsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
-<!-- 5. MY PAYOUTS -->
-<div id="tab-payouts" class="tab-content hidden space-y-4">
-<div class="flex items-center justify-between">
-<h2 class="font-extrabold text-base text-gray-900">Payout History</h2>
-<div class="flex gap-2">
-<button type="button" onclick="openPayoutModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer">
-+ Request Withdrawal
-</button>
-<button type="button" onclick="exportCSV('payouts_report.csv', cachedPayouts)" class="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm cursor-pointer">
-Export CSV
-</button>
-</div>
-</div>
-<div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-<table class="w-full text-left text-xs">
-<thead>
-<tr class="border-b border-gray-200 bg-gray-50 text-gray-500 font-extrabold uppercase text-[10px]">
-<th class="p-3.5">Date</th>
-<th class="p-3.5">Amount</th>
-<th class="p-3.5">Payment Details</th>
-<th class="p-3.5">Status</th>
-</tr>
-</thead>
-<tbody id="payoutsTableBody"></tbody>
-</table>
-</div>
-</div>
-
-<!-- 6. REFER & EARN (10% COMMISSION) -->
-<div id="tab-referrals" class="tab-content hidden space-y-6">
-    <div class="bg-gradient-to-r from-indigo-600 to-blue-600 text-white p-6 rounded-2xl shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
+      <!-- 6. REFER & EARN (10% COMMISSION) -->
+      <div id="tab-referrals" class="tab-content hidden space-y-5">
+        <div class="bg-gradient-to-r from-indigo-600 to-blue-600 text-white p-5 sm:p-6 rounded-2xl shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
             <span class="bg-white/20 text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider">Partner Referral Program</span>
-            <h2 class="text-xl font-extrabold mt-2">Refer Partners & Earn 10% Lifetime Commission</h2>
+            <h2 class="text-lg sm:text-xl font-extrabold mt-2">Refer Partners & Earn 10% Lifetime Commission</h2>
             <p class="text-xs text-blue-100 mt-1">Earn an instant 10% override bonus on every approved conversion generated by your referred partners.</p>
-        </div>
-        <div class="bg-white/10 p-4 rounded-xl text-right shrink-0 border border-white/10">
+          </div>
+          <div class="w-full md:w-auto bg-white/10 p-4 rounded-xl text-left md:text-right shrink-0 border border-white/10">
             <span class="text-[10px] text-blue-200 font-bold uppercase block">Total Referral Bonus</span>
             <span id="refTotalEarnings" class="text-2xl font-black">₹0</span>
+          </div>
         </div>
-    </div>
 
-    <div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
-        <label class="block text-xs font-extrabold text-gray-700 uppercase">Your Personal Partner Invite Link</label>
-        <div class="flex flex-col sm:flex-row gap-2">
-            <input type="text" id="myReferralLink" readonly class="flex-1 bg-gray-50 border border-gray-300 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-indigo-700 outline-none">
-            <button type="button" onclick="copyReferralLink()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold shadow transition cursor-pointer whitespace-nowrap">
-                Copy Invite Link
+        <div class="card-modern p-5 sm:p-6 space-y-3">
+          <label class="block text-xs font-extrabold text-gray-700 uppercase">Your Personal Partner Invite Link</label>
+          <div class="flex flex-col sm:flex-row gap-2.5">
+            <input type="text" id="myReferralLink" readonly class="flex-1 h-11 bg-gray-50 border border-gray-300 rounded-xl px-3.5 text-xs font-mono font-bold text-indigo-700 outline-none">
+            <button type="button" onclick="copyReferralLink()" class="h-11 bg-indigo-600 hover:bg-indigo-700 text-white px-5 rounded-xl text-xs font-bold shadow transition cursor-pointer whitespace-nowrap">
+              Copy Invite Link
             </button>
+          </div>
         </div>
-    </div>
 
-    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-x-auto">
-        <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+        <div class="card-modern overflow-hidden">
+          <div class="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
             <h3 class="font-extrabold text-sm text-gray-900">Referred Partners (<span id="teamCountDisplay">0</span>)</h3>
-        </div>
-        <table class="w-full text-left text-xs">
-            <thead>
-                <tr class="border-b border-gray-200 bg-gray-50 text-gray-500 font-bold uppercase text-[10px]">
-                    <th class="p-3.5">Joined Date</th>
-                    <th class="p-3.5">Partner ID</th>
-                    <th class="p-3.5">Partner Name</th>
-                    <th class="p-3.5">Commission Tier</th>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+              <thead>
+                <tr class="border-b border-gray-200 bg-gray-50 text-gray-500 font-bold uppercase text-[10px] whitespace-nowrap">
+                  <th class="p-3.5">Joined Date</th>
+                  <th class="p-3.5">Partner ID</th>
+                  <th class="p-3.5">Partner Name</th>
+                  <th class="p-3.5">Commission Tier</th>
                 </tr>
-            </thead>
-            <tbody id="myTeamTableBody" class="divide-y divide-gray-100"></tbody>
-        </table>
-    </div>
+              </thead>
+              <tbody id="myTeamTableBody" class="divide-y divide-gray-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7. PROFILE -->
+      <div id="tab-profile" class="tab-content hidden max-w-xl">
+        <div class="card-modern p-5 sm:p-6 space-y-4">
+          <h2 class="font-extrabold text-base border-b border-gray-100 pb-3 text-gray-900">Publisher Profile Details</h2>
+          <form onsubmit="saveProfile(event)" class="space-y-4 text-xs">
+            <div>
+              <label class="block font-bold text-gray-500 mb-1 uppercase text-[11px]">Publisher ID</label>
+              <input type="text" id="profilePubId" class="w-full h-11 border border-gray-200 px-3.5 rounded-xl bg-gray-100 font-mono font-bold text-gray-600 cursor-not-allowed" readonly>
+            </div>
+            <div>
+              <label class="block font-bold text-gray-500 mb-1 uppercase text-[11px]">Full Name</label>
+              <input type="text" id="profileName" class="w-full h-11 border border-gray-300 px-3.5 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-semibold" required>
+            </div>
+            <div>
+              <label class="block font-bold text-gray-500 mb-1 uppercase text-[11px]">Email Address</label>
+              <input type="email" id="profileEmail" class="w-full h-11 border border-gray-200 px-3.5 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed" readonly>
+            </div>
+            <button type="submit" class="w-full sm:w-auto h-11 bg-blue-600 hover:bg-blue-700 text-white px-6 rounded-xl font-bold transition cursor-pointer shadow-sm">Save Changes</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Legal & MIS Policy Footer -->
+      <footer class="mt-8 pt-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-2.5 text-[11px] text-gray-500 pb-4">
+        <div class="flex items-center gap-2">
+          <span class="bg-green-100 text-green-700 px-2.5 py-0.5 rounded-md font-bold">✓ Udyam (MSME) Registered</span>
+          <span>© 2026 AffiliateWealthHub</span>
+        </div>
+        <div class="flex items-center gap-4 font-semibold text-gray-600">
+          <button type="button" onclick="openPolicyModal('terms')" class="hover:text-blue-600 underline cursor-pointer">Terms</button>
+          <button type="button" onclick="openPolicyModal('mis')" class="hover:text-blue-600 underline cursor-pointer">MIS & Payout Policy</button>
+          <button type="button" onclick="openPolicyModal('privacy')" class="hover:text-blue-600 underline cursor-pointer">Privacy</button>
+        </div>
+      </footer>
+    </main>
+  </div>
 </div>
 
-<!-- 7. PROFILE -->
-<div id="tab-profile" class="tab-content hidden max-w-xl">
-<div class="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4">
-<h2 class="font-extrabold text-base border-b border-gray-100 pb-3 text-gray-900">Publisher Profile Details</h2>
-<form onsubmit="saveProfile(event)" class="space-y-4 text-xs">
-<div>
-<label class="block font-bold text-gray-500 mb-1 uppercase text-[11px]">Publisher ID</label>
-<input type="text" id="profilePubId" class="w-full border border-gray-200 p-3 rounded-xl bg-gray-100 font-mono font-bold text-gray-600 cursor-not-allowed" readonly>
-</div>
-<div>
-<label class="block font-bold text-gray-500 mb-1 uppercase text-[11px]">Full Name</label>
-<input type="text" id="profileName" class="w-full border border-gray-300 p-3 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 font-semibold" required>
-</div>
-<div>
-<label class="block font-bold text-gray-500 mb-1 uppercase text-[11px]">Email Address</label>
-<input type="email" id="profileEmail" class="w-full border border-gray-200 p-3 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed" readonly>
-</div>
-<button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold transition cursor-pointer shadow-sm">Save Changes</button>
-</form>
-</div>
-</div>
-
-<!-- Legal & MIS Policy Footer -->
-<footer class="mt-10 pt-4 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-2 text-[11px] text-gray-500">
-    <div class="flex items-center gap-2">
-        <span class="bg-green-100 text-green-700 px-2.5 py-0.5 rounded-md font-bold">✓ Udyam (MSME) Registered</span>
-        <span>© 2026 AffiliateWealthHub Network</span>
-    </div>
-    <div class="flex items-center gap-4 font-semibold text-gray-600">
-        <button type="button" onclick="openPolicyModal('terms')" class="hover:text-blue-600 underline cursor-pointer">Terms</button>
-        <button type="button" onclick="openPolicyModal('mis')" class="hover:text-blue-600 underline cursor-pointer">MIS & Payout Policy</button>
-        <button type="button" onclick="openPolicyModal('privacy')" class="hover:text-blue-600 underline cursor-pointer">Privacy</button>
-    </div>
-</footer>
-</main>
-</div>
-</div>
+<!-- Mobile Bottom App Navigation Bar -->
+<nav class="md:hidden fixed bottom-0 inset-x-0 z-30 glass-header border-t border-gray-200 grid grid-cols-5 h-16 px-1">
+  <button type="button" data-tab="tab-dashboard" onclick="switchTab('tab-dashboard', this)" class="mobile-nav-btn flex flex-col items-center justify-center text-blue-600 font-bold text-[10px] gap-1">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+    <span>Home</span>
+  </button>
+  <button type="button" data-tab="tab-offers" onclick="switchTab('tab-offers', this)" class="mobile-nav-btn flex flex-col items-center justify-center text-gray-400 font-bold text-[10px] gap-1">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+    <span>Offers</span>
+  </button>
+  <button type="button" data-tab="tab-clicks" onclick="switchTab('tab-clicks', this)" class="mobile-nav-btn flex flex-col items-center justify-center text-gray-400 font-bold text-[10px] gap-1">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+    <span>Reports</span>
+  </button>
+  <button type="button" data-tab="tab-payouts" onclick="switchTab('tab-payouts', this)" class="mobile-nav-btn flex flex-col items-center justify-center text-gray-400 font-bold text-[10px] gap-1">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+    <span>Payouts</span>
+  </button>
+  <button type="button" onclick="toggleMobileSidebar()" class="flex flex-col items-center justify-center text-gray-400 font-bold text-[10px] gap-1">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+    <span>More</span>
+  </button>
+</nav>
 
 <script>
 window.openPolicyModal = function(type) {
